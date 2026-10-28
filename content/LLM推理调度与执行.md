@@ -1,8 +1,10 @@
-# 混部调度与稳态：从 Token 预算到 PD 分离
+# LLM 推理调度与执行
+
+混部与 PD 分离、逐轮选图、稳态测试及 KV Cache。
 
 先考虑混部场景下，vLLM Ascend 引擎设置了 `max-num-seqs=200`、`max-num-batched-tokens=8192`；后续我会把这两个变量称为 **ms** 与 **mbt**。这时候我使用测试工具，例如 AISBench，往引擎发送请求，始终保持未收回的请求为 200 条，输入为 4K、输出为 1K，这是一个背景信息。
 
-首先在这个混部场景下，我认为可以分阶段来看：第一批 P 请求怎么进来，后面怎么组装 P 和 D，再看请求结束后补入新 P 会发生什么。这里仍然围绕原来的两个问题：为什么输出短时 TPOT 可能很长，以及为什么要做稳态测试。之后再看 PD 分离、抢占与 KV Cache 的释放。
+首先在这个混部场景下，我认为可以分阶段来看：第一批 P 请求怎么进来，后面怎么组装 P 和 D，再看请求结束后补入新 P 会发生什么。接着看每一轮怎样选择图执行，以及原来的两个问题：为什么输出短时 TPOT 可能很长、为什么要做稳态测试。之后再看 PD 分离、抢占与 KV Cache 的释放。
 
 > 本文中的数字是教学推演，不是实测结果。具体行为必须结合部署的 vLLM、vLLM Ascend、AISBench 版本、模型和启动日志核对。
 
@@ -129,6 +131,39 @@ R1 D：1 + R2 D：1 + R3 P：4096 + R4 P：4094 = 8192
 
 1. 为什么输出短的时候，比如 64，会出现 TPOT 很长的情况？
 2. 为什么需要稳态测试？使用 AISBench 测试时，并发/总请求 200/200 和 200/800 有什么区别？
+
+### 3.5 D 越来越多，能在中间某一轮改用图吗？
+
+可以，切换点在**某一轮前向开始之前**。Scheduler 给出本轮工作量，Runner 再按当前 batch 选择执行路径；同一个混部实例可以上一轮不用图、下一轮回放图，后续补入新 P 时再重新选择。已经执行到一半的前向，不会因为请求阶段变化而临时把后半接成另一张完整图。[vLLM v0.21.0 逐轮判定源码](https://github.com/vllm-project/vllm/blob/v0.21.0/vllm/v1/worker/gpu_model_runner.py#L3601-L3683)
+
+先分清“图模式”指什么。这里讨论 GPU 的 CUDA Graph、Ascend 的 ACLGraph 捕获与回放。通常启动时先对有限的 batch 档位预热、捕获，运行时更新输入和元数据，选择匹配的图回放；不是线上遇到任何新形状就自动临时捕获。图回放可以减少重复提交设备工作的 CPU 开销，但不代表省掉 Attention 计算或 KV 访问。[vLLM 预捕获流程](https://github.com/vllm-project/vllm/blob/v0.21.0/vllm/v1/worker/gpu_model_runner.py#L6150-L6233)、[Ascend ACLGraph wrapper](https://github.com/vllm-project/vllm-ascend/blob/e8a6393dda93e085cd8210011c6ec12027acb8a0/vllm_ascend/compilation/acl_graph.py#L156-L188)
+
+| 本轮运行时模式 | 怎么执行 |
+| --- | --- |
+| `NONE` | 不回放设备图；这与代码是否经过 `torch.compile` 是不同问题 |
+| `PIECEWISE` | 沿算子边界把支持的计算片段放进图，不兼容部分在图外执行；不是只把 D 请求抽出来进图 |
+| `FULL` | 整个模型前向走完整图；能否包含 P/D 混合 batch 要看配置和后端 |
+
+`FULL_AND_PIECEWISE` 是一种配置策略，不是第四种运行时模式：在满足图条件时，uniform decode 走 FULL，其他 batch 走 PIECEWISE；没匹配图则回到 NONE。普通单 Token 解码中，uniform decode 通常要求本轮每条请求都调度 1 个 Token，不能只看请求被标成了 D；投机解码的统一 query length 可能更大。[模式定义](https://github.com/vllm-project/vllm/blob/v0.21.0/vllm/config/compilation.py#L582-L614)、[运行时匹配](https://github.com/vllm-project/vllm/blob/v0.21.0/vllm/v1/cudagraph_dispatcher.py#L234-L319)
+
+**教学对照｜vLLM v0.21.0 的 GPU 参考配置。** 取 ms=200、mbt=8192，普通单 Token D、无 LoRA，使用默认捕获尺寸与 `FULL_AND_PIECEWISE`，假设后端及功能组合兼容。该版本此条件下默认最大捕获尺寸为 `min(200×2, 512)=400`，并受 mbt 约束。8192 是调度预算，不是默认图尺寸。
+
+![本轮 Token 数、捕获档位和运行时模式的逐轮判定示意](../dist/assets/graph-dispatch.svg)
+
+| 本轮工作量（构造示例） | 新 Token 总量 | 在上述条件下的路径 |
+| --- | --- | --- |
+| P/D 混合，预算用满 | 8192 | 超过 400，NONE |
+| 199 个 D + 1 个 P 的 4096-Token chunk | 4295 | 虽然 99.5% 请求是 D，仍超过 400，NONE |
+| 199 个 D + 1 个 P 的 128-Token 尾块 | 327 | padding 到 336 档位，匹配后走 PIECEWISE |
+| 200 个 D，每条前进 1 Token | 200 | 匹配 uniform decode 的 200 档位，走 FULL |
+
+这些例子用于隔开“请求比例”和“本轮形状”，不代表播放器必然出现对应轮次。捕获档位还会受自定义配置、并行策略和后端限制；“全部是 D”也不是充分条件。强制 eager、图未启用、没有兼容的捕获图或功能组合受限，都可能让该轮不用完整图。[默认尺寸生成源码](https://github.com/vllm-project/vllm/blob/ad7125a431e176d4161099480a66f0169609a690/vllm/config/vllm.py#L1529-L1587)、[图尺寸与模式匹配](https://github.com/vllm-project/vllm/blob/v0.21.0/vllm/v1/cudagraph_dispatcher.py#L234-L319)
+
+**Ascend 版本边界。** 本节另核对 vLLM Ascend `e8a6393dda93e085cd8210011c6ec12027acb8a0`，它记录的已验证 upstream 为 `544f182d9f0c9bfe8bd7645525951d5e3692a542`，不能当作上面 GPU v0.21.0 或前文 v0.11.2 的同一套配置。Ascend Runner 也会逐轮判断 uniform decode 再派发。当前标准 Attention 声明 `ALWAYS`，MLA 为 `UNIFORM_BATCH`，所以不能写“只要还有 P，就绝对不能 FULL”；`FULL` 与 `FULL_AND_PIECEWISE` 的策略也不同。400 上限更不能直接套给未提供版本的 NPU 部署。[Ascend 轮前判定](https://github.com/vllm-project/vllm-ascend/blob/e8a6393dda93e085cd8210011c6ec12027acb8a0/vllm_ascend/worker/v1/model_runner.py#L3636-L3717)、[标准 Attention 能力](https://github.com/vllm-project/vllm-ascend/blob/e8a6393dda93e085cd8210011c6ec12027acb8a0/vllm_ascend/attention/attention_v1.py#L291-L298)、[MLA 能力](https://github.com/vllm-project/vllm-ascend/blob/e8a6393dda93e085cd8210011c6ec12027acb8a0/vllm_ascend/attention/mla_v1.py#L452-L459)
+
+在 PD 分离里，D 实例通常更容易持续出现 uniform decode 形状，因此可以单独考虑 `FULL_DECODE_ONLY`；它同样需要满足图覆盖和后端条件。P 端能否用图仍应另查，PD 分离本身不保证任何一端采用图。
+
+要确认当前机器有没有切换，先记录配套版本、有效图配置、捕获档位、Attention 后端，再对齐每轮 P/D Token、padding 后形状、runtime mode 和设备 Trace。尚无这些证据时，只能说明“具备逐轮切换机制”，不能认定某次 TPOT 改善来自图执行。
 
 ## 4. 思考题一：输出只有 64，为什么 TPOT 可能很长？
 
@@ -333,7 +368,7 @@ mbt 记录本轮要新计算的 Token；KV 保存请求已经走过的上下文�
 
 ## 当前尚未验证的部分
 
-1. **实际部署的调度与执行路径。** 尚未取得 vLLM Ascend/vLLM 版本、配置和 Trace；Decode 优先、切块粒度、准入以及 NPU Worker/Runner 的实现需要对照部署核实。
+1. **实际部署的调度与执行路径。** 尚未取得 vLLM Ascend/vLLM 版本、配置和 Trace；Decode 优先、切块粒度、准入、图捕获档位与逐轮模式，以及 NPU Worker/Runner 的实现需要对照部署核实。
 2. **输出 64 时 TPOT 升高的根因。** 混合轮次干扰是候选机制；还需用逐 Token 时间、每轮 P/D、抢占及客户端/网络数据排除其他原因。
 3. **200/800 是否存在可用稳态窗口。** 尚无时间序列与样本筛选结果，不能承诺该总请求量足够，也不能把客户端并发平台直接当作引擎稳态。
 4. **目标业务的 P:D 配比和 KV 传输路径。** 尚未测得 RP、RD、服务需求、实际 KV 字节数及有效带宽；连接器模式、跨设备布局和计算/传输重叠也待验证，公式目前只提供测量与推导框架。
@@ -342,7 +377,7 @@ mbt 记录本轮要新计算的 Token；KV 保存请求已经走过的上下文�
 
 修订日期：2026-10-28。保留原稿调度 → 稳态 → PD → 抢占/KV 的思路，完成以下修正：
 
-本次按技术 Wiki 编辑规范做局部增强：恢复原稿的场景开头与逐步推演节奏，保留两个思考题作为分析中心；在原有正确解释旁补充固定版本执行调用链、预算与时延的区别、KV/PD 的符号推导及 5 张机制图，并集中列出当前待验证事项。没有把手算、源码事实或候选性能解释写成部署实测结论。
+按技术 Wiki 编辑规范恢复原稿的场景开头与逐步推演节奏，保留两个思考题作为分析中心；补充固定版本执行调用链、预算与时延的区别、KV/PD 的符号推导及 6 张机制图，并集中列出当前待验证事项。本文更名为《LLM 推理调度与执行》，覆盖混部与 PD 分离；新增逐轮选图说明，区分捕获尺寸、D 比例和运行时模式。没有把手算、源码事实或候选性能解释写成部署实测结论。
 
 - 将首轮与后续轮次明确为 Chunked Prefill、Decode 优先等假设下的简化教学模型，补齐跨轮尾块的算术。
 - 区分客户端并发、ms、mbt 与 KV 容量，删除“未达到上限就一定还能接入”的隐含推断。

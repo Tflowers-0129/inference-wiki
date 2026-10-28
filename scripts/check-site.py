@@ -65,15 +65,20 @@ def main():
         if anchor not in ids:
             errors.append(f'缺少演示入口：#{anchor}')
 
-    for manuscript in (ROOT / 'content' / '混部调度与稳态.md', DIST / 'source.md'):
+    manuscript_images = []
+    for manuscript in (ROOT / 'content' / 'LLM推理调度与执行.md', DIST / 'source.md'):
         if not manuscript.is_file():
             errors.append(f'缺少正文文件：{manuscript.relative_to(ROOT)}；请先运行 sync-content.py')
             continue
         images = re.findall(r'!\[[^\]]*\]\(([^)]+)\)', manuscript.read_text(encoding='utf-8'))
-        if len(set(images)) != 5:
-            errors.append(f'{manuscript.name} 应包含 5 张独立 SVG 图源')
+        names = {Path(urlsplit(reference).path).name for reference in images}
+        manuscript_images.append(names)
+        if not names or any(not name.endswith('.svg') for name in names):
+            errors.append(f'{manuscript.name} 应引用本地 SVG 图源')
         for reference in images:
             check_reference(reference, manuscript.parent)
+    if len(manuscript_images) == 2 and manuscript_images[0] != manuscript_images[1]:
+        errors.append('正文与网页下载稿的图源不一致；请重新运行 sync-content.py')
 
     bundle_path = DIST / 'technical-wiki-source.zip'
     if not bundle_path.is_file():
@@ -82,15 +87,20 @@ def main():
         with zipfile.ZipFile(bundle_path) as bundle:
             if bundle.testzip():
                 errors.append('图文源包校验失败')
-            body = bundle.read('混部调度与稳态.md').decode('utf-8')
+            body = bundle.read('LLM推理调度与执行.md').decode('utf-8')
+            bundle_images = set()
             for reference in re.findall(r'!\[[^\]]*\]\(([^)]+)\)', body):
+                bundle_images.add(Path(reference).name)
                 if not reference.startswith('figures/') or reference not in bundle.namelist():
                     errors.append(f'图文源包内图源路径无效：{reference}')
+            if manuscript_images and bundle_images != manuscript_images[0]:
+                errors.append('图文源包与正文的图源不一致')
 
     if errors:
         print('\n'.join(f'错误：{error}' for error in errors), file=sys.stderr)
         return 1
-    print(f'站点检查通过：{len(page.references)} 个资源/链接引用、{len(ids)} 个 DOM 锚点、5 张图源和 2 个下载文件。')
+    count = len(manuscript_images[0]) if manuscript_images else 0
+    print(f'站点检查通过：{len(page.references)} 个资源/链接引用、{len(ids)} 个 DOM 锚点、{count} 张图源和 2 个下载文件。')
     return 0
 
 

@@ -1,10 +1,10 @@
-# 图解推理调度 Wiki
+# LLM 推理调度与执行 Wiki
 
 [在线演示](https://tflowers-0129.github.io/inference-wiki/) · [混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler) · [PD 播放器](https://tflowers-0129.github.io/inference-wiki/#pdPlayer)
 
 [![Pages deployment](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml/badge.svg)](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml)
 
-中文教学网页，沿着“混部调度 → 输出长短与稳态测试 → PD 分离 → 抢占与 KV Cache”的顺序展开。包含混部调度播放器、三种 PD 交接场景、5 张可编辑 SVG 图解和自测。
+中文教学网页，沿着“混部调度 → 逐轮选图 → 输出长短与稳态测试 → PD 分离 → 抢占与 KV Cache”的顺序展开。包含混部调度播放器、三种 PD 交接场景、6 张可编辑 SVG 图解和自测。[图执行说明](https://tflowers-0129.github.io/inference-wiki/#graph-execution) 区分 Decode 比例、本轮形状和捕获档位，并分别标明 vLLM GPU 与 Ascend 的版本边界。
 
 网页不依赖前端框架、外部字体或脚本。克隆仓库后即可在本地预览；运行时只需要 Python 3。模型测试另需 Node.js 18 或更新版本。
 
@@ -42,8 +42,8 @@ python3 scripts/serve.py --port 4174
 
 ## 修改正文、图和网页
 
-- `content/混部调度与稳态.md`：完整正文，图源路径为 `../dist/assets/`。
-- `dist/assets/*.svg`：5 张独立图源与 favicon，可直接编辑。
+- `content/LLM推理调度与执行.md`：完整正文，图源路径为 `../dist/assets/`。
+- `dist/assets/*.svg`：6 张独立图源与 favicon，可直接编辑。
 - `dist/index.html`、`dist/style.css`：网页讲解、布局与样式。
 - `dist/model.js`、`dist/app.js`：混部调度模型与播放器。
 - `dist/pd-model.js`、`dist/pd-app.js`：PD 交接模型与播放器。
