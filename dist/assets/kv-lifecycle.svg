@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="420" viewBox="0 0 1000 420" role="img" aria-labelledby="title desc">
+  <title id="title">KV 缓存的分配、释放与抢占恢复</title>
+  <desc id="desc">请求分配 KV 块后运行，KV 随生成增长。正常完成后释放请求引用，可回收块可复用。KV 不足时，可能抢占请求，释放可回收块后重新排队，通过重算恢复。具体抢占和恢复策略依版本与配置而定，前缀缓存块可能保留。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#73859e" stroke-width="1.5"/></marker>
+    <marker id="amber" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#d98b21" stroke-width="1.5"/></marker>
+    <style>
+      text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
+      .eyebrow{font-size:12px;letter-spacing:2px;font-weight:700;fill:#60728d}.title{font-size:27px;font-weight:750}.sub{font-size:14px;fill:#60728d}.name{font-size:16px;font-weight:700}.small{font-size:12px;fill:#60728d}.line{fill:none;stroke:#73859e;stroke-width:1.8;marker-end:url(#arrow)}.branch{fill:none;stroke:#d98b21;stroke-width:1.8;marker-end:url(#amber)}
+    </style>
+  </defs>
+  <rect width="1000" height="420" rx="22" fill="#fbfaf7"/>
+  <text x="32" y="32" class="eyebrow">显存里的上下文 · KV 生命周期</text>
+  <text x="32" y="70" class="title">完成会归还引用，抢占会改变请求的去向</text>
+  <text x="32" y="97" class="sub">块可以复用；释放请求占用，不等于立即把所有显存交还给系统。</text>
+
+  <path d="M205 173H266M466 173H527M727 173H788" class="line"/>
+  <g>
+    <rect x="32" y="124" width="173" height="98" rx="16" fill="#edf3ff" stroke="#c8dafa"/>
+    <g fill="#2473ec"><rect x="84" y="141" width="18" height="15" rx="3"/><rect x="109" y="141" width="18" height="15" rx="3"/><rect x="134" y="141" width="18" height="15" rx="3"/></g>
+    <text x="118.5" y="182" text-anchor="middle" class="name">分配 KV 块</text><text x="118.5" y="206" text-anchor="middle" class="small">为请求保存注意力状态</text>
+  </g>
+  <g>
+    <rect x="273" y="124" width="193" height="98" rx="16" fill="#2473ec"/>
+    <g fill="#dceaff"><rect x="324" y="141" width="18" height="15" rx="3"/><rect x="349" y="141" width="18" height="15" rx="3"/><rect x="374" y="141" width="18" height="15" rx="3"/></g><rect x="399" y="141" width="18" height="15" rx="3" fill="none" stroke="#dceaff" stroke-dasharray="3 2"/>
+    <text x="369.5" y="182" text-anchor="middle" class="name" style="fill:#fff">运行 · KV 增长</text><text x="369.5" y="206" text-anchor="middle" class="small" style="fill:#e5efff">新 token 带来更多 KV</text>
+  </g>
+  <g>
+    <rect x="534" y="124" width="193" height="98" rx="16" fill="#e8f6f3" stroke="#b4ded7"/>
+    <circle cx="630.5" cy="150" r="13" fill="#159c91"/><path d="m624 150 5 5 9-10" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="630.5" y="182" text-anchor="middle" class="name">正常完成</text><text x="630.5" y="206" text-anchor="middle" class="small">结束当前请求</text>
+  </g>
+  <g>
+    <rect x="795" y="124" width="173" height="98" rx="16" fill="#e8f6f3" stroke="#b4ded7"/>
+    <path d="M869 146a13 13 0 1 1 0 10M865 143l5 3-2 6" fill="none" stroke="#159c91" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="881.5" y="182" text-anchor="middle" class="name">释放请求引用</text><text x="881.5" y="206" text-anchor="middle" class="small">可回收块进入复用</text>
+  </g>
+
+  <path d="M324 222v20H97v33" class="branch"/>
+  <text x="114" y="260" class="small" style="fill:#b5761b">容量压力下的一条恢复路径</text>
+  <path d="M164 315H188M340 315H364M529 315H553M705 315H729" class="branch"/>
+  <g>
+    <rect x="32" y="282" width="132" height="67" rx="13" fill="#fff4de" stroke="#edcf93"/>
+    <text x="98" y="310" text-anchor="middle" class="name">KV 不足</text><text x="98" y="331" text-anchor="middle" class="small">当前容量受限</text>
+  </g>
+  <g>
+    <rect x="195" y="282" width="145" height="67" rx="13" fill="#fff4de" stroke="#edcf93"/>
+    <text x="267.5" y="310" text-anchor="middle" class="name">抢占请求</text><text x="267.5" y="331" text-anchor="middle" class="small">暂停所选请求</text>
+  </g>
+  <g>
+    <rect x="371" y="282" width="158" height="67" rx="13" fill="#fff4de" stroke="#edcf93"/>
+    <text x="450" y="310" text-anchor="middle" class="name">释放可回收块</text><text x="450" y="331" text-anchor="middle" class="small">给其他请求腾出空间</text>
+  </g>
+  <g>
+    <rect x="560" y="282" width="145" height="67" rx="13" fill="#fff4de" stroke="#edcf93"/>
+    <text x="632.5" y="310" text-anchor="middle" class="name">重新排队</text><text x="632.5" y="331" text-anchor="middle" class="small">等待再次获调度</text>
+  </g>
+  <g>
+    <rect x="736" y="282" width="232" height="67" rx="13" fill="#edf3ff" stroke="#c8dafa"/>
+    <text x="852" y="310" text-anchor="middle" class="name">重算恢复 → 继续运行</text><text x="852" y="331" text-anchor="middle" class="small">重新建立所需的 KV 状态</text>
+  </g>
+  <path d="M852 282v-29H416v-24" class="line"/>
+  <rect x="32" y="370" width="936" height="30" rx="10" fill="#eef2f8"/>
+  <text x="48" y="390" style="font-size:12px;fill:#60728d">策略依引擎版本与配置而定；前缀缓存块可能保留。重算是常见恢复方式，实际实现也可能采用其他策略。</text>
+</svg>

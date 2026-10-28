@@ -1,0 +1,26 @@
+# macOS / Windows metadata
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+.openai/
+
+# Runtime caches and temporary files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+node_modules/
+*.log
+*.tmp
+*.swp
+.vscode/
+.idea/
+
+# Generated downloads; recreate with scripts/sync-content.py
+/dist/source.md
+/dist/technical-wiki-source.zip
