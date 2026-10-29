@@ -41,7 +41,7 @@
   <rect x="692" y="258" width="94" height="38" rx="8" fill="#edf1f6"/>
   <text x="739" y="283" text-anchor="middle" font-size="17" font-weight="700" class="muted mono">NONE</text>
   <rect x="797" y="258" width="153" height="38" rx="8" fill="#e8f0fd"/>
-  <text x="873.5" y="283" text-anchor="middle" font-size="17" font-weight="700" fill="#2473ec" class="mono">PIECEWISE</text>
+  <text x="873.5" y="283" text-anchor="middle" font-size="17" font-weight="700" fill="#1d4ed8" class="mono">PIECEWISE</text>
   <rect x="961" y="258" width="109" height="38" rx="8" fill="#e8f5f2"/>
   <text x="1015.5" y="283" text-anchor="middle" font-size="17" font-weight="700" fill="#108579" class="mono">FULL</text>
 
@@ -62,7 +62,7 @@
   <rect x="32" y="518" width="1056" height="60" rx="10" fill="#e8f0fd"/>
   <text x="50" y="555" font-size="19" font-weight="650" class="ink">199 D + 128 P = 327</text>
   <text x="450" y="555" font-size="17" class="ink">padding → bucket 336</text>
-  <text x="944" y="555" text-anchor="middle" font-size="19" font-weight="700" fill="#2473ec" class="mono">PIECEWISE</text>
+  <text x="944" y="555" text-anchor="middle" font-size="19" font-weight="700" fill="#1d4ed8" class="mono">PIECEWISE</text>
 
   <rect x="32" y="590" width="1056" height="60" rx="10" fill="#e8f5f2"/>
   <text x="50" y="627" font-size="19" font-weight="650" class="ink">200 D = 200</text>
