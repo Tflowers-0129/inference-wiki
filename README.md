@@ -4,11 +4,13 @@
 
 [![Pages deployment](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml/badge.svg)](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml)
 
-中文教学网页，沿着“混部调度 → 逐轮选图 → 输出长短与稳态测试 → PD 分离 → 抢占与 KV Cache”的顺序展开。包含混部调度播放器、三种 PD 交接场景、11 张可编辑 SVG 图解和自测。[图执行说明](https://tflowers-0129.github.io/inference-wiki/#graph-execution) 区分 Decode 比例、本轮形状和捕获档位，并说明显式教学配置与实际后端的适用边界。
+中文教学网页，沿着“混部调度 → 逐轮选图 → 输出长短与稳态测试 → PD 分离 → 抢占与 KV Cache”的顺序展开。包含混部调度播放器、三种 PD 交接场景、13 张可编辑 SVG 图解和自测。[图执行说明](https://tflowers-0129.github.io/inference-wiki/#graph-execution) 区分 Decode 比例、本轮形状和捕获档位，并说明显式教学配置与实际后端的适用边界。
 
 网页不依赖前端框架、外部字体或脚本。克隆仓库后即可在本地预览；运行时只需要 Python 3。模型测试另需 Node.js 18 或更新版本。
 
-新增两篇由 Markdown 生成的图解网页：从调度到一次前向（输入组织、metadata、算子与访存、KV 地址、图提交与 Trace），以及投机解码（候选验证、KV 有效范围、成组输出与 ITL/TPOT）。投机实验室可逐步播放接受/回退，并比较逐 Token、成组与代理缓冲三种发送场景。网页不展示具体引擎发行编号。
+新增两篇由 Markdown 生成的图解网页：从调度到一次前向（输入组织、metadata、算子与访存、KV 地址、图提交与 Trace、metadata 同步与跨轮异步调度），以及投机解码（候选验证、KV 有效范围、成组输出与 ITL/TPOT）。投机实验室可逐步播放接受/回退，并比较逐 Token、成组与代理缓冲三种发送场景。网页不展示具体引擎发行编号。
+
+metadata 与异步调度的补充位于“一次前向”第 5、6 节：用两张时间线区分 Host 往返、设备依赖、小算子提交，以及 Scheduler 占位、Worker 接续真实 Token 和后台回收。附 vLLM 与 Ascend 的源码阅读入口。
 
 ## 本地预览
 
@@ -50,7 +52,7 @@ python3 scripts/serve.py --port 4174
 - `dist/spec-model.js`、`dist/spec-app.js`、`dist/spec.css`：投机验证与流式指标实验室。
 - `dist/chapter.js`、`dist/chapters.css`：新篇章的目录、搜索与排版。
 - `scripts/spec-player.html`：投机交互面板源片段。
-- `dist/assets/*.svg`：11 张独立图源与 favicon，可直接编辑。
+- `dist/assets/*.svg`：13 张独立图源与 favicon，可直接编辑。
 - `dist/index.html`、`dist/style.css`：网页讲解、布局与样式。
 - `dist/model.js`、`dist/app.js`：混部调度模型与播放器。
 - `dist/pd-model.js`、`dist/pd-app.js`：PD 交接模型与播放器。
@@ -70,7 +72,7 @@ python3 scripts/sync-content.py
 ```sh
 python3 scripts/sync-content.py
 python3 scripts/check-site.py
-node --test tests/model.test.cjs tests/pd-model.test.cjs
+node --test tests/*.test.cjs
 ```
 
 模型共 22 项测试，覆盖 token 记账、每轮预算与序列上限，以及 PD 交接中的 KV 就绪、传输、源引用保留和释放时序。站点检查覆盖三篇网页的资源、跨页锚点、播放器引用、三篇下载正文和可编辑源包，并防止具体引擎发行号与提交标识混入公开图文。
