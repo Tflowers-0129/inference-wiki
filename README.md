@@ -1,12 +1,14 @@
 # LLM 推理调度与执行 Wiki
 
-[在线演示](https://tflowers-0129.github.io/inference-wiki/) · [混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler) · [PD 播放器](https://tflowers-0129.github.io/inference-wiki/#pdPlayer)
+[在线演示](https://tflowers-0129.github.io/inference-wiki/) · [混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler) · [PD 播放器](https://tflowers-0129.github.io/inference-wiki/#pdPlayer) · [一次前向](https://tflowers-0129.github.io/inference-wiki/execution.html) · [投机解码实验室](https://tflowers-0129.github.io/inference-wiki/speculation.html#spec-player)
 
 [![Pages deployment](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml/badge.svg)](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml)
 
-中文教学网页，沿着“混部调度 → 逐轮选图 → 输出长短与稳态测试 → PD 分离 → 抢占与 KV Cache”的顺序展开。包含混部调度播放器、三种 PD 交接场景、6 张可编辑 SVG 图解和自测。[图执行说明](https://tflowers-0129.github.io/inference-wiki/#graph-execution) 区分 Decode 比例、本轮形状和捕获档位，并分别标明 vLLM GPU 与 Ascend 的版本边界。
+中文教学网页，沿着“混部调度 → 逐轮选图 → 输出长短与稳态测试 → PD 分离 → 抢占与 KV Cache”的顺序展开。包含混部调度播放器、三种 PD 交接场景、11 张可编辑 SVG 图解和自测。[图执行说明](https://tflowers-0129.github.io/inference-wiki/#graph-execution) 区分 Decode 比例、本轮形状和捕获档位，并说明显式教学配置与实际后端的适用边界。
 
 网页不依赖前端框架、外部字体或脚本。克隆仓库后即可在本地预览；运行时只需要 Python 3。模型测试另需 Node.js 18 或更新版本。
+
+新增两篇由 Markdown 生成的图解网页：从调度到一次前向（输入组织、metadata、算子与访存、KV 地址、图提交与 Trace），以及投机解码（候选验证、KV 有效范围、成组输出与 ITL/TPOT）。投机实验室可逐步播放接受/回退，并比较逐 Token、成组与代理缓冲三种发送场景。网页不展示具体引擎发行编号。
 
 ## 本地预览
 
@@ -33,7 +35,7 @@ python3 scripts/serve.py --port 4174
 
 ## 现场演示
 
-两个播放器可直接定位：
+原有播放器与新增实验室可直接定位：
 
 - [混部调度播放器](http://127.0.0.1:4173/#scheduler)：先逐轮走过前四轮，观察 Decode 如何占用预算、Prefill 如何切块；再切换 64 / 1024 输出，对比并发与排空过程。
 - [PD 交接播放器](http://127.0.0.1:4173/#pdPlayer)：先看“正常交接”，观察 R1 正在 Decode 时 R2 可以先传完 KV；再切换“KV 传输较慢”和“D 忙且目标 KV 不足”。
@@ -43,7 +45,12 @@ python3 scripts/serve.py --port 4174
 ## 修改正文、图和网页
 
 - `content/LLM推理调度与执行.md`：完整正文，图源路径为 `../dist/assets/`。
-- `dist/assets/*.svg`：6 张独立图源与 favicon，可直接编辑。
+- `content/从一轮调度到一次前向.md`、`content/投机解码与流式指标.md`：新增正文。
+- `scripts/build-chapters.py`：用标准库渲染这两篇受控 Markdown；修改正文后运行同步命令即可更新网页。
+- `dist/spec-model.js`、`dist/spec-app.js`、`dist/spec.css`：投机验证与流式指标实验室。
+- `dist/chapter.js`、`dist/chapters.css`：新篇章的目录、搜索与排版。
+- `scripts/spec-player.html`：投机交互面板源片段。
+- `dist/assets/*.svg`：11 张独立图源与 favicon，可直接编辑。
 - `dist/index.html`、`dist/style.css`：网页讲解、布局与样式。
 - `dist/model.js`、`dist/app.js`：混部调度模型与播放器。
 - `dist/pd-model.js`、`dist/pd-app.js`：PD 交接模型与播放器。
@@ -54,9 +61,9 @@ python3 scripts/serve.py --port 4174
 python3 scripts/sync-content.py
 ```
 
-脚本默认读取本仓库的 `content/`，生成 `dist/source.md` 和 `dist/technical-wiki-source.zip`，供页面上的下载链接使用。两个生成文件由 `.gitignore` 排除，部署前会重新生成。压缩包正文引用 `figures/`，解压后可直接连图阅读。也可使用 `--manuscript /绝对路径/文稿.md`，图源仍需保存在本仓库 `dist/assets/`。
+脚本默认读取本仓库的 `content/`，生成 `dist/source.md`、`dist/execution.md`、`dist/speculation.md` 和 `dist/technical-wiki-source.zip`，供页面上的下载链接使用。这些下载生成文件由 `.gitignore` 排除，部署前会重新生成。压缩包正文引用 `figures/`，解压后可直接连图阅读。也可使用 `--manuscript /绝对路径/文稿.md`，图源仍需保存在本仓库 `dist/assets/`。
 
-同步脚本只更新正文副本和源包，不会把 Markdown 自动转换成网页。正文修改后应同时核对 `dist/index.html` 的讲解；涉及模型假设时也需检查播放器。
+同步脚本会从新增的两篇 Markdown 重建 `execution.html` 与 `speculation.html`。这两份生成网页随仓库提交便于直接浏览，应修改 Markdown 和模板后重建；原有 `index.html` 仍按手工图文维护。渲染支持本文使用的段落、标题、平面列表、表格、代码块和 SVG 图片，不是任意 Markdown 的通用转换器。涉及模型假设时也需检查播放器。
 
 ## 检查与测试
 
@@ -66,7 +73,7 @@ python3 scripts/check-site.py
 node --test tests/model.test.cjs tests/pd-model.test.cjs
 ```
 
-模型共 17 项测试，覆盖 token 记账、每轮预算与序列上限，以及 PD 交接中的 KV 就绪、传输、源引用保留和释放时序。站点检查覆盖本地资源、HTML 锚点、播放器引用和可下载图源包。
+模型共 22 项测试，覆盖 token 记账、每轮预算与序列上限，以及 PD 交接中的 KV 就绪、传输、源引用保留和释放时序。站点检查覆盖三篇网页的资源、跨页锚点、播放器引用、三篇下载正文和可编辑源包，并防止具体引擎发行号与提交标识混入公开图文。
 
 ## GitHub Pages
 

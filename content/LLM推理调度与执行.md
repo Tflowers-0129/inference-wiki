@@ -6,7 +6,7 @@
 
 首先在这个混部场景下，我认为可以分阶段来看：第一批 P 请求怎么进来，后面怎么组装 P 和 D，再看请求结束后补入新 P 会发生什么。接着看每一轮怎样选择图执行，以及原来的两个问题：为什么输出短时 TPOT 可能很长、为什么要做稳态测试。之后再看 PD 分离、抢占与 KV Cache 的释放。
 
-> 本文中的数字是教学推演，不是实测结果。具体行为必须结合部署的 vLLM、vLLM Ascend、AISBench 版本、模型和启动日志核对。
+> 本文中的数字是教学推演，不是实测结果。具体行为必须结合部署的引擎、Ascend 后端、AISBench 配置、模型和启动日志核对。
 
 ## 1. 先约定教学模型
 
@@ -19,7 +19,7 @@
 - 没有前缀缓存命中、没有抢占，KV 空间足够；不加入多模态、流水线、异步调度等额外限制。
 - Prefill 可以按预算任意切块；不施加额外的单请求 Chunk 上限、部分 Prefill 数量限制或块对齐限制；本例只受 ms、mbt 和请求状态限制。
 
-上述策略与 vLLM 官方 Chunked Prefill 文档的说明相符；真实实现还有其他调度条件，不能将本例当作所有版本、所有 Ascend 配置的保证。[vLLM 优化文档](https://docs.vllm.ai/en/latest/configuration/optimization/)、[固定版本 V1 调度器源码 v0.11.2](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/core/sched/scheduler.py)
+上述策略与 vLLM 官方 Chunked Prefill 文档的说明相符；真实实现还有其他调度条件，不能将本例当作所有后端与配置的保证。[vLLM 优化文档](https://docs.vllm.ai/en/latest/configuration/optimization/)、[调度器源码参考](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py)
 
 ### 1.1 四个容易混淆的量
 
@@ -30,7 +30,7 @@
 | mbt = 8192 | 每轮新计算的 Token 预算上限，P 与 D 共用 | KV 只能保存 8192 Token，或每轮必须填满 |
 | KV Cache 容量 | 保存已经计算过的上下文状态所需的块空间 | 由 ms 或 mbt 直接决定 |
 
-ms 与 mbt 是不同维度的约束；KV 是否足够还取决于模型结构、精度、并行方式、可用显存、上下文长度和缓存共享情况。新版本也可能把运行态准入与每轮序列容量进一步分开，因此应查看所用版本的参数定义。[vLLM SchedulerConfig](https://docs.vllm.ai/en/latest/api/vllm/config/scheduler/)
+ms 与 mbt 是不同维度的约束；KV 是否足够还取决于模型结构、精度、并行方式、可用显存、上下文长度和缓存共享情况。不同实现可能把运行态准入与每轮序列容量进一步分开，因此应核对实际参数定义。[vLLM SchedulerConfig](https://docs.vllm.ai/en/latest/api/vllm/config/scheduler/)
 
 ## 2. 一个请求的生命周期
 
@@ -43,11 +43,11 @@ ms 与 mbt 是不同维度的约束；KV 是否足够还取决于模型结构、
 
 一次完整 Prefill 结束时，通常已经可以采样首个输出 Token；所以“输出 1024 Token”不能机械地解释成“Prefill 后还必须做 1024 轮 Decode”。在本例同步、无投机的模型里，可以理解为首 Token 后再生成约 1023 个 Token。真实首 Token 发送时点还受到执行和流式返回实现影响。
 
-教学中的 P/D 是工作类型标签。V1 调度器源码以已计算 Token 数和待计算 Token 数统一描述请求，并非必须维护两个独立的 P/D 队列。[V1 调度器源码说明](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/core/sched/scheduler.py)
+教学中的 P/D 是工作类型标签。V1 调度器源码以已计算 Token 数和待计算 Token 数统一描述请求，并非必须维护两个独立的 P/D 队列。[V1 调度器源码说明](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py)
 
 ### 2.1 一轮调度怎么真正进入模型执行？
 
-**源码事实｜固定 vLLM v0.11.2、UniProcExecutor、GPU Worker 的参考路径。** `EngineCore.step()` 先调用 `Scheduler.schedule()`，拿到 `SchedulerOutput`，再交给执行器；调度器并不直接运行模型。输出结构包括各请求本轮调度的 Token 数、新请求数据与 KV 块编号等信息，因此它描述的是“本轮算哪些 Token、使用哪些状态”。[EngineCore](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/engine/core.py)、[SchedulerOutput](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/core/sched/output.py)
+**资料参考｜GPU 单进程执行链。** `EngineCore.step()` 先调用 `Scheduler.schedule()`，拿到 `SchedulerOutput`，再交给执行器；调度器并不直接运行模型。输出结构包括各请求本轮调度的 Token 数、新请求数据与 KV 块编号等信息，因此它描述的是“本轮算哪些 Token、使用哪些状态”。[EngineCore](https://github.com/vllm-project/vllm/blob/main/vllm/v1/engine/core.py)、[SchedulerOutput](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/output.py)
 
 ```text
 EngineCore.step()
@@ -62,11 +62,11 @@ EngineCore.step()
   └─ Scheduler.update_from_output(...) → 更新请求进度、完成状态与输出
 ```
 
-这里 `self.model_executor` 的具体类型选为 `UniProcExecutor`：它通过 `collective_rpc` 调用持有 Worker 的包装对象，再由 GPU `Worker.execute_model()` 调用 `model_runner.execute_model()`。Runner 更新持久批状态、准备本轮输入和 Attention 元数据，最终进入模型前向。执行器后端、流水线和异步设置会改变具体执行路径，这张调用链只追踪上述参考路径。[UniProcExecutor](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/executor/uniproc_executor.py)、[WorkerWrapperBase](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/worker/worker_base.py)、[GPU Worker](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/worker/gpu_worker.py)、[GPU Model Runner](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/worker/gpu_model_runner.py)
+这里 `self.model_executor` 的具体类型选为 `UniProcExecutor`：它通过 `collective_rpc` 调用持有 Worker 的包装对象，再由 GPU `Worker.execute_model()` 调用 `model_runner.execute_model()`。Runner 更新持久批状态、准备本轮输入和 Attention 元数据，最终进入模型前向。执行器后端、流水线和异步设置会改变具体执行路径，这张调用链只追踪上述参考路径。[UniProcExecutor](https://github.com/vllm-project/vllm/blob/main/vllm/v1/executor/uniproc_executor.py)、[WorkerWrapperBase](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/worker_base.py)、[GPU Worker](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu_worker.py)、[GPU Model Runner](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu_model_runner.py)
 
 **教学推导。** “先分配 D 的预算”与“D 在设备上先独立执行完、立刻返回”不是同一件事；本轮调度输出仍可能组织成一个混合批次。调度顺序本身不能给出这轮的毫秒数。
 
-**待验证。** 当前项目没有提供实际部署版本和配置；上述 GPU 类名不代表 vLLM Ascend 的 Worker/Runner 类名。要解释某次 NPU 实测，应先锁定 vLLM Ascend 与 vLLM 的配套版本，再沿对应后端追踪，不能直接套用这里的调用链。
+**待验证。** 当前项目没有提供实际部署配置；上述 GPU 类名不代表 Ascend 的 Worker/Runner 类名。要解释某次 NPU 实测，应核对执行器、后端、异步设置和相应实现路径，不能直接套用这里的调用链。
 
 ## 3. 混部调度：沿着预算逐轮看
 
@@ -134,9 +134,9 @@ R1 D：1 + R2 D：1 + R3 P：4096 + R4 P：4094 = 8192
 
 ### 3.5 D 越来越多，能在中间某一轮改用图吗？
 
-可以，切换点在**某一轮前向开始之前**。Scheduler 给出本轮工作量，Runner 再按当前 batch 选择执行路径；同一个混部实例可以上一轮不用图、下一轮回放图，后续补入新 P 时再重新选择。已经执行到一半的前向，不会因为请求阶段变化而临时把后半接成另一张完整图。[vLLM v0.21.0 逐轮判定源码](https://github.com/vllm-project/vllm/blob/v0.21.0/vllm/v1/worker/gpu_model_runner.py#L3601-L3683)
+可以，切换点在**某一轮前向开始之前**。Scheduler 给出本轮工作量，Runner 再按当前 batch 选择执行路径；同一个混部实例可以上一轮不用图、下一轮回放图，后续补入新 P 时再重新选择。已经执行到一半的前向，不会因为请求阶段变化而临时把后半接成另一张完整图。[vLLM 图执行设计](https://docs.vllm.ai/en/latest/design/cuda_graphs/)
 
-先分清“图模式”指什么。这里讨论 GPU 的 CUDA Graph、Ascend 的 ACLGraph 捕获与回放。通常启动时先对有限的 batch 档位预热、捕获，运行时更新输入和元数据，选择匹配的图回放；不是线上遇到任何新形状就自动临时捕获。图回放可以减少重复提交设备工作的 CPU 开销，但不代表省掉 Attention 计算或 KV 访问。[vLLM 预捕获流程](https://github.com/vllm-project/vllm/blob/v0.21.0/vllm/v1/worker/gpu_model_runner.py#L6150-L6233)、[Ascend ACLGraph wrapper](https://github.com/vllm-project/vllm-ascend/blob/e8a6393dda93e085cd8210011c6ec12027acb8a0/vllm_ascend/compilation/acl_graph.py#L156-L188)
+先分清“图模式”指什么。这里讨论 GPU 的 CUDA Graph、Ascend 的 ACLGraph 捕获与回放。通常启动时先对有限的 batch 档位预热、捕获，运行时更新输入和元数据，选择匹配的图回放；不是线上遇到任何新形状就自动临时捕获。图回放可以减少重复提交设备工作的 CPU 开销，但不代表省掉 Attention 计算或 KV 访问。[vLLM 图捕获与回放](https://docs.vllm.ai/en/latest/design/cuda_graphs/)、[Ascend 图模式说明](https://docs.vllm.ai/projects/ascend/en/main/user_guide/feature_guide/graph_mode.html)
 
 | 本轮运行时模式 | 怎么执行 |
 | --- | --- |
@@ -144,9 +144,9 @@ R1 D：1 + R2 D：1 + R3 P：4096 + R4 P：4094 = 8192
 | `PIECEWISE` | 沿算子边界把支持的计算片段放进图，不兼容部分在图外执行；不是只把 D 请求抽出来进图 |
 | `FULL` | 整个模型前向走完整图；能否包含 P/D 混合 batch 要看配置和后端 |
 
-`FULL_AND_PIECEWISE` 是一种配置策略，不是第四种运行时模式：在满足图条件时，uniform decode 走 FULL，其他 batch 走 PIECEWISE；没匹配图则回到 NONE。普通单 Token 解码中，uniform decode 通常要求本轮每条请求都调度 1 个 Token，不能只看请求被标成了 D；投机解码的统一 query length 可能更大。[模式定义](https://github.com/vllm-project/vllm/blob/v0.21.0/vllm/config/compilation.py#L582-L614)、[运行时匹配](https://github.com/vllm-project/vllm/blob/v0.21.0/vllm/v1/cudagraph_dispatcher.py#L234-L319)
+`FULL_AND_PIECEWISE` 是一种配置策略，不是第四种运行时模式：在满足图条件时，uniform decode 走 FULL，其他 batch 走 PIECEWISE；没匹配图则回到 NONE。普通单 Token 解码中，uniform decode 通常要求本轮每条请求都调度 1 个 Token，不能只看请求被标成了 D；投机解码的统一 query length 可能更大。[图模式定义与运行时匹配](https://docs.vllm.ai/en/latest/design/cuda_graphs/)
 
-**教学对照｜vLLM v0.21.0 的 GPU 参考配置。** 取 ms=200、mbt=8192，普通单 Token D、无 LoRA，使用默认捕获尺寸与 `FULL_AND_PIECEWISE`，假设后端及功能组合兼容。该版本此条件下默认最大捕获尺寸为 `min(200×2, 512)=400`，并受 mbt 约束。8192 是调度预算，不是默认图尺寸。
+**教学对照｜显式选定的图配置。** 取 ms=200、mbt=8192，普通单 Token D、无 LoRA，选择 `FULL_AND_PIECEWISE`；手动选定最大捕获尺寸 400，并包含 200、336 档位，假设对应图已捕获、后端及功能组合兼容。这里的 400、200、336 是教学配置，不是引擎通用默认值；8192 仍是调度预算。
 
 ![本轮 Token 数、捕获档位和运行时模式的逐轮判定示意](../dist/assets/graph-dispatch.svg)
 
@@ -157,13 +157,13 @@ R1 D：1 + R2 D：1 + R3 P：4096 + R4 P：4094 = 8192
 | 199 个 D + 1 个 P 的 128-Token 尾块 | 327 | padding 到 336 档位，匹配后走 PIECEWISE |
 | 200 个 D，每条前进 1 Token | 200 | 匹配 uniform decode 的 200 档位，走 FULL |
 
-这些例子用于隔开“请求比例”和“本轮形状”，不代表播放器必然出现对应轮次。捕获档位还会受自定义配置、并行策略和后端限制；“全部是 D”也不是充分条件。强制 eager、图未启用、没有兼容的捕获图或功能组合受限，都可能让该轮不用完整图。[默认尺寸生成源码](https://github.com/vllm-project/vllm/blob/ad7125a431e176d4161099480a66f0169609a690/vllm/config/vllm.py#L1529-L1587)、[图尺寸与模式匹配](https://github.com/vllm-project/vllm/blob/v0.21.0/vllm/v1/cudagraph_dispatcher.py#L234-L319)
+这些例子用于隔开“请求比例”和“本轮形状”，不代表播放器必然出现对应轮次。捕获档位还会受自定义配置、并行策略和后端限制；“全部是 D”也不是充分条件。强制 eager、图未启用、没有兼容的捕获图或功能组合受限，都可能让该轮不用完整图。[图尺寸与模式匹配](https://docs.vllm.ai/en/latest/design/cuda_graphs/)
 
-**Ascend 版本边界。** 本节另核对 vLLM Ascend `e8a6393dda93e085cd8210011c6ec12027acb8a0`，它记录的已验证 upstream 为 `544f182d9f0c9bfe8bd7645525951d5e3692a542`，不能当作上面 GPU v0.21.0 或前文 v0.11.2 的同一套配置。Ascend Runner 也会逐轮判断 uniform decode 再派发。当前标准 Attention 声明 `ALWAYS`，MLA 为 `UNIFORM_BATCH`，所以不能写“只要还有 P，就绝对不能 FULL”；`FULL` 与 `FULL_AND_PIECEWISE` 的策略也不同。400 上限更不能直接套给未提供版本的 NPU 部署。[Ascend 轮前判定](https://github.com/vllm-project/vllm-ascend/blob/e8a6393dda93e085cd8210011c6ec12027acb8a0/vllm_ascend/worker/v1/model_runner.py#L3636-L3717)、[标准 Attention 能力](https://github.com/vllm-project/vllm-ascend/blob/e8a6393dda93e085cd8210011c6ec12027acb8a0/vllm_ascend/attention/attention_v1.py#L291-L298)、[MLA 能力](https://github.com/vllm-project/vllm-ascend/blob/e8a6393dda93e085cd8210011c6ec12027acb8a0/vllm_ascend/attention/mla_v1.py#L452-L459)
+**Ascend 后端边界。** 后端支持范围会变化：有些 Attention 后端支持混合 batch 的完整图，有些对 query 长度或批次结构有限制。因此不能写“只要还有 P，就绝对不能 FULL”；`FULL` 与 `FULL_AND_PIECEWISE` 的策略也不同。并行方式和功能组合还会影响最终模式，应按实际配置与 Trace 判断。上面的 400 上限是手动选定的教学条件，不能套给未知部署。[Ascend 图模式说明](https://docs.vllm.ai/projects/ascend/en/main/user_guide/feature_guide/graph_mode.html)
 
 在 PD 分离里，D 实例通常更容易持续出现 uniform decode 形状，因此可以单独考虑 `FULL_DECODE_ONLY`；它同样需要满足图覆盖和后端条件。P 端能否用图仍应另查，PD 分离本身不保证任何一端采用图。
 
-要确认当前机器有没有切换，先记录配套版本、有效图配置、捕获档位、Attention 后端，再对齐每轮 P/D Token、padding 后形状、runtime mode 和设备 Trace。尚无这些证据时，只能说明“具备逐轮切换机制”，不能认定某次 TPOT 改善来自图执行。
+要确认当前机器有没有切换，先记录有效图配置、捕获档位、Attention 后端，再对齐每轮 P/D Token、padding 后形状、runtime mode 和设备 Trace。尚无这些证据时，只能说明“具备逐轮切换机制”，不能认定某次 TPOT 改善来自图执行。
 
 ## 4. 思考题一：输出只有 64，为什么 TPOT 可能很长？
 
@@ -179,7 +179,9 @@ R1 D：1 + R2 D：1 + R3 P：4096 + R4 P：4094 = 8192
 
 AISBench 将 TTFT 描述为首 Token 返回延迟，将 TPOT 描述为排除首 Token 后的平均输出 Token 生成延迟。[AISBench 性能指标](https://github.com/AISBench/benchmark/blob/master/docs/source_en/base_tutorials/results_intro/performance_metric.md)
 
-常用的逐请求口径为 `TPOT = (E2EL − TTFT) / (输出 Token 数 − 1)`，要求输出多于 1 个 Token。vLLM 官方压测代码使用这一口径；使用 AISBench 时还应核对当前版本的计算实现、流式返回与 Token 计数方式。[vLLM 压测指标源码](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/benchmarks/serve.py)
+常用的逐请求口径为 `TPOT = (E2EL − TTFT) / (输出 Token 数 − 1)`，要求输出多于 1 个 Token。vLLM 官方压测代码使用这一口径；使用 AISBench 时还应核对实际工具的计算实现、流式返回与 Token 计数方式。[vLLM 压测指标源码](https://github.com/vllm-project/vllm/blob/main/vllm/benchmarks/serve.py)
+
+这里按逐 Token 内容事件解释时间线。成组输出或代理缓冲时，客户端 ITL 样本可能是输出事件间隔，不能直接视作逐 Token 生成间隔，详见[投机解码与流式指标](投机解码与流式指标.md)。
 
 在当前混部算例中，较短输出可能更早结束：
 
@@ -192,11 +194,11 @@ AISBench 将 TTFT 描述为首 Token 返回延迟，将 TPOT 描述为排除首 
 
 ### 4.1 Decode 优先，为什么仍会受到 Prefill 干扰？
 
-**源码事实。** 前面固定版本的链路说明，预算分配与模型执行是两个层次；`GPUModelRunner` 依据本轮所有请求组织输入，再进入前向。这不等于先跑完一个独立 D batch，再开始 P batch。长 Prefill 混入本轮后，实际耗时还受到算子形状、上下文长度、访存和通信影响。
+**源码事实。** 前面的 GPU 单进程参考链说明，预算分配与模型执行是两个层次；`GPUModelRunner` 依据本轮所有请求组织输入，再进入前向。这不等于先跑完一个独立 D batch，再开始 P batch。长 Prefill 混入本轮后，实际耗时还受到算子形状、上下文长度、访存和通信影响。
 
 **教学推导。** 假设一条请求的相邻两个输出，分别来自连续的同步轮次 k 和 k+1，那么它的 ITL 不只取决于“本轮 D 占 1 个预算”，还受后一轮执行与发送等开销影响。如果轮次 k+1 携带较重的 P，即使 D 先拿到了预算，它也没有获得一个固定的时延保证。首 Token 后发生的调度或抢占等待，仍会进入 TPOT；被扣除的是首 Token 之前的 TTFT。
 
-因此 Chunked Prefill 调优是在分配单轮工作量：较小的 mbt 可以限制单轮混入的 P，倾向于保护 ITL，但 P 需要更多轮推进，可能增加 TTFT 与调度/启动开销；较大的 mbt 能一次推进更多输入、减少切块次数，也可能让混合轮次更重。具体吞吐和时延曲线取决于模型、设备、实现与负载，不能由 8192 这个数直接推断最优点。[vLLM v0.11.2 调优文档](https://docs.vllm.ai/en/v0.11.2/configuration/optimization/)
+因此 Chunked Prefill 调优是在分配单轮工作量：较小的 mbt 可以限制单轮混入的 P，倾向于保护 ITL，但 P 需要更多轮推进，可能增加 TTFT 与调度/启动开销；较大的 mbt 能一次推进更多输入、减少切块次数，也可能让混合轮次更重。具体吞吐和时延曲线取决于模型、设备、实现与负载，不能由 8192 这个数直接推断最优点。[vLLM 调优文档](https://docs.vllm.ai/en/latest/configuration/optimization/)
 
 ## 5. 思考题二：200/200 和 200/800 测到的是同一种状态吗？
 
@@ -215,7 +217,7 @@ AISBench 将 TTFT 描述为首 Token 返回延迟，将 TPOT 描述为排除首 
 
 **教学推导。** 闭环 200 在途还带有反馈：响应变慢，完成与补入的速率就会降低；在足够长的稳定窗口、无客户端思考时间时，平均到达率近似为 `λ ≈ 平均在途数 / 平均 E2EL`。因此“在途始终 200”并不意味着 QPS 固定，也不能证明系统在同等固定 QPS 的开放负载下仍然稳定。两种发送方式要分别报告。
 
-AISBench 的 `stable_stage` 汇总器有基于并发时间段选择样本的计算规则；它不能凭空制造一个足够长的稳定负载。官方说明还提醒窗口边界会影响吞吐统计，并给出最大单请求 E2EL 小于窗口时长三分之一的可靠性条件。应以所安装版本的定义为准。[AISBench 稳态测试说明](https://github.com/AISBench/benchmark/blob/master/docs/source_en/advanced_tutorials/stable_stage.md)
+AISBench 的 `stable_stage` 汇总器有基于并发时间段选择样本的计算规则；它不能凭空制造一个足够长的稳定负载。官方说明还提醒窗口边界会影响吞吐统计，并给出最大单请求 E2EL 小于窗口时长三分之一的可靠性条件。应以所用工具的定义为准。[AISBench 稳态测试说明](https://github.com/AISBench/benchmark/blob/master/docs/source_en/advanced_tutorials/stable_stage.md)
 
 建议把测试曲线画成三段，并明确报告采用的统计窗口：
 
@@ -255,7 +257,7 @@ PD 分离把 Prefill 与 Decode 放在不同实例或资源池中：
 
 所以 PD 多出来的不只是网络时间，还有 KV 的驻留时间。P 完成到释放确认之间，源 KV 仍可能占着块；D 预分配到实际解码期间，目标块也已经占用。若 D 无法准入或分配目标空间，使拉取迟迟不能开始，P 端 hold 的 KV 就会堆积。若拉取已经完成并确认释放，D 后续的本地排队会继续占用 D 的缓存，但不能再一概说它还占着 P 的源 KV。
 
-P、D 是不同引擎实例，各自有 ms、mbt 与 KV 块池，不能把它们画成共同争抢一份 8192 的预算。PD 也不替代单实例内部调度；P 是否继续使用 Chunked Prefill、D 是否需要本地补算，应查当前版本和连接器配置，这里不假设 D 端永远没有 Prefill。
+P、D 是不同引擎实例，各自有 ms、mbt 与 KV 块池，不能把它们画成共同争抢一份 8192 的预算。PD 也不替代单实例内部调度；P 是否继续使用 Chunked Prefill、D 是否需要本地补算，应查实际后端和连接器配置，这里不假设 D 端永远没有 Prefill。
 
 网页里的 PD 播放器按这些交接事件逐帧演示。一次点击不等于真实引擎的一个 step，动画帧的宽度和播放间隔也不代表传输耗时，不能从动画读出吞吐或 TPOT。
 
@@ -301,7 +303,7 @@ nP / dP ≈ nD / dD
 
 ### 6.3 KV 字节量如何约束 PD 传输？
 
-**源码事实。** v0.11.2 的 `AttentionSpec.page_size_bytes` 对普通 Attention 给出一层一块的字节数：`2 × block_size × num_kv_heads × head_size × dtype_size`；MLA 在同一文件中使用独立规格。[KV Cache 规格源码](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/kv_cache_interface.py)
+**资料参考。** 普通 Attention 的 KV 块规格可给出一层一块的字节数：`2 × block_size × num_kv_heads × head_size × dtype_size`；MLA 在同一文件中使用独立规格。[KV Cache 规格源码](https://github.com/vllm-project/vllm/blob/main/vllm/v1/kv_cache_interface.py)
 
 **教学推导｜标准 MHA/GQA、各层同规格、K/V 头维相同、每元素采用相同标量存储精度，计算完整单副本。** 暂不计压缩、量化元数据或并行切分。设层数 L、KV 头数 Hkv、每头维度 dh、每个缓存元素字节数 s，则逻辑 KV 数据量为：
 
@@ -339,9 +341,9 @@ mbt 记录本轮要新计算的 Token；KV 保存请求已经走过的上下文�
 
 ![KV 块分配、增长、完成释放，以及容量不足时的一条抢占重算恢复路径](../dist/assets/kv-lifecycle.svg)
 
-当无法为某些运行中请求分配所需 KV 块时，调度器可能抢占请求，为其他工作释放空间。被抢占请求仍未完成，之后恢复执行；V1 常见的重计算路径会让请求回到等待状态、归还 KV 引用，并在后续重建必要状态。它会增加额外工作与等待时间，而不是免费暂停。[V1 抢占路径源码](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/core/sched/scheduler.py)
+当无法为某些运行中请求分配所需 KV 块时，调度器可能抢占请求，为其他工作释放空间。被抢占请求仍未完成，之后恢复执行；V1 常见的重计算路径会让请求回到等待状态、归还 KV 引用，并在后续重建必要状态。它会增加额外工作与等待时间，而不是免费暂停。[V1 抢占路径源码](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py)
 
-具体版本、连接器或配置也可能采用换出、卸载或其他恢复机制，不能把所有部署都描述为相同路径。应记录抢占次数和时间，结合 KV 压力判断延迟尖峰；不要仅因为 mbt 尚有剩余，就认定系统还能再接一个 P。
+不同后端、连接器或配置也可能采用换出、卸载或其他恢复机制，不能把所有部署都描述为相同路径。应记录抢占次数和时间，结合 KV 压力判断延迟尖峰；不要仅因为 mbt 尚有剩余，就认定系统还能再接一个 P。
 
 ### 7.3 “释放 KV”不等于立即清空设备内存
 
@@ -353,7 +355,7 @@ mbt 记录本轮要新计算的 Token；KV 保存请求已经走过的上下文�
 
 ## 8. 课堂实验：用证据验证推演
 
-在固定模型、设备与引擎版本下，比较以下四组。这里给出实验设计，不虚构部署命令、未安装版本的参数或性能数据。
+在固定模型、设备与引擎配置下，比较以下四组。这里给出实验设计，不虚构部署命令、未经核实的参数或性能数据。
 
 | 组别 | 输入/输出 | 最大并发/总请求 | 观察重点 |
 | --- | --- | --- | --- |
@@ -368,7 +370,7 @@ mbt 记录本轮要新计算的 Token；KV 保存请求已经走过的上下文�
 
 ## 当前尚未验证的部分
 
-1. **实际部署的调度与执行路径。** 尚未取得 vLLM Ascend/vLLM 版本、配置和 Trace；Decode 优先、切块粒度、准入、图捕获档位与逐轮模式，以及 NPU Worker/Runner 的实现需要对照部署核实。
+1. **实际部署的调度与执行路径。** 尚未取得当前引擎配置和 Trace；Decode 优先、切块粒度、准入、图捕获档位与逐轮模式，以及 NPU Worker/Runner 的实现需要对照部署核实。
 2. **输出 64 时 TPOT 升高的根因。** 混合轮次干扰是候选机制；还需用逐 Token 时间、每轮 P/D、抢占及客户端/网络数据排除其他原因。
 3. **200/800 是否存在可用稳态窗口。** 尚无时间序列与样本筛选结果，不能承诺该总请求量足够，也不能把客户端并发平台直接当作引擎稳态。
 4. **目标业务的 P:D 配比和 KV 传输路径。** 尚未测得 RP、RD、服务需求、实际 KV 字节数及有效带宽；连接器模式、跨设备布局和计算/传输重叠也待验证，公式目前只提供测量与推导框架。
@@ -377,7 +379,7 @@ mbt 记录本轮要新计算的 Token；KV 保存请求已经走过的上下文�
 
 修订日期：2026-10-28。保留原稿调度 → 稳态 → PD → 抢占/KV 的思路，完成以下修正：
 
-按技术 Wiki 编辑规范恢复原稿的场景开头与逐步推演节奏，保留两个思考题作为分析中心；补充固定版本执行调用链、预算与时延的区别、KV/PD 的符号推导及 6 张机制图，并集中列出当前待验证事项。本文更名为《LLM 推理调度与执行》，覆盖混部与 PD 分离；新增逐轮选图说明，区分捕获尺寸、D 比例和运行时模式。没有把手算、源码事实或候选性能解释写成部署实测结论。
+按技术 Wiki 编辑规范恢复原稿的场景开头与逐步推演节奏，保留两个思考题作为分析中心；补充 GPU 单进程参考执行链、预算与时延的区别、KV/PD 的符号推导及 6 张机制图，并集中列出当前待验证事项。本文更名为《LLM 推理调度与执行》，覆盖混部与 PD 分离；新增逐轮选图说明，区分捕获尺寸、D 比例和运行时模式。没有把手算、源码事实或候选性能解释写成部署实测结论。
 
 - 将首轮与后续轮次明确为 Chunked Prefill、Decode 优先等假设下的简化教学模型，补齐跨轮尾块的算术。
 - 区分客户端并发、ms、mbt 与 KV 容量，删除“未达到上限就一定还能接入”的隐含推断。
@@ -386,14 +388,14 @@ mbt 记录本轮要新计算的 Token；KV 保存请求已经走过的上下文�
 - 区分 200/200 的单波测试与 200/800 的持续补入，明确总请求增加不能保证稳态。
 - 将 PD 的瓶颈扩展至 KV 传输/加载，补齐交接、抢占、块引用回收与前缀缓存。
 
-### 官方资料与版本边界
+### 官方资料与实现边界
 
-以下均为官方文档或官方仓库；`latest`、`main`、`master` 会继续变化，复现实验时应记录安装版本与提交号。固定版本源码用于解释一种实现路径，不代表当前项目已采用该版本。
+以下均为官方文档或官方仓库，资料会继续更新。源码入口用于帮助定位一种实现路径，不代表所有执行器和后端都采用同一套调用链；复现实验应保留实际环境与有效配置。
 
 1. [vLLM：Optimization and Tuning](https://docs.vllm.ai/en/latest/configuration/optimization/) — Chunked Prefill 与调优取舍。
 2. [vLLM：SchedulerConfig](https://docs.vllm.ai/en/latest/api/vllm/config/scheduler/) — ms、mbt 与相关限制的定义。
-3. [vLLM v0.11.2：V1 Scheduler 源码](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/core/sched/scheduler.py) — 统一 Token 调度与抢占示例。
-4. [vLLM：服务压测源码](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/benchmarks/serve.py) — TPOT 参考计算口径。
+3. [vLLM：V1 Scheduler 源码](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py) — 统一 Token 调度与抢占示例。
+4. [vLLM：服务压测源码](https://github.com/vllm-project/vllm/blob/main/vllm/benchmarks/serve.py) — TPOT 参考计算口径。
 5. [AISBench：性能指标](https://github.com/AISBench/benchmark/blob/master/docs/source_en/base_tutorials/results_intro/performance_metric.md) — TTFT、TPOT、ITL、吞吐与并发。
 6. [AISBench：服务性能测试](https://github.com/AISBench/benchmark/blob/master/docs/source_en/base_tutorials/scenes_intro/performance_benchmark.md) — 请求发送与数据规模设置。
 7. [AISBench：稳态测试](https://github.com/AISBench/benchmark/blob/master/docs/source_en/advanced_tutorials/stable_stage.md) — 稳态样本选择与统计窗口边界。
@@ -401,7 +403,12 @@ mbt 记录本轮要新计算的 Token；KV 保存请求已经走过的上下文�
 9. [vLLM：Disaggregated Prefilling](https://docs.vllm.ai/en/latest/features/disagg_prefill/) — PD 的目标与限制。
 10. [vLLM：前缀缓存块管理设计](https://docs.vllm.ai/en/latest/design/prefix_caching/) — 引用计数、空闲队列与淘汰。
 11. [vLLM：自动前缀缓存](https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/) — 复用效果与 Decode 限制。
-12. [vLLM v0.11.2：EngineCore](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/engine/core.py)、[UniProcExecutor](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/executor/uniproc_executor.py)、[WorkerWrapperBase](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/worker/worker_base.py)、[SchedulerOutput](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/core/sched/output.py) — 调度结果、参考执行入口与输出更新。
-13. [vLLM v0.11.2：GPU Worker](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/worker/gpu_worker.py)、[GPU Model Runner](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/worker/gpu_model_runner.py) — 已核实的 GPU 参考调用链；不能据此推定 Ascend 类名。
-14. [vLLM v0.11.2：KV Cache 规格](https://github.com/vllm-project/vllm/blob/v0.11.2/vllm/v1/kv_cache_interface.py) — 普通 Attention 与 MLA 使用不同规格。
-15. [vLLM v0.11.2：Optimization and Tuning](https://docs.vllm.ai/en/v0.11.2/configuration/optimization/) — Chunked Prefill 的预算取舍。
+12. [vLLM：EngineCore](https://github.com/vllm-project/vllm/blob/main/vllm/v1/engine/core.py)、[UniProcExecutor](https://github.com/vllm-project/vllm/blob/main/vllm/v1/executor/uniproc_executor.py)、[WorkerWrapperBase](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/worker_base.py)、[SchedulerOutput](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/output.py) — 调度结果、参考执行入口与输出更新。
+13. [vLLM：GPU Worker](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu_worker.py)、[GPU Model Runner](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu_model_runner.py) — 已核实的 GPU 参考调用链；不能据此推定 Ascend 类名。
+14. [vLLM：KV Cache 规格](https://github.com/vllm-project/vllm/blob/main/vllm/v1/kv_cache_interface.py) — 普通 Attention 与 MLA 使用不同规格。
+15. [vLLM：Optimization and Tuning](https://docs.vllm.ai/en/latest/configuration/optimization/) — Chunked Prefill 的预算取舍。
+
+
+## 继续阅读
+
+调度之后，读[《从一轮调度到一次前向》](从一轮调度到一次前向.md)，继续看输入打包、metadata、计算与访存；再读[《投机解码：调度、元数据与流式时延》](投机解码与流式指标.md)，观察多 Token 验证、KV 有效范围与客户端输出事件的关系。

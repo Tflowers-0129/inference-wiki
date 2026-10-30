@@ -1,0 +1,51 @@
+<section class="spec-lab" id="spec-player" aria-labelledby="spec-player-title">
+  <div class="spec-lab-heading">
+    <span class="spec-eyebrow">单链贪心 · 构造例</span>
+    <h3 id="spec-player-title">一轮投机，哪些 token 真正留下来？</h3>
+    <p>固定 K＝3。手选连续接受的候选数，看 Query、临时 KV 和最终输出怎样分开记账。</p>
+  </div>
+  <div class="spec-controls">
+    <label for="spec-accepted">连续接受长度 a
+      <select id="spec-accepted"><option value="0">0：第一个就不匹配</option><option value="1">1：接受 d1</option><option value="2" selected>2：接受 d1、d2</option><option value="3">3：全部接受</option></select>
+    </label>
+    <div class="spec-buttons" role="group" aria-label="投机事件播放">
+      <button type="button" id="spec-prev">上一步</button>
+      <button type="button" id="spec-play" aria-pressed="false">播放</button>
+      <button type="button" id="spec-next">下一步</button>
+      <button type="button" id="spec-reset">重置</button>
+    </div>
+  </div>
+  <ol class="spec-stage-list" id="spec-stages" aria-label="四个事件"></ol>
+  <div class="spec-live" aria-live="polite" aria-atomic="true">
+    <h4 id="spec-event-title">① Draft：先提出 3 个候选</h4>
+    <p id="spec-event-note"></p>
+  </div>
+  <div class="spec-board" aria-label="Target KV 和本轮输入">
+    <div class="spec-board-row"><p class="spec-row-label">已有 Target KV<span>位置 0–7</span></p><div class="spec-token-row" id="spec-prefix"></div></div>
+    <div class="spec-board-row"><p class="spec-row-label">本轮输入位置<span>t0 已确认；d 是候选</span></p><div class="spec-token-row" id="spec-query"></div></div>
+    <div class="spec-board-row"><p class="spec-row-label">新提交的输出<span>不重复计算已输出的 t0</span></p><div class="spec-token-row" id="spec-output"></div></div>
+  </div>
+  <div class="spec-metadata" id="spec-metadata" aria-label="本轮 Metadata"></div>
+  <div class="spec-stat-grid" id="spec-stats"></div>
+  <p class="spec-boundary" id="spec-kv-boundary"></p>
+  <p class="spec-footnote">这是记账演示：手选 a 不表示接受概率；事件不等时，也不预测速度。x 刚被采样出来，尚未作为 Target 输入，不能算入已有 Target KV。</p>
+  <noscript><p>交互演示需要启用 JavaScript。正文和图解仍可阅读。</p></noscript>
+</section>
+
+<section class="spec-lab" id="spec-stream" aria-labelledby="spec-stream-title">
+  <div class="spec-lab-heading">
+    <span class="spec-eyebrow">客户端观测 · 构造时间线</span>
+    <h3 id="spec-stream-title">一次输出事件，未必只有一个 token</h3>
+    <p>三个场景都输出 7 个 token。比较输出事件的间隔与整条请求的 TPOT。</p>
+  </div>
+  <div class="spec-controls"><label for="spec-stream-scenario">到达方式
+    <select id="spec-stream-scenario"><option value="single">逐 token 输出</option><option value="specBurst" selected>投机式成组输出</option><option value="buffered">代理缓冲后输出</option></select>
+  </label></div>
+  <p class="spec-scenario-note" id="spec-stream-note"></p>
+  <div class="spec-timeline-wrap" tabindex="0" role="region" aria-label="客户端接收事件时间线；窄屏可横向滚动"><ol class="spec-timeline" id="spec-stream-events"></ol></div>
+  <p class="spec-internal" id="spec-stream-internal" hidden></p>
+  <div class="spec-stat-grid spec-stream-stat-grid" id="spec-stream-stats"></div>
+  <div class="spec-formulas" id="spec-stream-formulas"></div>
+  <p class="spec-boundary">这里的“ITL”特指客户端相邻输出事件的间隔。同一事件里多个 token 的内部时序不可观测，不能补几个 0 来冒充设备逐 token 时延。</p>
+  <p class="spec-footnote">还要留意首块：若第一块已有多个 token，它们的内部间隔也不可见。极端情况下，7 个 token 一块到达，按公式 TPOT 可为 0，却没有任何输出事件间隔样本；这不表示生成没有耗时。不同请求汇总时，间隔加权与请求加权也会产生差异。</p>
+</section>

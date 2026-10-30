@@ -23,4 +23,6 @@ node_modules/
 
 # Generated downloads; recreate with scripts/sync-content.py
 /dist/source.md
+/dist/execution.md
+/dist/speculation.md
 /dist/technical-wiki-source.zip

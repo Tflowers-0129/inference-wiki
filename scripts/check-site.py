@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""检查静态站点的本地资源、页内锚点、图文下载和播放器 DOM 引用。"""
-
+"""Check all Wiki pages, cross-page anchors, player bindings and portable downloads."""
 from collections import Counter
 from html.parser import HTMLParser
 from pathlib import Path
 import re
 import sys
 from urllib.parse import unquote, urlsplit
+import xml.etree.ElementTree as ET
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
+DOWNLOADS = {'LLM推理调度与执行.md':'source.md', '从一轮调度到一次前向.md':'execution.md', '投机解码与流式指标.md':'speculation.md'}
 
 
 class Page(HTMLParser):
-    def __init__(self, source):
+    def __init__(self, path):
         super().__init__()
-        self.ids = []
-        self.references = []
-        self.feed(source)
+        self.ids, self.references, self.scripts = [], [], []
+        self.feed(path.read_text(encoding='utf-8'))
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
@@ -28,79 +28,100 @@ class Page(HTMLParser):
         for attribute in ('src', 'href', 'poster'):
             if attrs.get(attribute):
                 self.references.append(attrs[attribute])
+        if tag == 'script' and attrs.get('src'):
+            self.scripts.append(attrs['src'])
 
 
 def main():
     errors = []
-    page = Page((DIST / 'index.html').read_text(encoding='utf-8'))
-    ids = set(page.ids)
-    for identifier, count in Counter(page.ids).items():
-        if count > 1:
-            errors.append(f'重复的 HTML id：{identifier}')
+    pages = {p.resolve():Page(p) for p in DIST.glob('*.html')}
 
-    def check_reference(reference, base, available_ids=None):
+    def check_reference(reference, base, current=None):
         parsed = urlsplit(reference)
         if parsed.scheme or parsed.netloc:
             return
         if parsed.path.startswith('/'):
-            errors.append(f'应使用兼容 GitHub Pages 子路径的相对资源路径：{reference}')
+            errors.append(f'资源应支持仓库子路径：{reference}')
             return
-        target = (base / unquote(parsed.path)).resolve() if parsed.path else base
-        if parsed.path and not target.is_file():
+        target = (base / unquote(parsed.path)).resolve() if parsed.path else current
+        if parsed.path and (not target or not target.is_file()):
             errors.append(f'缺少本地资源：{reference}')
-        if parsed.fragment and not parsed.path and available_ids is not None:
-            if unquote(parsed.fragment) not in available_ids:
-                errors.append(f'缺少页内锚点：#{parsed.fragment}')
+        if parsed.fragment and target in pages and unquote(parsed.fragment) not in pages[target].ids:
+            errors.append(f'缺少锚点：{target.name}#{parsed.fragment}')
 
-    for reference in page.references:
-        check_reference(reference, DIST, ids)
+    for path, page in pages.items():
+        for identifier, count in Counter(page.ids).items():
+            if count > 1:
+                errors.append(f'{path.name} 重复 id：{identifier}')
+        for reference in page.references:
+            check_reference(reference,DIST,path)
+        for script in page.scripts:
+            js = DIST / script
+            if not js.is_file():
+                continue
+            for identifier in re.findall(r"(?:\$|byId)\(['\"]([^'\"]+)['\"]\)",js.read_text(encoding='utf-8')):
+                if identifier not in page.ids:
+                    errors.append(f'{path.name} 的 {script} 引用缺失 DOM：{identifier}')
+    for filename, anchors in {'index.html':['scheduler','pdPlayer'],'speculation.html':['spec-player','spec-stream']}.items():
+        page = pages.get((DIST/filename).resolve())
+        if not page or any(anchor not in page.ids for anchor in anchors):
+            errors.append(f'{filename} 缺少播放器入口')
     for css in DIST.glob('*.css'):
-        for reference in re.findall(r'url\(\s*[\"\']?([^\"\')]+)[\"\']?\s*\)', css.read_text(encoding='utf-8')):
-            check_reference(reference, css.parent)
-    for js in (DIST / 'app.js', DIST / 'pd-app.js'):
-        for identifier in re.findall(r"\$\(['\"]([^'\"]+)['\"]\)", js.read_text(encoding='utf-8')):
-            if identifier not in ids:
-                errors.append(f'{js.name} 引用了不存在的 DOM id：{identifier}')
-    for anchor in ('scheduler', 'pdPlayer'):
-        if anchor not in ids:
-            errors.append(f'缺少演示入口：#{anchor}')
+        for reference in re.findall(r'url\(\s*["\']?([^"\')]+)',css.read_text(encoding='utf-8')):
+            check_reference(reference.strip(),css.parent)
 
-    manuscript_images = []
-    for manuscript in (ROOT / 'content' / 'LLM推理调度与执行.md', DIST / 'source.md'):
-        if not manuscript.is_file():
-            errors.append(f'缺少正文文件：{manuscript.relative_to(ROOT)}；请先运行 sync-content.py')
-            continue
-        images = re.findall(r'!\[[^\]]*\]\(([^)]+)\)', manuscript.read_text(encoding='utf-8'))
-        names = {Path(urlsplit(reference).path).name for reference in images}
-        manuscript_images.append(names)
-        if not names or any(not name.endswith('.svg') for name in names):
-            errors.append(f'{manuscript.name} 应引用本地 SVG 图源')
-        for reference in images:
-            check_reference(reference, manuscript.parent)
-    if len(manuscript_images) == 2 and manuscript_images[0] != manuscript_images[1]:
-        errors.append('正文与网页下载稿的图源不一致；请重新运行 sync-content.py')
+    all_images, manuscripts = set(), {}
+    for name, download in DOWNLOADS.items():
+        expected = None
+        for path in (ROOT/'content'/name,DIST/download):
+            if not path.is_file():
+                errors.append(f'缺少正文 {path.name}；请运行 sync-content.py')
+                continue
+            body = path.read_text(encoding='utf-8')
+            if re.search(r'\bv\d+\.\d+(?:\.\d+)?|\b[0-9a-f]{40}\b',body):
+                errors.append(f'{path.name} 不应展示具体产品版本或提交号')
+            images = re.findall(r'!\[[^\]]*\]\(([^)]+)\)',body)
+            names = {Path(urlsplit(ref).path).name for ref in images}
+            if not names:
+                errors.append(f'{path.name} 没有图解')
+            if expected is None:
+                expected = names
+                manuscripts[name] = names
+            elif names != expected:
+                errors.append(f'{path.name} 图源未同步')
+            all_images.update(names)
+            for reference in re.findall(r'(?<!!)\[[^\]]*\]\(([^)]+)\)',body)+images:
+                check_reference(reference,path.parent)
+    for image in all_images:
+        try:
+            ET.parse(DIST/'assets'/image)
+        except (OSError,ET.ParseError) as error:
+            errors.append(f'SVG 无效：{image}：{error}')
+    for path in list(DIST.glob('*.html'))+list((DIST/'assets').glob('*.svg')):
+        if re.search(r'\bv\d+\.\d+(?:\.\d+)?|\b[0-9a-f]{40}\b',path.read_text(encoding='utf-8')):
+            errors.append(f'{path.name} 仍展示具体产品版本或提交号')
 
-    bundle_path = DIST / 'technical-wiki-source.zip'
+    bundle_path = DIST/'technical-wiki-source.zip'
     if not bundle_path.is_file():
-        errors.append('缺少图文源包；请先运行 sync-content.py')
+        errors.append('缺少图文源包')
     else:
         with zipfile.ZipFile(bundle_path) as bundle:
             if bundle.testzip():
                 errors.append('图文源包校验失败')
-            body = bundle.read('LLM推理调度与执行.md').decode('utf-8')
-            bundle_images = set()
-            for reference in re.findall(r'!\[[^\]]*\]\(([^)]+)\)', body):
-                bundle_images.add(Path(reference).name)
-                if not reference.startswith('figures/') or reference not in bundle.namelist():
-                    errors.append(f'图文源包内图源路径无效：{reference}')
-            if manuscript_images and bundle_images != manuscript_images[0]:
-                errors.append('图文源包与正文的图源不一致')
-
+            for name, expected in manuscripts.items():
+                if name not in bundle.namelist():
+                    errors.append(f'源包缺少 {name}')
+                    continue
+                refs = re.findall(r'!\[[^\]]*\]\(([^)]+)\)',bundle.read(name).decode('utf-8'))
+                if {Path(ref).name for ref in refs} != expected:
+                    errors.append(f'源包 {name} 图源不一致')
+                for reference in refs:
+                    if not reference.startswith('figures/') or reference not in bundle.namelist():
+                        errors.append(f'源包图源缺失 {reference}')
     if errors:
-        print('\n'.join(f'错误：{error}' for error in errors), file=sys.stderr)
+        print('\n'.join('错误：'+error for error in errors),file=sys.stderr)
         return 1
-    count = len(manuscript_images[0]) if manuscript_images else 0
-    print(f'站点检查通过：{len(page.references)} 个资源/链接引用、{len(ids)} 个 DOM 锚点、{count} 张图源和 2 个下载文件。')
+    print(f'检查通过：{len(pages)} 篇网页、{len(DOWNLOADS)} 篇 Markdown、{len(all_images)} 张 SVG，跨页锚点及播放器 DOM 引用有效。')
     return 0
 
 
