@@ -15,7 +15,6 @@ DIST = ROOT / 'dist'
 CHAPTERS = [
     ('execution', '从一轮调度到一次前向.md', '从一轮调度到一次前向', '从一轮调度<br><span>到一次前向</span>'),
     ('speculation', '投机解码与流式指标.md', '投机解码：调度、元数据与流式时延', '投机解码<br><span>与流式指标</span>'),
-    ('profiling', 'Profiling素材与对比.md', 'Profiling 素材与前后对比', 'Profiling 素材<br><span>与前后对比</span>'),
 ]
 LINKS = {name: key + '.html' for key, name, *_ in CHAPTERS}
 LINKS['LLM推理调度与执行.md'] = 'index.html'
@@ -137,12 +136,8 @@ def build_chapters():
         if key == 'speculation':
             player_links = '<a href="#spec-player">投机验证播放器</a><a href="#spec-stream">流式指标实验室</a>'
             extra = '<link rel="stylesheet" href="spec.css"><script defer src="spec-model.js"></script><script defer src="spec-app.js"></script>'
-            next_link = '<a href="profiling.html">继续：Profiling 素材与前后对比 →</a>'
+            next_link = '<a href="execution.html">← 回看一次前向</a>'
             action = '<a class="primary-button" href="#spec-player">逐步看接受与回退 →</a><a class="text-button" href="#spec-stream">对照 ITL 与 TPOT ↓</a>'
-        elif key == 'profiling':
-            player_links, extra = '', ''
-            next_link = '<a href="speculation.html">← 回看投机解码与流式指标</a>'
-            action = '<a class="primary-button" href="#profiling-1">查看素材与前后对比 →</a><a class="text-button" href="execution.html">回看一次前向 ↗</a>'
         else:
             player_links, extra = '', ''
             next_link = '<a href="speculation.html">继续：投机解码与流式指标 →</a>'

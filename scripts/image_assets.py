@@ -13,7 +13,6 @@ PAGE_MANUSCRIPTS = {
     'index.html': 'LLM推理调度与执行.md',
     'execution.html': '从一轮调度到一次前向.md',
     'speculation.html': '投机解码与流式指标.md',
-    'profiling.html': 'Profiling素材与对比.md',
 }
 SOURCE_MANIFEST = 'profile-sources.json'
 

@@ -13,7 +13,7 @@ from image_assets import SOURCE_MANIFEST, image_dimensions, resolve_asset, sourc
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
-DOWNLOADS = {'LLM推理调度与执行.md':'source.md', '从一轮调度到一次前向.md':'execution.md', '投机解码与流式指标.md':'speculation.md', 'Profiling素材与对比.md':'profiling.md'}
+DOWNLOADS = {'LLM推理调度与执行.md':'source.md', '从一轮调度到一次前向.md':'execution.md', '投机解码与流式指标.md':'speculation.md'}
 
 
 class Page(HTMLParser):
