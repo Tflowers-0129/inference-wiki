@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="940" viewBox="0 0 1440 940" role="img" aria-labelledby="title desc">
+  <title id="title">PP 与 MoE 卸载前后的依赖与瓶颈迁移</title>
+  <desc id="desc">依据两张 PP Profiling 截图及原作者标注重绘。左侧表达原图优化前的不同 micro-batch 重叠，右侧表达卸载后 PP0 权重预取未被计算完全覆盖，以及 PP1 尾部工作使 recv 晚就绪、PP0 send 等待。定性示意，非实测等比例，不表示整体加速。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6.4" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#60728d" stroke-width="1.4"/></marker>
+    <marker id="red-arrow" markerWidth="8" markerHeight="8" refX="6.4" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#c45238" stroke-width="1.4"/></marker>
+    <pattern id="wait" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#fff1e9"/><path d="M-2 8L8-2M6 10L10 6" stroke="#edaf98" stroke-width="1"/></pattern>
+    <style>
+      text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
+      .eyebrow{font-size:13px;letter-spacing:2px;font-weight:700;fill:#60728d}.title{font-size:32px;font-weight:750}.sub{font-size:17px;fill:#60728d}.heading{font-size:23px;font-weight:700}.label{font-size:17px;font-weight:600}.small{font-size:15px;fill:#60728d}.block{font-size:15px;font-weight:650}.white{fill:white}.red{fill:#aa3b27}.line{fill:none;stroke:#60728d;stroke-width:1.7;marker-end:url(#arrow)}.dependency{fill:none;stroke:#c45238;stroke-width:2;marker-end:url(#red-arrow)}.lane{stroke:#e3e8ef;stroke-width:1}
+    </style>
+  </defs>
+  <rect width="1440" height="940" rx="24" fill="#fbfaf7"/>
+  <text x="36" y="38" class="eyebrow">PROFILING 重绘 · PP / MoE</text>
+  <text x="36" y="82" class="title">卸载改变等待的位置，整轮收益还要看关键路径</text>
+  <text x="36" y="116" class="sub">按两张截图及作者标注整理依赖；定性示意、非等比例，块长不能用来比较加速比。</text>
+  <g transform="translate(36 150)">
+    <rect width="668" height="584" rx="18" fill="#fff" stroke="#dce3ed"/>
+    <rect width="668" height="92" rx="18" fill="#edf3ff"/>
+    <path d="M0 74H668V92H0" fill="#edf3ff"/>
+    <text x="24" y="35" class="heading">原图「优化前」</text>
+    <text x="24" y="66" class="sub">保留跨阶段与不同 micro-batch 的重叠关系</text>
+    <text x="24" y="130" class="small">同栏从左到右表示先后</text>
+    <path d="M246 125H632" class="line"/>
+    <path d="M140 193H634M140 269H634M140 345H634M140 421H634M140 497H634" class="lane"/>
+    <text x="22" y="183" class="label">PP0 计算</text>
+    <rect x="148" y="157" width="160" height="40" rx="7" fill="#2473ec"/>
+    <text x="228" y="183" class="block white" text-anchor="middle">B：前段计算</text>
+    <rect x="308" y="157" width="132" height="40" rx="7" fill="#2473ec"/>
+    <text x="374" y="183" class="block white" text-anchor="middle">B：继续计算</text>
+    <rect x="504" y="157" width="130" height="40" rx="7" fill="#b1cdf7"/>
+    <text x="569" y="183" class="block" text-anchor="middle">下一批</text>
+    <text x="22" y="259" class="label">PP0 准备</text>
+    <rect x="185" y="233" width="112" height="40" rx="7" fill="#22a397"/>
+    <text x="241" y="259" class="block white" text-anchor="middle">copy / 准备</text>
+    <path d="M297 233V215H308V201" class="line"/>
+    <text x="338" y="259" class="small">与前段计算重叠</text>
+    <text x="22" y="335" class="label">PP0 send</text>
+    <rect x="440" y="309" width="64" height="40" rx="7" fill="#9c80cf"/>
+    <text x="472" y="335" class="block white" text-anchor="middle">发送 B</text>
+    <path d="M440 197V302" class="line"/>
+    <text x="22" y="411" class="label">PP1 recv</text>
+    <rect x="440" y="385" width="64" height="40" rx="7" fill="#9c80cf"/>
+    <text x="472" y="411" class="block white" text-anchor="middle">接收 B</text>
+    <path d="M472 349V379" class="line"/>
+    <text x="22" y="487" class="label">PP1 计算</text>
+    <rect x="148" y="461" width="278" height="40" rx="7" fill="#276e80"/>
+    <text x="287" y="487" class="block white" text-anchor="middle">上一个 micro-batch A</text>
+    <rect x="504" y="461" width="130" height="40" rx="7" fill="#276e80"/>
+    <text x="569" y="487" class="block white" text-anchor="middle">开始 B</text>
+    <path d="M426 461V444H440V429" class="line"/>
+    <path d="M504 425V454" class="line"/>
+    <text x="24" y="551" class="small">B 在 PP0 计算时，A 仍可在 PP1 执行。</text>
+  </g>
+  <g transform="translate(736 150)">
+    <rect width="668" height="584" rx="18" fill="#fff" stroke="#dce3ed"/>
+    <rect width="668" height="92" rx="18" fill="#fff0e8"/>
+    <path d="M0 74H668V92H0" fill="#fff0e8"/>
+    <text x="24" y="35" class="heading">原图「优化后」：卸载后暴露等待</text>
+    <text x="24" y="66" class="sub">区分预取未遮住，与接收方尚未准备好</text>
+    <text x="24" y="130" class="small">同栏从左到右表示先后</text>
+    <path d="M246 125H632" class="line"/>
+    <path d="M140 193H634M140 269H634M140 345H634M140 421H634M140 497H634" class="lane"/>
+    <text x="22" y="183" class="label">PP0 计算</text>
+    <rect x="148" y="157" width="138" height="40" rx="7" fill="#2473ec"/>
+    <text x="217" y="183" class="block white" text-anchor="middle">B：前段计算</text>
+    <rect x="286" y="157" width="66" height="40" rx="7" fill="url(#wait)" stroke="#c45238"/>
+    <text x="319" y="183" class="block red" text-anchor="middle">等预取</text>
+    <rect x="352" y="157" width="106" height="40" rx="7" fill="#2473ec"/>
+    <text x="405" y="183" class="block white" text-anchor="middle">继续计算</text>
+    <text x="22" y="259" class="label">PP0 预取</text>
+    <rect x="198" y="233" width="154" height="40" rx="7" fill="#22a397"/>
+    <text x="275" y="259" class="block white" text-anchor="middle">MoE 权重预取</text>
+    <path d="M352 233V201" class="dependency"/>
+    <text x="372" y="259" class="small red">部分预取暴露</text>
+    <text x="22" y="335" class="label">PP0 send</text>
+    <rect x="458" y="309" width="112" height="40" rx="7" fill="url(#wait)" stroke="#c45238"/>
+    <text x="514" y="335" class="block red" text-anchor="middle">等 recv 就绪</text>
+    <rect x="570" y="309" width="64" height="40" rx="7" fill="#9c80cf"/>
+    <text x="602" y="335" class="block white" text-anchor="middle">发送 B</text>
+    <path d="M458 197V302" class="line"/>
+    <text x="22" y="411" class="label">PP1 recv</text>
+    <path d="M458 405H558" stroke="#c45238" stroke-width="2" stroke-dasharray="5 5"/>
+    <rect x="570" y="385" width="64" height="40" rx="7" fill="#9c80cf"/>
+    <text x="602" y="411" class="block white" text-anchor="middle">接收 B</text>
+    <path d="M602 349V379" class="line"/>
+    <text x="22" y="487" class="label">PP1 计算</text>
+    <rect x="148" y="461" width="258" height="40" rx="7" fill="#276e80"/>
+    <text x="277" y="487" class="block white" text-anchor="middle">上一个 micro-batch A</text>
+    <rect x="406" y="461" width="164" height="40" rx="7" fill="#d88932"/>
+    <text x="488" y="486" class="block white" text-anchor="middle">LM head / 投机</text>
+    <path d="M570 461V430" class="dependency"/>
+    <text x="24" y="551" class="small">PP1 尾部更晚结束，PP0 已开始 send 也仍要等。</text>
+  </g>
+  <g transform="translate(36 758)">
+    <rect width="1368" height="146" rx="16" fill="#eef2f8"/>
+    <rect x="23" y="23" width="19" height="19" rx="4" fill="#2473ec"/><text x="51" y="38" class="small">计算</text>
+    <rect x="126" y="23" width="19" height="19" rx="4" fill="#22a397"/><text x="154" y="38" class="small">数据准备 / 预取</text>
+    <rect x="334" y="23" width="19" height="19" rx="4" fill="#9c80cf"/><text x="362" y="38" class="small">阶段交接</text>
+    <rect x="496" y="23" width="19" height="19" rx="4" fill="url(#wait)" stroke="#c45238"/><text x="524" y="38" class="small">暴露等待</text>
+    <text x="23" y="79" class="label">send 片段变长：先核对接收方是否已就绪，再判断传输瓶颈。</text>
+    <text x="23" y="113" class="sub">图中只表达局部先后与依赖，未展开完整轮次；“优化后”不自动等于端到端更快。</text>
+  </g>
+</svg>

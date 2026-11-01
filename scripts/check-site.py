@@ -9,10 +9,11 @@ import sys
 from urllib.parse import unquote, urlsplit
 import xml.etree.ElementTree as ET
 import zipfile
+from image_assets import SOURCE_MANIFEST, image_dimensions, resolve_asset, source_manifest
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
-DOWNLOADS = {'LLM推理调度与执行.md':'source.md', '从一轮调度到一次前向.md':'execution.md', '投机解码与流式指标.md':'speculation.md'}
+DOWNLOADS = {'LLM推理调度与执行.md':'source.md', '从一轮调度到一次前向.md':'execution.md', '投机解码与流式指标.md':'speculation.md', 'Profiling素材与对比.md':'profiling.md'}
 
 
 class Page(HTMLParser):
@@ -42,6 +43,9 @@ def main():
             return
         if parsed.path.startswith('/'):
             errors.append(f'资源应支持仓库子路径：{reference}')
+            return
+        if base.resolve() == DIST.resolve() and '..' in Path(parsed.path).parts:
+            errors.append(f'网页资源不应依赖上级目录：{reference}')
             return
         target = (base / unquote(parsed.path)).resolve() if parsed.path else current
         if parsed.path and (not target or not target.is_file()):
@@ -90,13 +94,18 @@ def main():
             elif names != expected:
                 errors.append(f'{path.name} 图源未同步')
             all_images.update(names)
+            for reference in images:
+                try:
+                    resolve_asset(reference, path.parent, DIST / 'assets')
+                except (OSError, ValueError) as error:
+                    errors.append(f'{path.name} 图源路径无效：{error}')
             for reference in re.findall(r'(?<!!)\[[^\]]*\]\(([^)]+)\)',body)+images:
                 check_reference(reference,path.parent)
     for image in all_images:
         try:
-            ET.parse(DIST/'assets'/image)
-        except (OSError,ET.ParseError) as error:
-            errors.append(f'SVG 无效：{image}：{error}')
+            image_dimensions(DIST/'assets'/image)
+        except (OSError,ValueError,ET.ParseError) as error:
+            errors.append(f'图源无效：{image}：{error}')
     for path in list(DIST.glob('*.html'))+list((DIST/'assets').glob('*.svg')):
         if re.search(r'\bv\d+\.\d+(?:\.\d+)?|\b[0-9a-f]{40}\b',path.read_text(encoding='utf-8')):
             errors.append(f'{path.name} 仍展示具体产品版本或提交号')
@@ -116,12 +125,30 @@ def main():
                 if {Path(ref).name for ref in refs} != expected:
                     errors.append(f'源包 {name} 图源不一致')
                 for reference in refs:
-                    if not reference.startswith('figures/') or reference not in bundle.namelist():
+                    if reference != f'figures/{Path(reference).name}' or reference not in bundle.namelist():
                         errors.append(f'源包图源缺失 {reference}')
+                    elif ((DIST/'assets'/Path(reference).name).is_file()
+                          and bundle.read(reference) != (DIST/'assets'/Path(reference).name).read_bytes()):
+                        errors.append(f'源包图源与网页不一致 {reference}')
+                for reference in re.findall(r'(?<!!)\[[^\]]*\]\(([^)]+)\)',bundle.read(name).decode('utf-8')):
+                    parsed = urlsplit(reference)
+                    if not parsed.scheme and not parsed.netloc and parsed.path:
+                        if parsed.path not in bundle.namelist() or '..' in Path(parsed.path).parts or parsed.path.startswith('/'):
+                            errors.append(f'源包本地链接缺失或不可移植 {reference}')
+            try:
+                manifest = source_manifest(DIST / 'assets')
+                if manifest is not None:
+                    reference = f'figures/{SOURCE_MANIFEST}'
+                    if reference not in bundle.namelist():
+                        errors.append(f'源包缺少素材来源清单 {reference}')
+                    elif bundle.read(reference) != manifest.read_bytes():
+                        errors.append(f'源包素材来源清单与网页不一致 {reference}')
+            except (OSError, ValueError) as error:
+                errors.append(str(error))
     if errors:
         print('\n'.join('错误：'+error for error in errors),file=sys.stderr)
         return 1
-    print(f'检查通过：{len(pages)} 篇网页、{len(DOWNLOADS)} 篇 Markdown、{len(all_images)} 张 SVG，跨页锚点及播放器 DOM 引用有效。')
+    print(f'检查通过：{len(pages)} 篇网页、{len(DOWNLOADS)} 篇 Markdown、{len(all_images)} 张图源，跨页锚点及播放器 DOM 引用有效。')
     return 0
 
 

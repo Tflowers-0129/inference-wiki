@@ -1,0 +1,190 @@
+{
+  "repository": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop",
+  "snapshot": "24fec978f8d7f19a6e8ddc34d8450681cb59794b",
+  "downloaded_on": "2026-11-01",
+  "timezone": "Asia/Shanghai",
+  "date_note": "以下为 Git 提交上传时间，不表示采集日期。源仓库为私有；站内采用的图片已本地保存，浏览本站不依赖源仓库访问权限。",
+  "files": [
+    {
+      "source_name": "NDNZ例子.png",
+      "git_blob_sha": "fcb8580b6e10cc99a15ce14942c08238a791468b",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/24fec978f8d7f19a6e8ddc34d8450681cb59794b/NDNZ%E4%BE%8B%E5%AD%90.png",
+      "uploaded_at": "2026-11-01T13:29:30Z",
+      "bytes": 778550,
+      "asset": "assets/profile-layout-ndnz.png",
+      "handling": "original",
+      "observation": "可见 ND 到 FRACTAL_NZ 的格式转换及相邻 MatMul；没有对应后测。"
+    },
+    {
+      "source_name": "PP+moe卸载-优化前.png",
+      "git_blob_sha": "bdb124f5e139381791215c5396c289ec8c7d2abc",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/24fec978f8d7f19a6e8ddc34d8450681cb59794b/PP%2Bmoe%E5%8D%B8%E8%BD%BD-%E4%BC%98%E5%8C%96%E5%89%8D.png",
+      "uploaded_at": "2026-11-01T13:30:13Z",
+      "bytes": 527988,
+      "asset": null,
+      "handling": "local-only; redrawn as assets/profile-pp-offload.svg",
+      "observation": "跨阶段计算/通信与重叠；保留本地，公开以定性重绘替代。"
+    },
+    {
+      "source_name": "PP+moe卸载-优化后.png",
+      "git_blob_sha": "b1c87ede759208922e7a1e5bb9634617ba15673f",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/24fec978f8d7f19a6e8ddc34d8450681cb59794b/PP%2Bmoe%E5%8D%B8%E8%BD%BD-%E4%BC%98%E5%8C%96%E5%90%8E.png",
+      "uploaded_at": "2026-11-01T13:30:13Z",
+      "bytes": 416749,
+      "asset": null,
+      "handling": "local-only; redrawn as assets/profile-pp-offload.svg",
+      "observation": "作者标注预取暴露与阶段不均衡；保留本地，公开以定性重绘替代。"
+    },
+    {
+      "source_name": "draft-model-eager-mode.png",
+      "git_blob_sha": "cdaa411246636facbd612ae933972d38e5c6c1aa",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/24fec978f8d7f19a6e8ddc34d8450681cb59794b/draft-model-eager-mode.png",
+      "uploaded_at": "2026-11-01T13:24:49Z",
+      "bytes": 395637,
+      "asset": "assets/profile-draft-eager.png",
+      "handling": "original",
+      "observation": "可见 MODEL_WAIT_COMPLETE 与 MoeDistributeDispatchV3 长区段。"
+    },
+    {
+      "source_name": "draft-model-graph-mode-fixed.png",
+      "git_blob_sha": "8798974ca6ee1c547bfcd734535791fbe3cc771c",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/24fec978f8d7f19a6e8ddc34d8450681cb59794b/draft-model-graph-mode-fixed.png",
+      "uploaded_at": "2026-11-01T13:25:17Z",
+      "bytes": 590114,
+      "asset": "assets/profile-draft-graph-fixed.png",
+      "handling": "original",
+      "observation": "多条 stream 呈较规则短任务序列；三图刻度和窗口不同。"
+    },
+    {
+      "source_name": "draft-model-graph-mode-有问题版.png",
+      "git_blob_sha": "3ade40e4ee89fd81c6e2a757ee408fdda230e1b4",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/24fec978f8d7f19a6e8ddc34d8450681cb59794b/draft-model-graph-mode-%E6%9C%89%E9%97%AE%E9%A2%98%E7%89%88.png",
+      "uploaded_at": "2026-11-01T13:25:17Z",
+      "bytes": 484751,
+      "asset": "assets/profile-draft-graph-issue.png",
+      "handling": "original",
+      "observation": "可见多轨长 MoeDistributeDispatchV3；不能确定根因。"
+    },
+    {
+      "source_name": "dsa-cp原理.png",
+      "git_blob_sha": "1db702e85046244b20bf925480fa585736e3d42b",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/24fec978f8d7f19a6e8ddc34d8450681cb59794b/dsa-cp%E5%8E%9F%E7%90%86.png",
+      "uploaded_at": "2026-11-01T13:25:49Z",
+      "bytes": 956221,
+      "asset": "assets/profile-dsa-cp.png",
+      "handling": "original",
+      "observation": "Indexer Cache full、SFA KV 分片原理，未给完整通信及输出合并。"
+    },
+    {
+      "source_name": "image.png",
+      "git_blob_sha": "8798974ca6ee1c547bfcd734535791fbe3cc771c",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/24fec978f8d7f19a6e8ddc34d8450681cb59794b/image.png",
+      "uploaded_at": "2026-11-01T11:12:29Z",
+      "bytes": 590114,
+      "asset": null,
+      "handling": "duplicate",
+      "observation": "与 draft-model-graph-mode-fixed.png 为同一 Git blob，不重复展示。"
+    },
+    {
+      "source_name": "kvc余量查看.png",
+      "git_blob_sha": "495025ffce9e34a2cd5db9be1c29cca1675f6461",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/24fec978f8d7f19a6e8ddc34d8450681cb59794b/kvc%E4%BD%99%E9%87%8F%E6%9F%A5%E7%9C%8B.png",
+      "uploaded_at": "2026-11-01T13:25:49Z",
+      "bytes": 100201,
+      "asset": "assets/profile-kv-capacity.png",
+      "handling": "original",
+      "observation": "启动规划容量及长度假设下的并发估算，非实时剩余容量。"
+    },
+    {
+      "source_name": "pcp原理.png",
+      "git_blob_sha": "4421de20f9634d21aeecbdc6c5339481825c19e1",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/24fec978f8d7f19a6e8ddc34d8450681cb59794b/pcp%E5%8E%9F%E7%90%86.png",
+      "uploaded_at": "2026-11-01T13:29:54Z",
+      "bytes": 954428,
+      "asset": "assets/profile-pcp.png",
+      "handling": "original",
+      "observation": "局部 Attention 结果、LSE 交流与加权合并原理，非性能实测。"
+    },
+    {
+      "source_name": "关闭异步调度.png",
+      "git_blob_sha": "a4db60882a8658df1db78edc551a15218ae08c13",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/24fec978f8d7f19a6e8ddc34d8450681cb59794b/%E5%85%B3%E9%97%AD%E5%BC%82%E6%AD%A5%E8%B0%83%E5%BA%A6.png",
+      "uploaded_at": "2026-11-01T13:30:38Z",
+      "bytes": 314956,
+      "asset": "assets/profile-async-off.png",
+      "handling": "original",
+      "observation": "可见 EVENT_WAIT、密集短任务；缺完整轨道名与可比时间刻度。"
+    },
+    {
+      "source_name": "开启异步调度.png",
+      "git_blob_sha": "0e0cbd872509d880c3b9ce3c1d8ae83d2619d466",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/24fec978f8d7f19a6e8ddc34d8450681cb59794b/%E5%BC%80%E5%90%AF%E5%BC%82%E6%AD%A5%E8%B0%83%E5%BA%A6.png",
+      "uploaded_at": "2026-11-01T13:30:38Z",
+      "bytes": 297684,
+      "asset": "assets/profile-async-on.png",
+      "handling": "original",
+      "observation": "可见等待与任务排列变化；不能从局部截图量化重叠或收益。"
+    },
+    {
+      "source_name": "模型初期开箱算子占比.png",
+      "git_blob_sha": "c4bef7b76f8d10cea3f0c58f4724828463105b06",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/24fec978f8d7f19a6e8ddc34d8450681cb59794b/%E6%A8%A1%E5%9E%8B%E5%88%9D%E6%9C%9F%E5%BC%80%E7%AE%B1%E7%AE%97%E5%AD%90%E5%8D%A0%E6%AF%94.png",
+      "uploaded_at": "2026-11-01T13:30:58Z",
+      "bytes": 324056,
+      "asset": "assets/profile-operator-share.png",
+      "handling": "original",
+      "observation": "按算子类型累计时间；不能直接换算成请求时延占比或可得收益。"
+    },
+    {
+      "source_name": "消除copy的例子.png",
+      "git_blob_sha": "cdc86ee34dd174a63c3b57934be1a2d92f162fcc",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/24fec978f8d7f19a6e8ddc34d8450681cb59794b/%E6%B6%88%E9%99%A4copy%E7%9A%84%E4%BE%8B%E5%AD%90.png",
+      "uploaded_at": "2026-11-01T13:30:58Z",
+      "bytes": 339700,
+      "asset": "assets/profile-copy-source.png",
+      "handling": "original",
+      "observation": "作者标注 72×inplacecopy + 72×memcpyasync；计数未独立复核，只有前态。"
+    }
+  ],
+  "derived": [
+    {
+      "asset": "assets/profile-layout-compare.svg",
+      "basis": [
+        "NDNZ例子.png"
+      ],
+      "status": "优化后为有条件的机制候选，无后测"
+    },
+    {
+      "asset": "assets/profile-copy-compare.svg",
+      "basis": [
+        "消除copy的例子.png"
+      ],
+      "status": "优化后为有条件的机制候选，无后测"
+    },
+    {
+      "asset": "assets/profile-async-compare.svg",
+      "basis": [
+        "关闭异步调度.png",
+        "开启异步调度.png"
+      ],
+      "status": "定性依赖图，无实测时间轴，不计算加速比"
+    },
+    {
+      "asset": "assets/profile-draft-modes.svg",
+      "basis": [
+        "draft-model-eager-mode.png",
+        "draft-model-graph-mode-有问题版.png",
+        "draft-model-graph-mode-fixed.png"
+      ],
+      "status": "定性非等比例，不确认修复根因"
+    },
+    {
+      "asset": "assets/profile-pp-offload.svg",
+      "basis": [
+        "PP+moe卸载-优化前.png",
+        "PP+moe卸载-优化后.png"
+      ],
+      "status": "按原图标注提炼的瓶颈迁移示意，无实测收益"
+    }
+  ]
+}

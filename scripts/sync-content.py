@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""同步仓库内的正文，并生成网页提供下载的 Markdown 与 SVG 源文件包。"""
+"""同步仓库内的正文，并生成网页提供下载的 Markdown 与图源文件包。"""
 
 import argparse
 from pathlib import Path
 import re
 import runpy
 import zipfile
+from image_assets import SOURCE_MANIFEST, image_dimensions, resolve_asset, rewrite_local_link, source_manifest
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANUSCRIPT = ROOT / 'content' / 'LLM推理调度与执行.md'
@@ -14,6 +15,7 @@ CHAPTER_DOWNLOADS = {
     'LLM推理调度与执行.md': 'source.md',
     '从一轮调度到一次前向.md': 'execution.md',
     '投机解码与流式指标.md': 'speculation.md',
+    'Profiling素材与对比.md': 'profiling.md',
 }
 
 
@@ -21,31 +23,37 @@ def sync_content(manuscript=DEFAULT_MANUSCRIPT):
     """Resolve manuscript images locally; keep generated downloads portable."""
     manuscript = Path(manuscript).resolve()
     bundle_chapters, all_diagrams = {}, set()
+    manifest = source_manifest(ROOT / 'dist' / 'assets')
+
+    def rewrite_links(markdown, *, bundle=False):
+        return re.sub(r'(?<!!)\[([^\]]*)\]\(([^)]+)\)',
+                      lambda match: f'[{match[1]}]({rewrite_local_link(match[2], bundle=bundle)})', markdown)
+
     for name, output in CHAPTER_DOWNLOADS.items():
         chapter = manuscript if name == DEFAULT_MANUSCRIPT.name else ROOT / 'content' / name
         markdown = chapter.read_text(encoding='utf-8')
         web_markdown = bundle_markdown = markdown
         for reference in re.findall(r'!\[[^\]]*\]\(([^)]+)\)', markdown):
-            if '://' in reference or reference.startswith('data:'):
-                raise ValueError(f'正文图源应为仓库内的本地 SVG：{reference}')
-            image_path = (chapter.parent / reference).resolve()
-            if not image_path.is_file():
-                raise FileNotFoundError(f'找不到正文图源：{image_path}')
-            expected = ROOT / 'dist' / 'assets' / image_path.name
-            if image_path != expected.resolve() or image_path.suffix.lower() != '.svg':
-                raise ValueError(f'正文图源应保存在 dist/assets/：{reference}')
+            image_path = resolve_asset(reference, chapter.parent, ROOT / 'dist' / 'assets')
+            image_dimensions(image_path)
             web_markdown = web_markdown.replace(f']({reference})', f'](assets/{image_path.name})')
             bundle_markdown = bundle_markdown.replace(f']({reference})', f'](figures/{image_path.name})')
             all_diagrams.add(image_path)
         for chapter_name, download_name in CHAPTER_DOWNLOADS.items():
             web_markdown = web_markdown.replace(f']({chapter_name})', f']({download_name})')
+        web_markdown = rewrite_links(web_markdown)
+        bundle_markdown = rewrite_links(bundle_markdown, bundle=True)
+        if f'](figures/{SOURCE_MANIFEST})' in bundle_markdown and manifest is None:
+            raise FileNotFoundError(f'找不到素材来源清单：dist/assets/{SOURCE_MANIFEST}')
         (ROOT / 'dist' / output).write_text(web_markdown, encoding='utf-8')
         bundle_chapters[name] = bundle_markdown
-    bundle_readme = '''# LLM 推理调度与执行：可编辑图文源文件
+    bundle_readme = '''# LLM 推理调度与执行：图文源文件
 
-依次阅读 `LLM推理调度与执行.md`、`从一轮调度到一次前向.md`、`投机解码与流式指标.md`。
+依次阅读 `LLM推理调度与执行.md`、`从一轮调度到一次前向.md`、`投机解码与流式指标.md`、`Profiling素材与对比.md`。
 解压时保留 `figures/` 目录。
 `figures/*.svg` 是自包含的矢量图源，中文采用系统字体。
+`figures/*.png` 是随正文收录的原图；图源、上下文与解释范围见对应正文。
+`figures/profile-sources.json`（若有）保留素材来源清单；章节链接指向同包 Markdown。
 
 图中的 token 算术、时间线与资源公式均附前提；示意时长和 100 ms 停顿不代表设备实测。
 机制引用及待验证清单在正文中。复现实验前请记录引擎、Ascend 后端、连接器和压测工具的有效配置。
@@ -56,8 +64,10 @@ def sync_content(manuscript=DEFAULT_MANUSCRIPT):
         bundle.writestr('README.md', bundle_readme)
         for image_path in sorted(all_diagrams):
             bundle.write(image_path, f'figures/{image_path.name}')
+        if manifest is not None:
+            bundle.write(manifest, f'figures/{SOURCE_MANIFEST}')
     runpy.run_path(str(ROOT / 'scripts' / 'build-chapters.py'))['build_chapters']()
-    print(f'已同步 {len(bundle_chapters)} 篇正文和 {len(all_diagrams)} 张 SVG，网页下载文件已生成。')
+    print(f'已同步 {len(bundle_chapters)} 篇正文和 {len(all_diagrams)} 张图源，网页下载文件已生成。')
 
 
 if __name__ == '__main__':
