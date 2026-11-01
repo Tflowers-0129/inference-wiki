@@ -5,6 +5,21 @@
   let model, current = 0, playTimer = null;
   const outputSelect = $('outputSelect');
   const stop = () => {clearInterval(playTimer); playTimer=null; $('playSteps').innerHTML='▶ <span>播放</span>'; $('playSteps').setAttribute('aria-label','自动播放调度');};
+  function roundEndNote(s) {
+    if (s.complete===model.total) return '所有请求的输入、输出均已完成，后续不再安排 Decode。';
+    const notes=[];
+    const unfinished=s.chunks.filter(c=>c.left>0);
+    if (unfinished.length) notes.push(`输入未处理完：${unfinished.map(c=>`R${c.id}，还差 ${fmt(c.left)} tokens`).join('；')}。`);
+    const inputFinished=s.chunks.filter(c=>c.complete);
+    if (inputFinished.length) {
+      const ids=inputFinished.map(c=>`R${c.id}`).join('、');
+      notes.push(model.output===1
+        ? `${ids} 本轮已完成全部输出，无需后续 Decode。`
+        : `${ids} 本轮完成输入并生成首个输出 token，从下一轮加入 Decode。`);
+    }
+    if (!notes.length) notes.push('待后续 Decode：输入已处理完，但输出尚未生成完的请求。');
+    return notes.join('');
+  }
   function insight(s) {
     if (s.number===1) return '还没有 Decode。两条完整 Prefill 各占 4,096 tokens，刚好用满预算；本轮完成后，各请求已可得到首个输出 token。';
     if (s.number===2) return '先安排 2 条 Decode，仅用 2 tokens。剩余 8,190：R3 完整处理 4,096，R4 处理 4,094，还差 2 tokens，留到下一轮。';
@@ -34,7 +49,7 @@
     if(s.decode)rows.push(`<div class="detail-row"><span class="detail-kind d">D</span><strong>${s.decode} 条序列各推进 1 token</strong><code>${s.decode} tokens</code></div>`);
     for(const c of s.chunks)rows.push(`<div class="detail-row"><span class="detail-kind">P</span><strong>R${c.id} ${c.continued?'续接输入':'处理输入'}</strong><span>${c.complete?'→ Prefill 完成':'分块进行中'}</span>${c.left?`<span class="remain-note">还差 ${fmt(c.left)}</span>`:''}<code>${fmt(c.tokens)} tokens</code></div>`);
     if(s.free)rows.push(`<div class="detail-row"><span class="detail-kind empty">—</span><span>未使用预算</span><code>${fmt(s.free)} tokens</code></div>`);
-    rows.push(`<div class="detail-row"><span class="detail-kind empty">Σ</span><span>尚未入场 ${s.waiting} · 正在 Prefill ${s.prefilling} · 已完成 ${s.complete}</span></div>`);
+    rows.push(`<div class="round-end-state"><div class="round-state-heading"><strong>轮末请求状态</strong><span>共 ${model.total} 条 · 每条只计入一种状态</span></div><div class="round-state-counts"><span>未入场 <b>${s.waiting}</b></span><span>输入未处理完 <b>${s.prefilling}</b></span><span>待后续 Decode <b>${s.active-s.prefilling}</b></span><span>全部输出完成 <b>${s.complete}</b></span></div><p>${roundEndNote(s)}</p><p class="round-state-basis">这里统计本轮结束后的请求状态；上方“本轮 Decode”统计这一轮实际执行的条数。</p></div>`);
     $('scheduleDetail').innerHTML=rows.join('');
     $('stepInsight').textContent=insight(s);
     $('stepRange').value=s.number;

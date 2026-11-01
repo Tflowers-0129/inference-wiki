@@ -60,7 +60,7 @@ def main():
         for reference in page.references:
             check_reference(reference,DIST,path)
         for script in page.scripts:
-            js = DIST / script
+            js = DIST / unquote(urlsplit(script).path)
             if not js.is_file():
                 continue
             for identifier in re.findall(r"(?:\$|byId)\(['\"]([^'\"]+)['\"]\)",js.read_text(encoding='utf-8')):

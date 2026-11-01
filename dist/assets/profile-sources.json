@@ -26,6 +26,14 @@
       "observation": "启动规划容量及长度假设下的并发估算，非实时剩余容量。"
     }
   ],
-  "derived": [],
+  "derived": [
+    {
+      "asset": "assets/pd-transfer-swimlanes.svg",
+      "basis": [
+        "https://docs.vllm.ai/projects/ascend/en/main/developer_guide/Design_Documents/disaggregated_prefill.html"
+      ],
+      "status": "固定计算与容量，仅拉长KV传输的机制教学构造；素材仅提供profiling视觉风格，不是实测Trace或收益比较。"
+    }
+  ],
   "selection_note": "仅收录直接说明当前正文机制或口径的两张原图；不据局部截图推断优化因果或绘制未证实后态。"
 }

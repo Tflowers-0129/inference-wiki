@@ -4,7 +4,7 @@
 
 [![Pages deployment](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml/badge.svg)](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml)
 
-中文教学网页，沿着“混部调度 → 逐轮选图 → 输出长短与稳态测试 → PD 分离 → 抢占与 KV Cache”的顺序展开。包含混部调度播放器、三种 PD 交接场景、可编辑 SVG 图解和自测。[图执行说明](https://tflowers-0129.github.io/inference-wiki/#graph-execution) 区分 Decode 比例、本轮形状和捕获档位，并说明显式教学配置与实际后端的适用边界。
+中文教学网页，沿着“混部调度 → 逐轮选图 → 输出长短与稳态测试 → PD 分离与池化 → 抢占与 KV Cache”的顺序展开。包含混部调度播放器、三种 PD 交接场景、可编辑 SVG 图解和自测。[图执行说明](https://tflowers-0129.github.io/inference-wiki/#graph-execution) 区分 Decode 比例、本轮形状和捕获档位，并说明显式教学配置与实际后端的适用边界。
 
 网页不依赖前端框架、外部字体或脚本。克隆仓库后即可在本地预览；运行时只需要 Python 3。模型测试另需 Node.js 18 或更新版本。
 
@@ -12,7 +12,7 @@
 
 第二、三篇按字段和执行现场展开：先走通五 Token 的输入与 KV 地址，再查 Host/Device 对账、CPU 输入缓冲复用和跨轮提交；投机章沿 K=3、a=2 的同一份账本追到 padded 输入和客户端指标。每处源码片段注明调用路径，Trace 排查给出可区分的证据，不把机制示例写成实测经验。
 
-工作坊素材仅在格式转换与 KV 启动容量的对应讲解处采用两张原图。
+工作坊素材仅在格式转换与 KV 启动容量的对应讲解处采用两张原图。另补一张 profiling 风格的 PD 交接泳道图：在相同计算和容量条件下仅拉长 KV 传输，对齐计算流、传输、Host 通知与引用状态。正文区分 P/D 实例池、本地 KV 块池和共享 KV 缓存池；播放器明确区分本轮执行量与轮末四类请求状态。
 
 [素材来源清单](dist/assets/profile-sources.json) 保存源文件名、上传提交、Git blob 校验值、采用位置及重绘依据；源仓库为私有，站内图片已本地保存，阅读站点不需要源仓库权限。公开仓库和下载包只含挑选的图片与新写分析。
 
@@ -81,7 +81,7 @@ python3 scripts/check-site.py
 node --test tests/*.test.cjs
 ```
 
-模型共 22 项测试，覆盖 token 记账、每轮预算与序列上限，以及 PD 交接中的 KV 就绪、传输、源引用保留和释放时序。站点检查覆盖三篇网页的资源、跨页锚点、播放器引用、三篇下载正文和图文源包，并核对 PNG 头部、包内图片与来源清单字节一致性，并防止具体引擎发行号与提交标识混入公开图文。
+模型共 23 项测试，覆盖 token 记账、每轮预算与序列上限，以及 PD 交接中的 KV 就绪、传输、源引用保留和释放时序。站点检查覆盖三篇网页的资源、跨页锚点、播放器引用、三篇下载正文和图文源包，并核对 PNG 头部、包内图片与来源清单字节一致性，并防止具体引擎发行号与提交标识混入公开图文。
 
 ## GitHub Pages
 

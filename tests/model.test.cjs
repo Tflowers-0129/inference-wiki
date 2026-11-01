@@ -147,5 +147,25 @@ test('O=1: prefill produces the entire output without any decode rounds', () => 
   const result = simulate({output: 1});
   checkLedger(result);
   assert.ok(result.steps.every(step => step.decode === 0));
+  assert.ok(result.steps.every(step => step.active === step.prefilling),
+    'no request remains ready for decode after completing its single output token');
   assert.equal(result.steps.length, 100);
+});
+
+test('round-end request states include newly completed inputs before their first decode', () => {
+  const {steps, total} = simulate({output: 1024});
+  const seventh = steps[6];
+  assert.equal(seventh.decode, 11, 'only inputs finished before round 7 can decode in round 7');
+  assert.deepEqual({
+    waiting: seventh.waiting,
+    unfinishedInput: seventh.prefilling,
+    pendingDecode: seventh.active - seventh.prefilling,
+    complete: seventh.complete,
+  }, {waiting: 186, unfinishedInput: 1, pendingDecode: 13, complete: 0});
+  assert.equal(seventh.waiting + seventh.active + seventh.complete, total);
+  assert.deepEqual(seventh.chunks.filter(chunk => chunk.complete).map(chunk => chunk.id), [12, 13]);
+  assert.deepEqual(seventh.chunks.filter(chunk => chunk.left > 0).map(({id, left}) => ({id, left})),
+    [{id: 14, left: 37}]);
+  assert.equal(steps[7].decode, 13, 'R12 and R13 join the next decode round');
+  assert.equal(steps.at(-1).active, 0, 'no pending decode remains after the final round');
 });
