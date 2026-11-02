@@ -127,15 +127,4 @@
   $('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter'){const first=$('searchResults').querySelector('a');if(first){e.preventDefault();first.click();}}});
   document.addEventListener('keydown',e=>{const tag=document.activeElement?.tagName;const typing=['INPUT','TEXTAREA','SELECT'].includes(tag);if((e.key.toLowerCase()==='k'&&(e.metaKey||e.ctrlKey))||(e.key==='/'&&!typing)){e.preventDefault();if(!searchDialog.open)openSearch();}});
 
-  document.querySelectorAll('.quiz-card').forEach(card=>{
-    card.querySelectorAll('[data-choice]').forEach(button=>button.addEventListener('click',()=>{
-      card.querySelectorAll('[data-choice]').forEach(b=>{b.classList.remove('selected-correct','selected-wrong');b.setAttribute('aria-pressed','false');});
-      const right=button.dataset.choice===card.dataset.answer;
-      button.classList.add(right?'selected-correct':'selected-wrong');button.setAttribute('aria-pressed','true');
-      const feedback=card.querySelector('.quiz-feedback');feedback.hidden=false;feedback.setAttribute('role','status');
-      feedback.dataset.result=right?'correct':'incorrect';
-      if(!feedback.dataset.original)feedback.dataset.original=feedback.textContent;
-      feedback.textContent=(right?'判断正确。':'再检查一下预算和前提。')+feedback.dataset.original;
-    }));
-  });
 })();

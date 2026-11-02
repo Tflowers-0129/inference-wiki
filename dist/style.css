@@ -26,7 +26,7 @@
 
 @media(max-width:560px){.round-state-heading{font-size:10.5px;gap:3px 10px}.round-state-heading strong,.round-state-counts{font-size:11px}.round-state-counts{gap:5px 14px}.round-state-counts b{font-size:12px}.lesson .round-end-state p{font-size:11px}.lesson .round-end-state .round-state-basis{font-size:10.5px}}
 
-.technical-figure img[src$="pd-transfer-swimlanes.svg"]{min-width:1040px}
+
 
 .round-end-state .round-state-heading{font-size:13px}
 .round-end-state .round-state-heading strong,.round-end-state .round-state-counts{font-size:14px}
@@ -34,3 +34,9 @@
 .lesson .round-end-state p{font-size:14px;line-height:1.85}
 .lesson .round-end-state .round-state-basis{font-size:12.5px}
 @media(max-width:560px){.round-end-state .round-state-heading{font-size:12px}.round-end-state .round-state-heading strong,.round-end-state .round-state-counts{font-size:13px}.round-end-state .round-state-counts b{font-size:15px}.lesson .round-end-state p{font-size:13px}.lesson .round-end-state .round-state-basis{font-size:12px}}
+
+.preemption-steps{padding-left:1.5em;color:var(--text);font-size:14px;line-height:1.95}.preemption-steps li+li{margin-top:10px}
+
+#pd .mechanism-block h3{margin-top:0}#pd .mechanism-block code{overflow-wrap:anywhere}#pd .source-code{max-width:100%;overflow-x:auto;font-size:13px}#pd .comparison-table th,#pd .comparison-table td{min-width:120px;vertical-align:top}#pd .comparison-table td:first-child{min-width:220px}
+
+#pd .comparison-table td:first-child{white-space:normal;min-width:180px;max-width:300px}

@@ -219,7 +219,7 @@ AISBench 将 TTFT 描述为首 Token 返回延迟，将 TPOT 描述为排除首 
 
 对教学分析而言，**稳态是工作分布在观察窗口内足够稳定**：客户端在途数稳定，同时 P/D 比例、完成速率、排队长度、KV 占用和尾延迟没有持续漂移。并发曲线平了，并不自动证明这些量都稳定。
 
-**教学推导。** 闭环 200 在途还带有反馈：响应变慢，完成与补入的速率就会降低；在足够长的稳定窗口、无客户端思考时间时，平均到达率近似为 `λ ≈ 平均在途数 / 平均 E2EL`。因此“在途始终 200”并不意味着 QPS 固定，也不能证明系统在同等固定 QPS 的开放负载下仍然稳定。两种发送方式要分别报告。
+**教学推导。** 闭环 200 在途还带有反馈：响应变慢，完成与补入的速率就会降低；在足够长的稳定窗口、无客户端思考时间时，平均到达率近似为 `到达 QPS ≈ 平均在途数 / 平均 E2EL（秒）`。因此“在途始终 200”并不意味着 QPS 固定，也不能证明系统在同等固定 QPS 的开放负载下仍然稳定。两种发送方式要分别报告。
 
 AISBench 的 `stable_stage` 汇总器有基于并发时间段选择样本的计算规则；它不能凭空制造一个足够长的稳定负载。官方说明还提醒窗口边界会影响吞吐统计，并给出最大单请求 E2EL 小于窗口时长三分之一的可靠性条件。应以所用工具的定义为准。[AISBench 稳态测试说明](https://github.com/AISBench/benchmark/blob/master/docs/source_en/advanced_tutorials/stable_stage.md)
 
@@ -292,21 +292,17 @@ P、D 是不同引擎实例，各自有 ms、mbt 与 KV 块池，不能把它们
 
 TTFT 是否包含全部 D 等待，要看代理何时第一次向客户端输出；已在 D 稳定生成的请求 ITL 也不能代表还没进入 D 的请求没有拥塞。闭环测试还会因响应变慢而减慢补入，因此最终看见队列“停止增长”时，也要确认是不是请求到达率跟着降了。
 
-### 沿 rank 与 stream 对齐：传输重叠，还是让计算流空等？
+### KV 就绪与 D 空闲，缺一不可
 
-只看单个 D 计算流的一段空白，无法区分 KV 未到、计算排队或目标块不足。下面固定选中的 P0、D0、R1 计算量和目标容量，只拉长 R2 的 KV 传输，按 profiling 的泳道形式画出其因果影响。P0、D0 的 rank 0 都是各实例内的局部教学编号；没有展开全部 TP rank，也没有使用设备的真实 stream ID。
+R1 正在 Decode 时，R2 可以先传输 KV。若传输在 R1 结束前完成，D 可接着运行 R2；若 R1 已结束、R2 的 KV 还未就绪，且没有其他可运行请求，D 就会等待。前面的交接播放器已展示这两种情况。
 
-![PD 交接 profiling 风格泳道：同条件下只拉长 R2 KV 传输，比较 D 计算流等待与 P 源 KV 引用](../dist/assets/pd-transfer-swimlanes.svg)
-
-上图传输在 R1 执行期间完成，R2 随后等待计算槽；下图同一传输变长，在没有其他可运行请求的假设下，R1 结束后计算流出现等 KV 的空档。两图中 R2 都只有在 KV 就绪后才能开算；P 的源引用则还要等释放通知处理，不能把这两个时点画成同一件事。
-
-实际排查时对齐三组证据：P / D 各 rank 的计算区间、连接器的传输起止与完成事件、目标分配及源引用释放日志。网络传输引擎不一定对应一个设备 stream，引用状态与 Host 通知也不是设备 Kernel 行；图中将它们单列，避免从计算流空白反推全部原因。加入更多实例或共享 KV 池，也不会取消这些就绪依赖。
+P 的源 KV 则要保留到交接完成并处理释放通知。D 能开始计算，与 P 能回收源块，是两个不同的时点。
 
 ### 6.1 PD 配比为什么随输入/输出改变？
 
-用相同单位“请求/秒”比较，端到端可持续吞吐受最紧的资源约束。教学上可写成上界：
+用相同单位 QPS（每秒处理的请求数）比较，端到端可持续吞吐受最紧的资源约束。教学上可写成上界：
 
-`可持续请求吞吐 ≤ min(P 有效处理能力, D 有效处理能力, KV 交接能力, 其他链路能力)`
+`可持续 QPS ≤ min(P 端 QPS, D 端 QPS, KV 交接 QPS, 其他环节 QPS)`
 
 这只是资源上界，不是实测吞吐等式。批处理效率、队列、传输与计算的重叠、负载不均都会影响实际结果。KV 交接能力还与每请求 KV 数据量、有效带宽和目标内存空间有关。
 
@@ -316,38 +312,92 @@ TTFT 是否包含全部 D 等待，要看代理何时第一次向客户端输出
 
 因此，针对某一种输入/输出组合调好的配比不能直接复用到所有业务。PD 的重要价值是隔离 Prefill 对 Decode 的干扰，让 TTFT 与 ITL 更容易分别调优；它不保证吞吐增加，也不是消除排队和 KV 压力的开关。[vLLM PD 官方说明](https://docs.vllm.ai/en/latest/features/disagg_prefill/)
 
-### 6.2 用服务需求把 P:D 配比推出来
+### 6.2 用 QPS 计算 P:D 配比
 
-**教学推导｜固定工作负载、固定单实例资源组。** 设每个 P 实例的有效容量为 μP 请求/秒，每个 D 实例为 μD 请求/秒；分别配置 nP、nD 个同类实例，暂不考虑扩展损失和负载不均。稳定运行要求目标到达率 λ 满足 `λ < nP × μP`、`λ < nD × μD`，传输及其他环节也必须满足各自约束。
-
-令 `dP = 1/μP`、`dD = 1/μD`，单位是“实例·秒/请求”，表示在代表性批处理条件下摊到每请求的资源服务需求。它们不是包含排队的 TTFT、E2EL；并发请求可以共享一次批执行，不能直接拿单请求响应时间当服务需求。若希望两边接近容量平衡，则有：
+固定输入输出分布、批处理和单实例资源配置，分别测出一个 P 实例和一个 D 实例能处理的 QPS，记为 QPS_P、QPS_D。D 端统计的是完成每条请求所需的全部 Decode 工作，不是每秒生成的 Token 数。若配置 nP、nD 个实例，暂不计扩展损失和负载不均：
 
 ```text
-nP / dP ≈ nD / dD
-所以 nP : nD ≈ dP : dD
+目标 QPS < nP × QPS_P
+目标 QPS < nD × QPS_D
+容量平衡起点：nP : nD ≈ QPS_D : QPS_P
 ```
 
-再设输入 I、输出 O 固定；RP 是单个 P 实例的有效输入处理速率（输入 Token/秒），RD 是单个 D 实例的有效 Decode 新 Token 计算速率（D Token/秒）。按本例“P 的首 Token 直接计入最终输出、D 只继续 O−1 个”的简化记账方式，可粗估 `dP ≈ I/RP`、`dD ≈ (O−1)/RD`，于是 `nP/nD ≈ I×RD / ((O−1)×RP)`。这解释了为什么输入/输出分布变化会改变配比，但 RP、RD 本身也随批大小、上下文与并行策略变化，需要实测，不能用设备峰值算力替代。
+例如，若实测单个 P 为 8 QPS、单个 D 为 2 QPS，1 个 P 配 4 个 D 才接近两端容量平衡：两端都是 8 QPS。这只是配比示例，运行时仍要留出余量，并检查交接带宽、负载不均和尾延迟。
 
-上述 nP、nD 数的是配置固定的实例资源组；如果 P、D 单实例占用设备数不同，还需换算总设备数、成本和 SLO，再比较资源配比。即使理论容量相等，把两边都压到饱和也可能导致排队与尾延迟恶化。
+若只有 Token 吞吐数据，固定输入 I、输出 O，且 P 产生的首 Token 计入最终输出、D 只继续 O−1 个 Token，则 `QPS_P ≈ RP/I`、`QPS_D ≈ RD/(O−1)`。RP、RD 分别是相应工作负载下的输入和 Decode Token 吞吐；需要测量，不能用设备峰值算力或含排队的 TTFT、E2EL 替代。
 
-### 6.3 KV 字节量如何约束 PD 传输？
+nP、nD 是配置固定的实例数。若 P、D 每实例占用的设备数不同，还需换算总设备数与成本。
 
-**资料参考。** 普通 Attention 的 KV 块规格可给出一层一块的字节数：`2 × block_size × num_kv_heads × head_size × dtype_size`；MLA 在同一文件中使用独立规格。[KV Cache 规格源码](https://github.com/vllm-project/vllm/blob/main/vllm/v1/kv_cache_interface.py)
+### 6.3 KDA 与 Lightning Indexer + DSA：交接的状态怎样算？
 
-**教学推导｜标准 MHA/GQA、各层同规格、K/V 头维相同、每元素采用相同标量存储精度，计算完整单副本。** 暂不计压缩、量化元数据或并行切分。设层数 L、KV 头数 Hkv、每头维度 dh、每个缓存元素字节数 s，则逻辑 KV 数据量为：
+先区分两种状态：KDA 把历史压入递归状态；Lightning Indexer + DSA 保留历史缓存，再为当前 Query 选择参与 Attention 的位置。以下按**单请求、单个续算边界、完整逻辑单副本**计算，不含模型权重、临时工作区、块尾浪费、对齐与额外检查点；MiB = 2²⁰ 字节。
+
+#### KDA：递归矩阵与短卷积状态都要保存
+
+单个 KDA 层保存每头一个 `dk × dv` 的递归矩阵，以及 Q、K、V 的短卷积边界状态。设 KDA 层数 LK、头数 H、卷积缓存宽度 w，递归和卷积状态每元素分别为 sr、sc 字节：
 
 ```text
-每 Token 的 KV 字节量：bKV = 2 × L × Hkv × dh × s             [字节/Token]
-T 个已计算 Token：   MKV = T × bKV                           [字节]
-分块分配近似量：      Malloc ≈ ceil(T/B) × B × bKV             [字节]
+MKDA = LK × [H × dk × dv × sr + H × (2dk + dv) × w × sc]
 ```
 
-其中 2 对应 K、V，B 是每块 Token 数；最后一式暂不计块表、元数据、额外预留与共享。MHA 中 Hkv 等于 Query 头数，GQA 中通常更小；估算 KV 应使用 KV 头数。若 200 个请求没有共享、都接近输入 4096 加输出 1024 的上下文长度，总逻辑 KV 会接近 `200 × 5120 × bKV`，这里仅表达量级，末个已采样输出可能尚无对应 KV，分块与具体模型也会改变实际分配。
+以 Kimi-Linear-48B-A3B-Instruct 为例：20 个 KDA 层，H=32、dk=dv=128、w=4。选 recurrent FP32、卷积 BF16，按 FLA 分配的完整 w 个槽位计算：
 
-再假设 D 需要接收全部 I 个 Prompt Token 的 KV，P、D 缓存格式一致、没有压缩或远端命中，则交接数据量 `V ≈ I × bKV`。如果链路可用负载带宽的上限是 Bnet 字节/秒，单次交接的纯数据串行化时间下界为 `tdata ≥ V/Bnet`；同一共享瓶颈链路的容量上界为 `μX ≤ Bnet/V` 请求/秒。这两个式子使用同一个“必须经过该链路的数据量 V”，不能把整模型的 V 除以单个分片链路带宽来估计并行传输。
+```text
+递归矩阵 = 20 × 32 × 128 × 128 × 4 = 40 MiB
+三份卷积 = 20 × 3 × 32 × 128 × 4 × 2 = 1.875 MiB
+KDA 固定部分 = 41.875 MiB / 请求
+```
 
-该下界不包含路由、握手、队列、打包、重排和主机/设备拷贝。逐层推送可以让一部分传输与计算重叠，因此 `V/Bnet` 也不能无条件直接加到完整 P 耗时上；多跳路径需分别检查每段的数据量和带宽。MLA、量化缓存、不同 P/D 并行布局、KV 复制及压缩都需要重新核对字节量，不能把上式直接套到当前 Ascend 部署。应以连接器和后端实际传输格式为准。[Ascend PD 连接器流程](https://docs.vllm.ai/projects/ascend/en/main/developer_guide/Design_Documents/disaggregated_prefill.html)
+固定的是一个请求在一个续算边界的状态。请求数或保存的前缀检查点增加，总量仍会增加。[Kimi Linear 论文](https://arxiv.org/abs/2510.26692)、[官方配置](https://huggingface.co/moonshotai/Kimi-Linear-48B-A3B-Instruct/blob/main/config.json)、[FLA 卷积状态](https://github.com/fla-org/flash-linear-attention/blob/2e0f6c31/fla/modules/convolution.py#L540)、[FP32 递归状态](https://github.com/fla-org/flash-linear-attention/blob/2e0f6c31/fla/ops/common/chunk_delta_h.py#L408)
+
+这个模型还含 **7 个 MLA 层**。若采用每位置 `512 维 latent + 64 维共享 Key` 的 BF16 压缩缓存，T 个已计算 Token 的全模型状态为：
+
+```text
+MKimi(T) = 43,909,120 + 7 × T × (512 + 64) × 2
+         = 43,909,120 + 8,064 × T  [字节]
+```
+
+最后的 2 是 BF16 每元素字节数；压缩 latent 已承担 K/V 的表示，不能再乘一份 K/V 系数。这里的 NoPE 配置只去掉旋转操作，仍保留 64 维共享 Key。上述数值采用指定压缩布局，不适用于展开保存 K/V 的缓存实现。[Kimi MLA 初始化](https://github.com/vllm-project/vllm/blob/4fd9d6a8/vllm/model_executor/models/kimi_linear.py#L164)、[MLA 缓存宽度](https://github.com/vllm-project/vllm/blob/4fd9d6a8/vllm/attention/layer.py#L550)
+
+#### Lightning Indexer + DSA：稀疏读取，不等于只保存 TopK
+
+以 DeepSeek-V3.2 的 61 个主模型层为例，不含 MTP。每层每个历史位置有两份不同用途的数据：
+
+| 持久状态 | 选取的存储格式 | 每层每位置字节量 |
+| --- | --- | --- |
+| MLA 主缓存 | 512 维 latent + 64 维 RoPE Key，BF16 | (512+64)×2 = 1,152 B |
+| Indexer 缓存 | 128 维共享 Key，FP8；1 个 FP32 scale | 128×1+4 = 132 B |
+| 两者合计 | 61 层，不乘 Query 头数 | 61×(1,152+132) = 78,324 B/Token |
+
+Indexer 的 64 个 Query 头共用每历史位置的一份 Key。每个新 Query 可选至多 2,048 个位置供主 Attention 读取；下一 Query 可能选中不同位置，因此完整历史的 MLA 和 Indexer 缓存仍随 T 增长，不能用 TopK/T 缩放总缓存。[官方配置](https://huggingface.co/deepseek-ai/DeepSeek-V3.2/blob/main/config.json)、[官方 MLA 与 Indexer 实现](https://huggingface.co/deepseek-ai/DeepSeek-V3.2/blob/main/inference/model.py#L401)、[DSA 论文](https://arxiv.org/abs/2512.02556)
+
+```text
+MDSA(T) = 61 × T × (1,152 + 132) = 78,324 × T  [字节]
+```
+
+若改用 vLLM FlashMLA 的 `fp8_ds_mla` 格式，主缓存每位置为 `512 B latent + 16 B scales + 128 B BF16 RoPE = 656 B`；加上 Indexer 的 132 B，全模型变为 `61×(656+132)=48,068 B/Token`。这说明量化后的字节数应从实际布局计算。[FlashMLA 缓存布局](https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/backends/mla/flashmla_sparse.py#L76)、[Indexer 独立缓存](https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/models/deepseek_v2.py#L638)
+
+#### 从状态大小到交接带宽
+
+| 单请求状态口径 | 4,096 个已计算 Token | 32,768 个已计算 Token |
+| --- | --- | --- |
+| KDA 固定部分：FP32 recurrent + BF16 卷积，仅 20 层 | 41.875 MiB | 41.875 MiB |
+| Kimi Linear：以上 KDA + 7 层 BF16 压缩 MLA | 73.375 MiB | 293.875 MiB |
+| DSA：61 层，BF16 MLA + FP8 Indexer / FP32 scale | 305.953 MiB | 2,447.625 MiB |
+| DSA：61 层，fp8_ds_mla + 同一 Indexer 格式 | 187.766 MiB | 1,502.125 MiB |
+
+表中是不同模型与明确缓存格式的容量推导，不能据此比较模型质量或推理速度。若 D 没有可复用状态、P/D 格式一致，交接需要搬运模型继续执行所需的完整状态：KDA 的递归与卷积边界、混合 MLA 历史，或 DSA 的 MLA 与 Indexer 历史。KDA 交接还要求连接器支持递归状态；若在 D 重算 Indexer，则应扣去其传输量并计入重算开销。
+
+设实际必须经过同一瓶颈链路的数据量为 V、该链路有效负载带宽为 Bnet：
+
+```text
+tdata ≥ V / Bnet                       [秒]
+交接 QPS ≤ Bnet / V
+```
+
+例如 32,768 Token 的 DSA，采用上表 `fp8_ds_mla` 口径：`V=1,575,092,224 B≈1.467 GiB`。假设同一共享链路提供 50 GB/s 的有效负载带宽，纯数据串行化至少约 31.5 ms，交接容量至多约 31.7 QPS。这是带宽假设下的计算，不是部署实测；排队、握手、重排与拷贝还会增加成本。
+
+V 必须与 Bnet 属于同一条链路：分片、复制或多跳路径要逐段计算，不能拿完整副本除以一条分片链路的带宽。逐层传输可与计算重叠，所以 V/Bnet 也不能直接加到整个 P 耗时上。[PD 连接器流程](https://docs.vllm.ai/projects/ascend/en/main/developer_guide/Design_Documents/disaggregated_prefill.html)
 
 ## 7. 抢占与 KV Cache：预算够，为什么仍然调度不了？
 
@@ -375,9 +425,15 @@ mbt 记录本轮要新计算的 Token；KV 保存请求已经走过的上下文�
 
 ![KV 块分配、增长、完成释放，以及容量不足时的一条抢占重算恢复路径](../dist/assets/kv-lifecycle.svg)
 
-当无法为某些运行中请求分配所需 KV 块时，调度器可能抢占请求，为其他工作释放空间。被抢占请求仍未完成，之后恢复执行；V1 常见的重计算路径会让请求回到等待状态、归还 KV 引用，并在后续重建必要状态。它会增加额外工作与等待时间，而不是免费暂停。[V1 抢占路径源码](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py)
+以下以 vLLM 调度器的重算恢复路径、普通自回归解码为例。即使 ms、mbt 还有余量，运行请求继续处理 Token 时仍可能需要新的 KV 块；块池分配失败，就无法安排这次计算。
 
-不同后端、连接器或配置也可能采用换出、卸载或其他恢复机制，不能把所有部署都描述为相同路径。应记录抢占次数和时间，结合 KV 压力判断延迟尖峰；不要仅因为 mbt 尚有剩余，就认定系统还能再接一个 P。
+1. **选择被暂停的请求。** 调度器从运行队列选择被抢占者：默认先到先服务策略取队尾；优先级策略选择低优先级请求。它不一定是刚才申请新块的请求。
+2. **解除块引用，重新排队。** 被抢占请求退出运行队列，释放其缓存引用，并回到等待队列。没有其他活跃引用、且已完成安全释放的块才能供别的请求覆写；共享前缀块未必能立即腾出。
+3. **保留 Token，恢复时重算。** 请求的输入和已确认输出 Token ID 仍在，但已计算位置被重置。再次获准运行时，先复用可命中的前缀缓存，再对缺失部分做前向计算，重建继续生成所需的状态。
+
+例如 B 已返回 100 个输出 Token 后被抢占：这 100 个 Token 不会重新抽样或重复发送。恢复时把输入与这段已确定的输出当作已有序列，重建缺失缓存，再继续生成第 101 个 Token。因此抢占会增加等待和重复计算，表现为输出间隔变长。[Scheduler：分配失败、选择请求与 _preempt_request](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py)、[Request：保留的 Token 与缓存命中范围](https://github.com/vllm-project/vllm/blob/main/vllm/v1/request.py)
+
+重算恢复通过再次计算重建状态；换出／换入则先把状态保存到其他存储，再搬回。这是两种不同的恢复机制，上面的步骤描述的是前一种。调小 ms 后 TPOT 改善，可能同时来自批处理变化和更少的抢占重算，需要对照抢占次数、空闲块和输出间隔解释原因。
 
 ### 7.3 “释放 KV”不等于立即清空设备内存
 
@@ -386,62 +442,6 @@ mbt 记录本轮要新计算的 Token；KV 保存请求已经走过的上下文�
 因此，服务进程显存占用没有明显下降，不代表 KV 泄漏：块池可能仍由引擎持有。应观察块使用率、空闲块、缓存命中和抢占，而不是只看进程显存总量。
 
 前缀缓存复用的是相同前缀的计算结果，主要减少重复 Prefill，不会省掉新输出 Token 的自回归生成；仅仅语义相似也不足以命中。PD 发送端的 KV 还可能因尚未完成传输而延迟归还，不能在“P 计算结束”时无条件立即复用这些块。[vLLM 自动前缀缓存](https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/)、[Ascend PD 生命周期](https://docs.vllm.ai/projects/ascend/en/main/developer_guide/Design_Documents/disaggregated_prefill.html)
-
-## 8. 课堂实验：用证据验证推演
-
-在固定模型、设备与引擎配置下，比较以下四组。这里给出实验设计，不虚构部署命令、未经核实的参数或性能数据。
-
-| 组别 | 输入/输出 | 最大并发/总请求 | 观察重点 |
-| --- | --- | --- | --- |
-| A | 4096/1024 | 200/200 | 单波装填、纯 D 与排空 |
-| B | 4096/1024 | 200/800 | 替换请求带来的 P/D 重叠；是否真有足够稳定窗口 |
-| C | 4096/64 | 200/800 | 短输出的生命周期是否落在混合阶段；TPOT 与 ITL 尖峰 |
-| D | 与 B 相同 | 足够长的持续负载 | 排除装填、排空后，稳定窗口是否仍漂移 |
-
-对齐记录五条时间线：客户端在途请求数、每轮 P/D Token、成功完成速率、KV 块占用、抢占/传输事件。若条件允许，再以相同总设备资源比较混部与 PD，并分别观察 TTFT、尾 ITL、成功吞吐和 KV 交接耗时。
-
-需要区分三个结论：“手算模型可以解释现象”“Trace 证实当前实现这样调度”“实测证明某配置性能更好”。前者不能代替后两者。
-
-## 当前尚未验证的部分
-
-1. **实际部署的调度与执行路径。** 尚未取得当前引擎配置和 Trace；Decode 优先、切块粒度、准入、图捕获档位与逐轮模式，以及 NPU Worker/Runner 的实现需要对照部署核实。
-2. **输出 64 时 TPOT 升高的根因。** 混合轮次干扰是候选机制；还需用逐 Token 时间、每轮 P/D、抢占及客户端/网络数据排除其他原因。
-3. **200/800 是否存在可用稳态窗口。** 尚无时间序列与样本筛选结果，不能承诺该总请求量足够，也不能把客户端并发平台直接当作引擎稳态。
-4. **目标业务的 P:D 配比和 KV 传输路径。** 尚未测得 RP、RD、服务需求、实际 KV 字节数及有效带宽；连接器模式、跨设备布局和计算/传输重叠也待验证，公式目前只提供测量与推导框架。
-
-## 修订说明
-
-修订日期：2026-10-28。保留原稿调度 → 稳态 → PD → 抢占/KV 的思路，完成以下修正：
-
-按技术 Wiki 编辑规范恢复原稿的场景开头与逐步推演节奏，保留两个思考题作为分析中心；补充 GPU 单进程参考执行链、预算与时延的区别、KV/PD 的符号推导及 6 张机制图，并集中列出当前待验证事项。本文更名为《LLM 推理调度与执行》，覆盖混部与 PD 分离；新增逐轮选图说明，区分捕获尺寸、D 比例和运行时模式。没有把手算、源码事实或候选性能解释写成部署实测结论。
-
-- 将首轮与后续轮次明确为 Chunked Prefill、Decode 优先等假设下的简化教学模型，补齐跨轮尾块的算术。
-- 区分客户端并发、ms、mbt 与 KV 容量，删除“未达到上限就一定还能接入”的隐含推断。
-- 纠正“纯 D 阶段必定短”“1024 输出必定对应 Prefill 后 1024 个 D step”等表述。
-- 为输出 64 的 TPOT 异常提供可检验机制，明确 TTFT 与 TPOT 的不同口径。
-- 区分 200/200 的单波测试与 200/800 的持续补入，明确总请求增加不能保证稳态。
-- 将 PD 的瓶颈扩展至 KV 传输/加载，补齐交接、抢占、块引用回收与前缀缓存。
-
-### 官方资料与实现边界
-
-以下均为官方文档或官方仓库，资料会继续更新。源码入口用于帮助定位一种实现路径，不代表所有执行器和后端都采用同一套调用链；复现实验应保留实际环境与有效配置。
-
-1. [vLLM：Optimization and Tuning](https://docs.vllm.ai/en/latest/configuration/optimization/) — Chunked Prefill 与调优取舍。
-2. [vLLM：SchedulerConfig](https://docs.vllm.ai/en/latest/api/vllm/config/scheduler/) — ms、mbt 与相关限制的定义。
-3. [vLLM：V1 Scheduler 源码](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py) — 统一 Token 调度与抢占示例。
-4. [vLLM：服务压测源码](https://github.com/vllm-project/vllm/blob/main/vllm/benchmarks/serve.py) — TPOT 参考计算口径。
-5. [AISBench：性能指标](https://github.com/AISBench/benchmark/blob/master/docs/source_en/base_tutorials/results_intro/performance_metric.md) — TTFT、TPOT、ITL、吞吐与并发。
-6. [AISBench：服务性能测试](https://github.com/AISBench/benchmark/blob/master/docs/source_en/base_tutorials/scenes_intro/performance_benchmark.md) — 请求发送与数据规模设置。
-7. [AISBench：稳态测试](https://github.com/AISBench/benchmark/blob/master/docs/source_en/advanced_tutorials/stable_stage.md) — 稳态样本选择与统计窗口边界。
-8. [vLLM Ascend：Disaggregated Prefill](https://docs.vllm.ai/projects/ascend/en/main/developer_guide/Design_Documents/disaggregated_prefill.html) — Proxy、KV 交接与不同连接器时序。
-9. [vLLM：Disaggregated Prefilling](https://docs.vllm.ai/en/latest/features/disagg_prefill/) — PD 的目标与限制。
-10. [vLLM：前缀缓存块管理设计](https://docs.vllm.ai/en/latest/design/prefix_caching/) — 引用计数、空闲队列与淘汰。
-11. [vLLM：自动前缀缓存](https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/) — 复用效果与 Decode 限制。
-12. [vLLM：EngineCore](https://github.com/vllm-project/vllm/blob/main/vllm/v1/engine/core.py)、[UniProcExecutor](https://github.com/vllm-project/vllm/blob/main/vllm/v1/executor/uniproc_executor.py)、[WorkerWrapperBase](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/worker_base.py)、[SchedulerOutput](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/output.py) — 调度结果、参考执行入口与输出更新。
-13. [vLLM：GPU Worker](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu_worker.py)、[GPU Model Runner](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu_model_runner.py) — 已核实的 GPU 参考调用链；不能据此推定 Ascend 类名。
-14. [vLLM：KV Cache 规格](https://github.com/vllm-project/vllm/blob/main/vllm/v1/kv_cache_interface.py) — 普通 Attention 与 MLA 使用不同规格。
-15. [vLLM：Optimization and Tuning](https://docs.vllm.ai/en/latest/configuration/optimization/) — Chunked Prefill 的预算取舍。
-
 
 ## 继续阅读
 
