@@ -1,0 +1,8 @@
+<section class="execution-lab" id="fusion-lab" aria-labelledby="fusion-heading">
+  <header><h4 id="fusion-heading">同一份接受结果，Torch 与 Triton 怎样算接续索引？</h4><p>切换实现、改变接受长度，观察 Device 输入、拒绝数和接续行。两条路径都在 Device 上；图中的操作框只表示依赖。</p></header>
+  <div class="fusion-controls"><label for="fusion-accepted">连续接受候选数 a <select id="fusion-accepted"><option value="0">0：第一个就拒绝</option><option value="1">1：接受 d1</option><option value="2" selected>2：接受 d1、d2</option><option value="3">3：全部接受</option></select></label><div class="fusion-modes" role="group" aria-label="Device 输入准备实现"><button type="button" id="fusion-torch" aria-pressed="false">Torch 分步计算</button><button type="button" id="fusion-triton" aria-pressed="true">Triton 融合计算</button></div></div>
+  <p class="fusion-result" id="fusion-result" aria-live="polite"></p>
+  <div class="fusion-scene" id="fusion-scene"></div>
+  <p class="fusion-note" id="fusion-note"></p>
+  <noscript>启用 JavaScript 可切换接受长度与实现；下方 SVG 包含 K=3、a=2 的完整例子。</noscript>
+</section>

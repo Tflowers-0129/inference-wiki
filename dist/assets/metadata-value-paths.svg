@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="1040" viewBox="0 0 960 1040" role="img" aria-labelledby="title desc">
+  <title id="title">metadata 的元素值由谁消费，决定在哪里等待</title>
+  <desc id="desc">Host 可以持有设备 Tensor 的对象，知道 shape、dtype 和地址，而元素仍在 Device。上方路径表示需要精确 Python 长度的消费者：设备有效采样数 3 经异步 D2H 和完成事件后被 Host 读取，将上一轮乐观起点 12 修正为有效进度 11；下一轮两行 query 得到长度 13。可以复用已回传计数，避免另拷完整 seq_lens，但读取计数前仍须等完成事件。下方路径要求后端支持直接消费设备 Tensor：Device 用旧进度 8 和有效计数 3 得到进度 11，再生成 positions 11、12 及 seq_lens 13；Host 可以继续提交，设备消费者仍须等待生产者写完。这是两种消费者条件的示意，不表示所有 builder 均支持设备长度，也不是对当前 fallback 的 CPU 循环描述。</desc>
+  <defs>
+    <style>
+      text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
+      .title{font-size:30px;font-weight:750}.heading{font-size:23px;font-weight:700}.label{font-size:20px;font-weight:650}.body{font-size:19px}.small{font-size:18px;fill:#526780}.blue{fill:#28518f}.green{fill:#255f4b}.amber{fill:#875414}
+      .connector{fill:none;stroke:#7589a0;stroke-width:2}.grid{stroke:#dbe4ed;stroke-width:1}
+    </style>
+  </defs>
+  <rect width="960" height="1040" rx="20" fill="#fbfaf7"/>
+  <text x="32" y="46" class="title">谁要读取元素值，决定在哪里等待</text>
+  <text x="32" y="78" class="body">Tensor 对象可在 Host；对象引用的元素仍可在 Device。</text>
+
+  <g>
+    <rect x="32" y="103" width="418" height="117" rx="12" fill="#edf3ff" stroke="#c7d8f0"/>
+    <text x="50" y="132" class="label blue">Host：设备 Tensor 的对象</text>
+    <text x="50" y="163" class="body">已知 shape、dtype、地址</text>
+    <text x="50" y="194" class="small">可将引用放进 metadata，尚未读取元素</text>
+    <path d="M459 162H493" class="connector"/>
+    <polygon points="499,162 489,157 489,167" fill="#7589a0"/>
+    <rect x="510" y="103" width="418" height="117" rx="12" fill="#eaf5ef" stroke="#bdd8c9"/>
+    <text x="528" y="132" class="label green">Device：Tensor 的元素</text>
+    <text x="528" y="163" class="body">例如 valid_count = [3]</text>
+    <text x="528" y="194" class="small">数值由设备计算，完成时间另有依赖</text>
+    <text x="32" y="250" class="small">对设备 Tensor 调用 .item() / .tolist()，Host 就需要取得元素值。</text>
+  </g>
+
+  <g>
+    <rect x="32" y="277" width="896" height="291" rx="14" fill="#fff" stroke="#d5dfe9"/>
+    <text x="52" y="311" class="heading">① 消费者需要 Host 上的精确值</text>
+    <text x="52" y="341" class="small">示例：上一轮 K=3、接受 2 个候选；下一轮 query 有 2 行。</text>
+
+    <rect x="52" y="364" width="174" height="98" rx="9" fill="#eaf5ef" stroke="#bdd8c9"/>
+    <text x="139" y="395" class="label green" text-anchor="middle">Device 结果</text>
+    <text x="139" y="428" class="body" text-anchor="middle">valid_count = 3</text>
+    <path d="M232 413H265" class="connector"/>
+    <polygon points="273,413 262,407 262,419" fill="#7589a0"/>
+
+    <rect x="278" y="364" width="184" height="98" rx="9" fill="#fff4df" stroke="#e3c593"/>
+    <text x="370" y="392" class="label amber" text-anchor="middle">异步 D2H</text>
+    <text x="370" y="421" class="body" text-anchor="middle">记录完成 event</text>
+    <text x="370" y="448" class="small" text-anchor="middle">Host 读前须等它</text>
+    <path d="M468 413H498" class="connector"/>
+    <polygon points="506,413 495,407 495,419" fill="#7589a0"/>
+
+    <rect x="512" y="364" width="179" height="98" rx="9" fill="#edf3ff" stroke="#c7d8f0"/>
+    <text x="601.5" y="392" class="label blue" text-anchor="middle">Host 修正镜像</text>
+    <text x="601.5" y="421" class="body" text-anchor="middle">起点 12 → 11</text>
+    <text x="601.5" y="448" class="small" text-anchor="middle">11 + 2 行 = 13</text>
+    <path d="M697 413H724" class="connector"/>
+    <polygon points="732,413 721,407 721,419" fill="#7589a0"/>
+
+    <rect x="738" y="364" width="170" height="98" rx="9" fill="#edf3ff" stroke="#c7d8f0"/>
+    <text x="823" y="392" class="label blue" text-anchor="middle">Python 消费者</text>
+    <text x="823" y="421" class="body" text-anchor="middle">读取精确长度</text>
+    <text x="823" y="448" class="small" text-anchor="middle">本例 seq_len = 13</text>
+
+    <text x="52" y="501" class="body">复用已回传的 count，可避免另拷一次完整 seq_lens。</text>
+    <text x="52" y="535" class="label amber">仍须等 count 的完成事件；异步发起不等于数值已可读。</text>
+  </g>
+
+  <g>
+    <rect x="32" y="588" width="896" height="360" rx="14" fill="#fff" stroke="#d5dfe9"/>
+    <text x="52" y="623" class="heading">② 消费者直接读取 Device Tensor</text>
+    <text x="52" y="653" class="small">前提：后端支持设备上的精确长度与有效边界。</text>
+
+    <rect x="52" y="674" width="425" height="59" rx="9" fill="#edf3ff" stroke="#c7d8f0"/>
+    <text x="70" y="710" class="body blue">Host 传句柄 / 已知 shape，提交任务</text>
+    <path d="M483 703H527" class="connector"/>
+    <polygon points="535,703 524,697 524,709" fill="#7589a0"/>
+    <rect x="541" y="674" width="367" height="59" rx="9" fill="#edf3ff" stroke="#c7d8f0"/>
+    <text x="559" y="710" class="body blue">Host 可继续安排其他工作</text>
+
+    <text x="52" y="766" class="small">Device 上的数据依赖仍按顺序满足：</text>
+    <rect x="52" y="783" width="241" height="103" rx="9" fill="#eaf5ef" stroke="#bdd8c9"/>
+    <text x="172.5" y="813" class="label green" text-anchor="middle">纠正真实进度</text>
+    <text x="172.5" y="844" class="body" text-anchor="middle">旧进度 8 + count 3</text>
+    <text x="172.5" y="873" class="body" text-anchor="middle">有效进度 = 11</text>
+    <path d="M299 835H342" class="connector"/>
+    <polygon points="350,835 339,829 339,841" fill="#7589a0"/>
+
+    <rect x="356" y="783" width="257" height="103" rx="9" fill="#eaf5ef" stroke="#bdd8c9"/>
+    <text x="484.5" y="813" class="label green" text-anchor="middle">生成本轮字段</text>
+    <text x="484.5" y="844" class="body" text-anchor="middle">positions = [11,12]</text>
+    <text x="484.5" y="873" class="body" text-anchor="middle">seq_lens = [13]</text>
+    <path d="M619 835H660" class="connector"/>
+    <polygon points="668,835 657,829 657,841" fill="#7589a0"/>
+
+    <rect x="674" y="783" width="234" height="103" rx="9" fill="#fff4df" stroke="#e3c593"/>
+    <text x="791" y="813" class="label amber" text-anchor="middle">Device 消费者</text>
+    <text x="791" y="844" class="body" text-anchor="middle">等字段写完再读</text>
+    <text x="791" y="873" class="small" text-anchor="middle">保留流内 / 流间依赖</text>
+    <text x="52" y="924" class="body">Host 不必为这条消费链先取回精确值；Device 不能提前读。</text>
+  </g>
+
+  <text x="32" y="987" class="small">两种消费者条件的示意；不表示所有 builder 都支持路径②。</text>
+  <text x="32" y="1016" class="small">图中只比较值的去向与等待，不是假定当前 fallback 在 CPU 上循环计算。</text>
+</svg>

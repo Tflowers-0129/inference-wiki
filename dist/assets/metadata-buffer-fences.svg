@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="900" viewBox="0 0 960 900" role="img" aria-labelledby="title desc">
+<title id="title">两组缓冲复用依赖：Host输入源与Device metadata</title>
+<desc id="desc">上半图：Host写第n轮共享输入数组，H2D读取该数组；下一轮Host改写同一数组前必须等上一轮H2D读完。不需要等待整个第n轮forward完成。下半图：Host可以继续提交；Device准备流先生成metadata n，记录ready事件；计算流沿ready依赖消费；消费完成后通过release或reusable事件允许准备流覆写同一缓冲区用于n加1。Device流等待不能等同Host阻塞。图中时间只表示依赖顺序，不表示实测耗时。精确计数D2H和Host读取由其他图说明。</desc>
+<rect width="960" height="900" rx="16" fill="#fff"/>
+<text x="28" y="42" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:29px;font-weight:700;fill:#233954">缓冲复用：下一轮何时可以改写？</text>
+<text x="28" y="77" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:400;fill:#526780">短泳道表示依赖顺序；没有耗时刻度，不据条宽判断开销。</text>
+<rect x="22" y="110" width="916" height="304" rx="10" fill="#fcfdff" stroke="#d4deeb" stroke-width="1.2"/>
+<circle cx="47" cy="138" r="16" fill="#285283"/>
+<text x="47" y="145" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:700;fill:#fff" text-anchor="middle">1</text>
+<text x="77" y="145" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:23px;font-weight:700;fill:#233954">Host 输入：上一轮 H2D 读完，才可改写源数组</text>
+<rect x="250" y="187" width="675" height="46" rx="3" fill="#f7f9fc" stroke="#edf1f6" stroke-width="1.2"/>
+<rect x="250" y="247" width="675" height="46" rx="3" fill="#f7f9fc" stroke="#edf1f6" stroke-width="1.2"/>
+<rect x="250" y="307" width="675" height="46" rx="3" fill="#f7f9fc" stroke="#edf1f6" stroke-width="1.2"/>
+<text x="38" y="203" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#233954">Host 共享输入</text>
+<text x="38" y="227" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#637890">CPU 行</text>
+<text x="38" y="263" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#233954">H2D 拷贝</text>
+<text x="38" y="287" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#637890">读取 Host 源数组</text>
+<text x="38" y="323" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#233954">Device 计算流</text>
+<text x="38" y="347" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#637890">执行第 n 轮</text>
+<rect x="260" y="192" width="148" height="36" rx="6" fill="#edf3ff" stroke="#83a5da" stroke-width="1.2"/>
+<text x="334" y="217" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#3569b5" text-anchor="middle">写入 n</text>
+<rect x="408" y="192" width="210" height="36" rx="6" fill="#f2eafb" stroke="#b69acf" stroke-width="1.2"/>
+<text x="513" y="217" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#7e4aa4" text-anchor="middle">等待源数组可复用</text>
+<rect x="618" y="192" width="179" height="36" rx="6" fill="#edf3ff" stroke="#83a5da" stroke-width="1.2"/>
+<text x="707.5" y="217" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#3569b5" text-anchor="middle">写入 n+1</text>
+<rect x="408" y="252" width="210" height="36" rx="6" fill="#fff3dd" stroke="#d9af64" stroke-width="1.2"/>
+<text x="513" y="277" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#996113" text-anchor="middle">读取第 n 轮输入</text>
+<line x1="408" y1="228" x2="408" y2="251" stroke="#6080a9" stroke-width="1.8"/>
+<polygon points="408,251 412.5,242 403.5,242" fill="#6080a9"/>
+<line x1="618" y1="252" x2="618" y2="229" stroke="#6080a9" stroke-width="2"/>
+<polygon points="618,229 613.5,238 622.5,238" fill="#6080a9"/>
+<text x="631" y="245" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#7e4aa4">H2D 完成事件</text>
+<rect x="618" y="312" width="294" height="36" rx="6" fill="#eaf5ee" stroke="#8fbaa6" stroke-width="1.2"/>
+<text x="765" y="337" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#287b61" text-anchor="middle">第 n 轮 forward 继续执行</text>
+<line x1="618" y1="288" x2="618" y2="311" stroke="#6080a9" stroke-width="1.8"/>
+<polygon points="618,311 622.5,302 613.5,302" fill="#6080a9"/>
+<text x="38" y="389" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:400;fill:#526780">Host 可在第 n 轮 forward 结束前改写输入；前提是 H2D 已读完。</text>
+<rect x="22" y="432" width="916" height="342" rx="10" fill="#fcfdff" stroke="#d4deeb" stroke-width="1.2"/>
+<circle cx="47" cy="460" r="16" fill="#285283"/>
+<text x="47" y="467" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:700;fill:#fff" text-anchor="middle">2</text>
+<text x="77" y="467" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:23px;font-weight:700;fill:#233954">Device metadata：产出 → 消费 → 允许下轮覆写</text>
+<rect x="250" y="489" width="675" height="46" rx="3" fill="#f7f9fc" stroke="#edf1f6" stroke-width="1.2"/>
+<rect x="250" y="550" width="675" height="46" rx="3" fill="#f7f9fc" stroke="#edf1f6" stroke-width="1.2"/>
+<rect x="250" y="630" width="675" height="46" rx="3" fill="#f7f9fc" stroke="#edf1f6" stroke-width="1.2"/>
+<text x="38" y="515" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#233954">Host 提交</text>
+<line x1="260" y1="526" x2="912" y2="526" stroke="#6080a9" stroke-width="2"/>
+<polygon points="912,526 903,521.5 903,530.5" fill="#6080a9"/>
+<text x="580" y="512" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#3569b5" text-anchor="middle">可继续提交后续工作</text>
+<text x="38" y="566" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#233954">Device 准备流</text>
+<text x="38" y="590" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#637890">同一 metadata 缓冲</text>
+<text x="38" y="646" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#233954">Device 计算流</text>
+<text x="38" y="670" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#637890">消费 metadata</text>
+<rect x="260" y="555" width="185" height="38" rx="6" fill="#edf3ff" stroke="#83a5da" stroke-width="1.2"/>
+<text x="352.5" y="581" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#3569b5" text-anchor="middle">生成 metadata n</text>
+<rect x="445" y="555" width="295" height="38" rx="6" fill="#f2eafb" stroke="#b69acf" stroke-width="1.2"/>
+<text x="592.5" y="581" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#7e4aa4" text-anchor="middle">尚不可覆写同一缓冲区</text>
+<rect x="740" y="555" width="175" height="38" rx="6" fill="#edf3ff" stroke="#83a5da" stroke-width="1.2"/>
+<text x="827.5" y="581" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#3569b5" text-anchor="middle">覆写为 n+1</text>
+<rect x="260" y="635" width="185" height="38" rx="6" fill="#f2eafb" stroke="#b69acf" stroke-width="1.2"/>
+<text x="352.5" y="661" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#7e4aa4" text-anchor="middle">沿 ready 依赖等待</text>
+<rect x="445" y="635" width="295" height="38" rx="6" fill="#eaf5ee" stroke="#8fbaa6" stroke-width="1.2"/>
+<text x="592.5" y="661" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#287b61" text-anchor="middle">消费 metadata n</text>
+<line x1="445" y1="593" x2="445" y2="634" stroke="#6080a9" stroke-width="2"/>
+<polygon points="445,634 449.5,625 440.5,625" fill="#6080a9"/>
+<text x="457" y="624" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#3569b5">ready event</text>
+<line x1="740" y1="635" x2="740" y2="594" stroke="#6080a9" stroke-width="2"/>
+<polygon points="740,594 735.5,603 744.5,603" fill="#6080a9"/>
+<text x="751" y="624" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#3569b5">release / reusable</text>
+<text x="38" y="720" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:400;fill:#526780">ready 保证先写后读；release / reusable 保证读完再写。</text>
+<text x="38" y="750" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:400;fill:#526780">Device 流按事件等待；这些依赖不要求 Host 停下提交。</text>
+<text x="28" y="810" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">事件已完成时即可继续；紫色只标出逻辑依赖，不声称存在特定等待 Kernel。</text>
+<text x="28" y="841" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">Host 读取精确计数的 D2H 依赖见计数回读图；本图只画两组缓冲复用依赖。</text>
+<text x="28" y="872" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">各后端的事件实现和调用范围需沿实际 Runner 与 builder 核对。</text>
+</svg>

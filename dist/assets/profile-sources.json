@@ -44,6 +44,51 @@
         "https://proceedings.mlr.press/v202/leviathan23a.html"
       ],
       "status": "单请求K=3、a=2的贪心教学构造；区分确认输出、目标KV与下一轮输入，不是实测Trace。"
+    },
+    {
+      "asset": "assets/metadata-value-paths.svg",
+      "basis": [
+        "https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v1/model_runner.py",
+        "https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/attention/utils.py"
+      ],
+      "status": "Host精确值与Device Tensor两种消费者依赖示意，不表示所有后端均支持设备消费。"
+    },
+    {
+      "asset": "assets/metadata-buffer-fences.svg",
+      "basis": [
+        "https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu_model_runner.py",
+        "https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/device_metadata.py"
+      ],
+      "status": "Host源数组与Device metadata缓冲复用依赖的教学泳道，无实测耗时或特指等待Kernel。"
+    },
+    {
+      "asset": "assets/spec-metadata-transition.svg",
+      "basis": [
+        "https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/spec_decode_utils.py"
+      ],
+      "status": "单请求K_prev=3、a=2、K_next=1的进度、query边界与KV寻址构造例。"
+    },
+    {
+      "asset": "assets/triton-padded-inputs.svg",
+      "basis": [
+        "https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/v1/spec_decode/utils.py",
+        "https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v1/spec_decode/llm_base_proposer.py"
+      ],
+      "status": "Triton padded输入kernel的拒绝数与接续索引计算；Torch fallback也在Device，不表示融合去除所有同步。"
+    },
+    {
+      "asset": "assets/async-token-handoff.svg",
+      "basis": [
+        "https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu_model_runner.py"
+      ],
+      "status": "从[A,B,C]重排到[B,D,A]的单Worker教学构造，区分请求映射与展平Token行。"
+    },
+    {
+      "asset": "assets/weights-and-kv-traffic.svg",
+      "basis": [
+        "https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html"
+      ],
+      "status": "权重复用与标准全Attention逻辑KV元素规模对照，不表示实测HBM流量或耗时。"
     }
   ]
 }

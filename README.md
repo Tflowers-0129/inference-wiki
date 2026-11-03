@@ -1,6 +1,6 @@
 # LLM 推理调度与执行 Wiki
 
-[在线演示](https://tflowers-0129.github.io/inference-wiki/) · [混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler) · [PD 播放器](https://tflowers-0129.github.io/inference-wiki/#pdPlayer) · [一次前向](https://tflowers-0129.github.io/inference-wiki/execution.html) · [投机解码实验室](https://tflowers-0129.github.io/inference-wiki/speculation.html#spec-player)
+[在线演示](https://tflowers-0129.github.io/inference-wiki/) · [混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler) · [PD 播放器](https://tflowers-0129.github.io/inference-wiki/#pdPlayer) · [一次前向](https://tflowers-0129.github.io/inference-wiki/execution.html) · [Triton 输入准备图解](https://tflowers-0129.github.io/inference-wiki/execution.html#fusion-lab) · [投机解码实验室](https://tflowers-0129.github.io/inference-wiki/speculation.html#spec-player)
 
 [![Pages deployment](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml/badge.svg)](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml)
 
@@ -9,6 +9,8 @@
 网页不依赖前端框架、外部字体或脚本。克隆仓库后即可在本地预览；运行时只需要 Python 3。模型测试另需 Node.js 18 或更新版本。
 
 新增两篇由 Markdown 生成的图解网页：从调度到一次前向（输入组织、metadata、算子与访存、KV 地址、图提交与 Trace、metadata 同步与跨轮异步调度），以及投机解码（候选验证、KV 有效范围、成组输出与 ITL/TPOT）。投机章开头的 SVG 播放器沿八个步骤展示起点、逐个提议、四行验证、提交回退与下一轮输入，配合静态完整流程图和工作坊 profiling 原图阅读；实验室另比较逐 Token、成组与代理缓冲三种发送场景。网页不展示具体引擎发行编号。
+
+第二章另以六张 SVG 说明权重复用与 KV 规模、精确值的消费者、缓冲复用事件、动态 K 接续、跨轮 Token 重排和 Triton padded 输入计算。Triton 图解可切换 Torch / Triton 及接受长度，区分减少 Host 回读与减少设备算子提交；较长的源码对照可在页内展开。
 
 第二、三篇按字段和执行现场展开：先走通五 Token 的输入与 KV 地址，再查 Host/Device 对账、CPU 输入缓冲复用和跨轮提交；投机章沿 K=3、a=2 的同一份账本追到 padded 输入和客户端指标。metadata 部分从投机候选数追到验证后的有效 KV，再切换下一轮 K=0/1/3，对照 query 边界、位置和块寻址；Host / Device 的等待分别解释数据冲突与消费者依赖。每处源码片段注明调用路径，Trace 排查给出可区分的证据，不把机制示例写成实测经验。
 

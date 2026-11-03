@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="680" viewBox="0 0 960 680" role="img" aria-labelledby="title desc">
+<title id="title">输入行数影响权重复用，上下文长度影响历史KV的逻辑规模</title>
+<desc id="desc">上半图比较线性层Y等于XW。在H、F及元素精度相同的理想单次读取模型下，T为1的一行X和T为5的五行X分别共享同一矩阵W；更多输入行把同一份权重读取摊给更多计算。真实流量仍受切块、片上容量、量化格式和工作区影响。下半图固定Decode请求数N为200，在标准全Attention及其他条件相同的构造例中，将每请求有效上下文从2K改为32K，历史可见范围及逻辑KV元素总规模变为16倍。橙色长条由16个等份组成，短条为其中1份。该比例不表示实测时间或HBM流量的比例。矩阵仅作形状示意。</desc>
+<metadata>参照本章3.1与3.2；矩阵计算与理想数据量：https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html 。性能与流量边界：https://docs.nvidia.com/deeplearning/performance/dl-performance-gpu-background/ 。N=200及上下文2K/32K为同条件教学构造。</metadata>
+<rect width="960" height="680" rx="16" fill="#fff"/>
+
+<text x="28" y="40" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:27px;font-weight:700;fill:#233954">输入行数影响权重复用，上下文长度影响历史 KV</text>
+<rect x="29" y="62" width="14" height="14" rx="2" fill="#e8f0fc" stroke="#476eaa" stroke-width="1.4"/>
+<text x="52" y="76" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#315f9b">蓝色：权重读取</text>
+<rect x="272" y="62" width="14" height="14" rx="2" fill="#efbc6c" stroke="#8d570b" stroke-width="1.4"/>
+<text x="295" y="76" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#8d570b">橙色：历史 KV 读取</text>
+<rect x="22" y="99" width="916" height="255" rx="10" fill="#fcfdff" stroke="#c0cad8" stroke-width="1.2"/>
+<text x="41" y="132" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:23px;font-weight:700;fill:#233954">线性层 Y=XW：五行输入共用一份 W</text>
+<text x="47" y="162" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:21px;font-weight:600;fill:#315f9b">T=1</text>
+<text x="519" y="162" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:21px;font-weight:600;fill:#315f9b">T=5</text>
+<text x="95" y="197" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#233954" text-anchor="middle">X [1,H]</text>
+<rect x="52" y="214" width="86" height="18" rx="0" fill="#eff2f6" stroke="#6f7f95" stroke-width="1.4"/>
+<line x1="73.5" y1="214" x2="73.5" y2="232" stroke="#6f7f95" stroke-width="1"/>
+<line x1="95" y1="214" x2="95" y2="232" stroke="#6f7f95" stroke-width="1"/>
+<line x1="116.5" y1="214" x2="116.5" y2="232" stroke="#6f7f95" stroke-width="1"/>
+<text x="172" y="236" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:26px;font-weight:400;fill:#233954" text-anchor="middle">×</text>
+<text x="254" y="178" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#315f9b" text-anchor="middle">W [H,F]</text>
+<rect x="210" y="190" width="88" height="88" rx="0" fill="#e8f0fc" stroke="#476eaa" stroke-width="1.4"/>
+<line x1="210" y1="207.6" x2="298" y2="207.6" stroke="#476eaa" stroke-width="1"/>
+<line x1="210" y1="225.2" x2="298" y2="225.2" stroke="#476eaa" stroke-width="1"/>
+<line x1="210" y1="242.8" x2="298" y2="242.8" stroke="#476eaa" stroke-width="1"/>
+<line x1="210" y1="260.4" x2="298" y2="260.4" stroke="#476eaa" stroke-width="1"/>
+<line x1="227.6" y1="190" x2="227.6" y2="278" stroke="#476eaa" stroke-width="1"/>
+<line x1="245.2" y1="190" x2="245.2" y2="278" stroke="#476eaa" stroke-width="1"/>
+<line x1="262.8" y1="190" x2="262.8" y2="278" stroke="#476eaa" stroke-width="1"/>
+<line x1="280.4" y1="190" x2="280.4" y2="278" stroke="#476eaa" stroke-width="1"/>
+<line x1="310" y1="231" x2="348" y2="231" stroke="#476eaa" stroke-width="2"/>
+<polygon points="348,231 340,227 340,235" fill="#476eaa"/>
+<text x="398" y="197" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#233954" text-anchor="middle">Y [1,F]</text>
+<rect x="358" y="214" width="80" height="18" rx="0" fill="#eff2f6" stroke="#6f7f95" stroke-width="1.4"/>
+<line x1="378" y1="214" x2="378" y2="232" stroke="#6f7f95" stroke-width="1"/>
+<line x1="398" y1="214" x2="398" y2="232" stroke="#6f7f95" stroke-width="1"/>
+<line x1="418" y1="214" x2="418" y2="232" stroke="#6f7f95" stroke-width="1"/>
+<text x="561" y="178" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#233954" text-anchor="middle">X [5,H]</text>
+<rect x="519" y="194" width="84" height="85" rx="0" fill="#eff2f6" stroke="#6f7f95" stroke-width="1.4"/>
+<line x1="519" y1="211" x2="603" y2="211" stroke="#6f7f95" stroke-width="1"/>
+<line x1="519" y1="228" x2="603" y2="228" stroke="#6f7f95" stroke-width="1"/>
+<line x1="519" y1="245" x2="603" y2="245" stroke="#6f7f95" stroke-width="1"/>
+<line x1="519" y1="262" x2="603" y2="262" stroke="#6f7f95" stroke-width="1"/>
+<line x1="540" y1="194" x2="540" y2="279" stroke="#6f7f95" stroke-width="1"/>
+<line x1="561" y1="194" x2="561" y2="279" stroke="#6f7f95" stroke-width="1"/>
+<line x1="582" y1="194" x2="582" y2="279" stroke="#6f7f95" stroke-width="1"/>
+<text x="635" y="236" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:26px;font-weight:400;fill:#233954" text-anchor="middle">×</text>
+<text x="714" y="178" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#315f9b" text-anchor="middle">同一 W</text>
+<rect x="670" y="190" width="88" height="88" rx="0" fill="#e8f0fc" stroke="#476eaa" stroke-width="1.4"/>
+<line x1="670" y1="207.6" x2="758" y2="207.6" stroke="#476eaa" stroke-width="1"/>
+<line x1="670" y1="225.2" x2="758" y2="225.2" stroke="#476eaa" stroke-width="1"/>
+<line x1="670" y1="242.8" x2="758" y2="242.8" stroke="#476eaa" stroke-width="1"/>
+<line x1="670" y1="260.4" x2="758" y2="260.4" stroke="#476eaa" stroke-width="1"/>
+<line x1="687.6" y1="190" x2="687.6" y2="278" stroke="#476eaa" stroke-width="1"/>
+<line x1="705.2" y1="190" x2="705.2" y2="278" stroke="#476eaa" stroke-width="1"/>
+<line x1="722.8" y1="190" x2="722.8" y2="278" stroke="#476eaa" stroke-width="1"/>
+<line x1="740.4" y1="190" x2="740.4" y2="278" stroke="#476eaa" stroke-width="1"/>
+<line x1="771" y1="231" x2="811" y2="231" stroke="#476eaa" stroke-width="2"/>
+<polygon points="811,231 803,227 803,235" fill="#476eaa"/>
+<text x="866" y="178" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#233954" text-anchor="middle">Y [5,F]</text>
+<rect x="827" y="194" width="78" height="85" rx="0" fill="#eff2f6" stroke="#6f7f95" stroke-width="1.4"/>
+<line x1="827" y1="211" x2="905" y2="211" stroke="#6f7f95" stroke-width="1"/>
+<line x1="827" y1="228" x2="905" y2="228" stroke="#6f7f95" stroke-width="1"/>
+<line x1="827" y1="245" x2="905" y2="245" stroke="#6f7f95" stroke-width="1"/>
+<line x1="827" y1="262" x2="905" y2="262" stroke="#6f7f95" stroke-width="1"/>
+<line x1="846.5" y1="194" x2="846.5" y2="279" stroke="#6f7f95" stroke-width="1"/>
+<line x1="866" y1="194" x2="866" y2="279" stroke="#6f7f95" stroke-width="1"/>
+<line x1="885.5" y1="194" x2="885.5" y2="279" stroke="#6f7f95" stroke-width="1"/>
+<text x="41" y="311" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#315f9b">理想单次读取：同一份 W 的读取，摊给 1 行或 5 行计算。</text>
+<text x="41" y="340" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">实际流量还受切块、片上容量、量化格式和工作区影响。</text>
+<rect x="22" y="370" width="916" height="253" rx="10" fill="#fcfdff" stroke="#c0cad8" stroke-width="1.2"/>
+<text x="41" y="404" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:23px;font-weight:700;fill:#233954">全 Attention：同为 200 条 Decode，历史 KV 规模可不同</text>
+<text x="41" y="435" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">标准全 Attention，其余条件相同；每条请求分别看 2K 或 32K 历史。</text>
+<text x="42" y="485" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#233954">N=200，S=2K</text>
+<rect x="300" y="461" width="36" height="32" rx="2" fill="#efbc6c" stroke="#8d570b" stroke-width="1.5"/>
+<text x="353" y="484" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#8d570b">1 份</text>
+<text x="42" y="538" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#233954">N=200，S=32K</text>
+<rect x="300" y="514" width="576" height="32" rx="2" fill="#efbc6c" stroke="#8d570b" stroke-width="1.5"/>
+<line x1="336" y1="515" x2="336" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<line x1="372" y1="515" x2="372" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<line x1="408" y1="515" x2="408" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<line x1="444" y1="515" x2="444" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<line x1="480" y1="515" x2="480" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<line x1="516" y1="515" x2="516" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<line x1="552" y1="515" x2="552" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<line x1="588" y1="515" x2="588" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<line x1="624" y1="515" x2="624" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<line x1="660" y1="515" x2="660" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<line x1="696" y1="515" x2="696" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<line x1="732" y1="515" x2="732" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<line x1="768" y1="515" x2="768" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<line x1="804" y1="515" x2="804" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<line x1="840" y1="515" x2="840" y2="545" stroke="#8d570b" stroke-width="1.2"/>
+<text x="41" y="578" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#8d570b">ΣSᵢ：200×2K → 200×32K，逻辑 KV 元素总规模 ×16。</text>
+<text x="41" y="608" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">×16 只指逻辑规模，不表示实测时间或 HBM 流量也 ×16。</text>
+<text x="28" y="657" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">矩阵未按维度比例绘制；KV 条长只对照逻辑历史范围。</text>
+</svg>

@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="1220" viewBox="0 0 960 1220" role="img" aria-labelledby="title desc">
+  <title id="title">跨轮重排：Device 采样 Token 如何进入本批输入</title>
+  <desc id="desc">上一批请求顺序为 A、B、C，Device 的有效采样结果分别为 a9、b6、无有效输出。本批请求顺序为 B、D、A，当前请求行到上一批请求行的映射为 1、负1、0，query 长度为 1、2、1，边界为 0、1、3、4。绿色箭头将 B 的旧请求行1中的 b6 写入新 Token 行0，蓝色箭头将 A 的旧请求行0中的 a9 写入新 Token 行3。D 是新请求，Host 经 H2D 将 Prompt d0、d1 写入新 Token 行1、2。最终输入为 b6、d0、d1、a9，位置为6、0、1、9。Device 通过 gather/scatter 按映射补齐 Decode 行，无需先把这些采样 Token 读回 Host。Host 仍上传计划、映射和 Prompt，最终输出 D2H 仍会发生，执行仍依赖真实 Token 就绪。</desc>
+  <defs>
+    <style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif}</style>
+    <marker id="arrow-a" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7Z" fill="#1d4ed8"/></marker>
+    <marker id="arrow-b" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7Z" fill="#0f766e"/></marker>
+    <marker id="arrow-d" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7Z" fill="#b45309"/></marker>
+    <marker id="arrow-plan" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7Z" fill="#64748b"/></marker>
+  </defs>
+  <rect width="960" height="1220" rx="20" fill="#f8fafc"/>
+  <text x="32" y="48" font-size="28" fill="#172b4d" font-weight="700">跨轮重排：真实 Token 在 Device 上接续</text>
+  <text x="32" y="80" font-size="18" fill="#475569">先按请求映射找到上一批采样结果，再写入本批对应的 Token 行。</text>
+
+  <rect x="32" y="104" width="896" height="242" rx="12" fill="#fff" stroke="#cbd5e1"/>
+  <text x="56" y="140" font-size="22" fill="#172b4d" font-weight="700">Host：先排好本批 [B, D, A]</text>
+  <text x="56" y="183" font-size="20" fill="#172b4d">current → prev = [1, −1, 0]</text>
+  <text x="56" y="225" font-size="20" fill="#172b4d">query 长度 = [1, 2, 1]</text>
+  <text x="56" y="267" font-size="20" fill="#172b4d">query_start_loc = [0, 1, 3, 4]</text>
+  <text x="56" y="307" font-size="18" fill="#475569">−1 表示 D 是新请求，不能读取上一批的采样行。</text>
+  <text x="56" y="332" font-size="18" fill="#475569">current / prev 是请求行号，不是扁平输入的 Token 行号。</text>
+  <rect x="640" y="160" width="264" height="154" rx="10" fill="#fff7ed" stroke="#d6aa79"/>
+  <text x="662" y="192" font-size="21" fill="#b45309" font-weight="700">D 的新 Prompt</text>
+  <text x="772" y="231" font-size="26" fill="#b45309" font-weight="700" text-anchor="middle">[d0, d1]</text>
+  <text x="662" y="268" font-size="18" fill="#b45309">Host 经 H2D 填入本批</text>
+  <text x="662" y="295" font-size="19" fill="#b45309">Token row 1、2</text>
+
+  <path d="M438 346V355" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow-plan)"/>
+  <rect x="370" y="358" width="136" height="57" rx="8" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="438" y="381" font-size="18" fill="#475569" font-weight="600" text-anchor="middle">计划 / 索引</text>
+  <text x="438" y="405" font-size="18" fill="#475569" font-weight="600" text-anchor="middle">H2D</text>
+  <path d="M438 415V424" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow-plan)"/>
+  <rect x="370" y="427" width="136" height="63" rx="8" fill="#ecfdf5" stroke="#99c9bf"/>
+  <text x="438" y="446" font-size="18" fill="#0f766e" font-weight="600" text-anchor="middle">Device 内</text>
+  <text x="438" y="466" font-size="18" fill="#0f766e" font-weight="600" text-anchor="middle">gather /</text>
+  <text x="438" y="486" font-size="18" fill="#0f766e" font-weight="600" text-anchor="middle">scatter</text>
+
+  <rect x="32" y="402" width="330" height="342" rx="12" fill="#fff" stroke="#cbd5e1"/>
+  <text x="54" y="434" font-size="21" fill="#172b4d" font-weight="700">上一批：Device 采样结果</text>
+  <text x="54" y="464" font-size="18" fill="#475569">请求行顺序：[A, B, C]</text>
+  <rect x="60" y="482" width="274" height="60" rx="8" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2"/>
+  <text x="78" y="519" font-size="19" fill="#1d4ed8" font-weight="650">row 0 · A</text>
+  <text x="266" y="520" font-size="27" fill="#1d4ed8" font-weight="700" text-anchor="middle">a9</text>
+  <rect x="60" y="562" width="274" height="60" rx="8" fill="#e6f4f1" stroke="#0f766e" stroke-width="2"/>
+  <text x="78" y="599" font-size="19" fill="#0f766e" font-weight="650">row 1 · B</text>
+  <text x="266" y="600" font-size="27" fill="#0f766e" font-weight="700" text-anchor="middle">b6</text>
+  <rect x="60" y="642" width="274" height="60" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-dasharray="5 4"/>
+  <text x="78" y="679" font-size="19" fill="#64748b" font-weight="600">row 2 · C</text>
+  <text x="208" y="679" font-size="18" fill="#64748b">无有效输出</text>
+  <text x="60" y="728" font-size="18" fill="#64748b">C 的 Prompt 尚未完成。</text>
+
+  <rect x="514" y="402" width="414" height="438" rx="12" fill="#fff" stroke="#cbd5e1"/>
+  <text x="536" y="434" font-size="22" fill="#172b4d" font-weight="700">本批：最终 input_ids</text>
+  <text x="536" y="464" font-size="18" fill="#475569">请求顺序：[B, D, A]，共 4 行</text>
+  <rect x="534" y="482" width="370" height="60" rx="8" fill="#e6f4f1" stroke="#0f766e" stroke-width="2"/>
+  <text x="550" y="519" font-size="19" fill="#0f766e" font-weight="650">row 0 · B</text>
+  <text x="728" y="520" font-size="27" fill="#0f766e" font-weight="700" text-anchor="middle">b6</text>
+  <text x="810" y="519" font-size="19" fill="#0f766e">pos 6</text>
+  <rect x="534" y="566" width="370" height="60" rx="8" fill="#fff7ed" stroke="#b45309" stroke-width="2"/>
+  <text x="550" y="603" font-size="19" fill="#b45309" font-weight="650">row 1 · D</text>
+  <text x="728" y="604" font-size="27" fill="#b45309" font-weight="700" text-anchor="middle">d0</text>
+  <text x="810" y="603" font-size="19" fill="#b45309">pos 0</text>
+  <rect x="534" y="650" width="370" height="60" rx="8" fill="#fff7ed" stroke="#b45309" stroke-width="2"/>
+  <text x="550" y="687" font-size="19" fill="#b45309" font-weight="650">row 2 · D</text>
+  <text x="728" y="688" font-size="27" fill="#b45309" font-weight="700" text-anchor="middle">d1</text>
+  <text x="810" y="687" font-size="19" fill="#b45309">pos 1</text>
+  <rect x="534" y="734" width="370" height="60" rx="8" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2"/>
+  <text x="550" y="771" font-size="19" fill="#1d4ed8" font-weight="650">row 3 · A</text>
+  <text x="728" y="772" font-size="27" fill="#1d4ed8" font-weight="700" text-anchor="middle">a9</text>
+  <text x="810" y="771" font-size="19" fill="#1d4ed8">pos 9</text>
+  <text x="536" y="822" font-size="18" fill="#475569">row 在此指打包后的 Token 行。</text>
+
+  <path d="M334 592H426V512H534" fill="none" stroke="#0f766e" stroke-width="3" stroke-linejoin="round" marker-end="url(#arrow-b)"/>
+  <path d="M534 512L520 505V519Z" fill="#0f766e"/>
+  <text x="444" y="507" font-size="18" fill="#0f766e" font-weight="700">B → 0</text>
+  <path d="M60 512H46V808H492V764H534" fill="none" stroke="#1d4ed8" stroke-width="3" stroke-linejoin="round" marker-end="url(#arrow-a)"/>
+  <path d="M534 764L520 757V771Z" fill="#1d4ed8"/>
+  <text x="64" y="799" font-size="18" fill="#1d4ed8" font-weight="650">A：旧请求 row 0 → 新 Token row 3</text>
+  <path d="M904 238H944V680" fill="none" stroke="#b45309" stroke-width="3" stroke-linejoin="round"/>
+  <circle cx="944" cy="596" r="4" fill="#b45309"/>
+  <path d="M944 596H904" fill="none" stroke="#b45309" stroke-width="3" marker-end="url(#arrow-d)"/>
+  <path d="M944 680H904" fill="none" stroke="#b45309" stroke-width="3" marker-end="url(#arrow-d)"/>
+  <path d="M904 596L918 589V603Z" fill="#b45309"/>
+  <path d="M904 680L918 673V687Z" fill="#b45309"/>
+  <text x="56" y="858" font-size="18" fill="#475569">Device 的 gather/scatter 补齐 Decode 行；Host 的 H2D 填入新 Prompt 行。</text>
+
+  <rect x="32" y="878" width="896" height="118" rx="12" fill="#fff" stroke="#cbd5e1"/>
+  <text x="56" y="913" font-size="21" fill="#172b4d" font-weight="700">交给模型的是真实输入，不是 Host 的占位 ID</text>
+  <text x="56" y="949" font-size="22" fill="#172b4d" font-weight="600">input_ids = [b6, d0, d1, a9]</text>
+  <text x="56" y="982" font-size="22" fill="#172b4d" font-weight="600">positions = [6, 0, 1, 9]</text>
+
+  <rect x="32" y="1016" width="896" height="156" rx="12" fill="#eff6ff" stroke="#bfd2ef"/>
+  <text x="56" y="1050" font-size="22" fill="#1d4ed8" font-weight="700">省掉的是 A / B 的采样 Token 先回 Host、再送回 Device 的往返</text>
+  <text x="56" y="1085" font-size="18" fill="#172b4d">Host 仍上传计划、请求映射、query 边界及 D 的新 Prompt。</text>
+  <text x="56" y="1117" font-size="18" fill="#172b4d">最终输出 D2H 仍用于返回、停止判断与请求状态更新。</text>
+  <text x="56" y="1149" font-size="18" fill="#172b4d">下一轮仍依赖真实采样结果就绪；这不表示“所有同步都消失”。</text>
+  <text x="32" y="1201" font-size="18" fill="#475569">教学示意：a9 / b6 / d0 / d1 是 Token 名称，不是实际词表 ID。</text>
+</svg>
