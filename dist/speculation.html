@@ -1,17 +1,71 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="投机解码：调度、元数据与流式时延：沿输入字段、状态记账和源码调用定位推理性能问题。"><title>投机解码：调度、元数据与流式时延 · Inference Wiki</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="reading.css"><link rel="stylesheet" href="chapters.css"><script defer src="chapter.js"></script><link rel="stylesheet" href="spec.css?rev=d608872a"><script defer src="spec-model.js?rev=a97f8c8b"></script><script defer src="spec-app.js?rev=fe1c9d0d"></script></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="投机解码：调度、元数据与流式时延：沿输入字段、状态记账和源码调用定位推理性能问题。"><title>投机解码：调度、元数据与流式时延 · Inference Wiki</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="reading.css"><link rel="stylesheet" href="chapters.css"><script defer src="chapter.js"></script><link rel="stylesheet" href="spec.css?rev=3ca6f992"><link rel="stylesheet" href="spec-scene.css?rev=7953b9c5"><script defer src="spec-model.js?rev=211532b8"></script><script defer src="spec-scene.js?rev=0019672c"></script><script defer src="spec-app.js?rev=a6432a21"></script></head>
 <body><div class="reading-progress" id="readingProgress"></div>
 <aside class="sidebar" id="sidebar"><a class="brand" href="index.html"><span class="brand-mark"><i></i><i></i><i></i></span><span>Inference<span class="brand-sub">图解推理系统</span></span><b>WIKI</b></a><button class="search-trigger" data-search>搜索本章 <kbd>⌘ K</kbd></button><div class="nav-group-label">学习篇章</div><nav class="main-nav" aria-label="学习篇章"><a href="index.html">01　调度、PD 与 KV</a><a href="execution.html">02　从一轮调度到一次前向</a><a href="speculation.html" class="active" aria-current="page">03　投机解码：调度、元数据与流式时延</a></nav><div class="nav-group-label resources-label">本章目录</div><nav class="main-nav chapter-nav" aria-label="本章目录"><a href="#spec-player">投机验证播放器</a><a href="#spec-stream">流式指标实验室</a><a href="#speculation-1">1. 验证开始前，R 手里已经有什么？</a><a href="#speculation-2">2. 把四行送进 Target，第三个候选在哪里被拒绝？</a><a href="#speculation-3">3. 提交三个输出后，下一轮不能从长度 12 接着算</a><a href="#speculation-4">4. 源码怎样从接受结果找到正确的采样行？</a><a href="#speculation-5">5. Host 已排下一轮，Device 怎样纠正 R 的位置？</a><a href="#speculation-6">6. 三次接收事件，为什么能算出两种时延？</a><a href="#speculation-7">7. 先排除发送分组，再解释客户端停顿</a><a href="#speculation-8">8. 沿同一个输出定位客户端停顿</a><a href="#speculation-9">9. 核对有效 KV 与客户端时延</a></nav><div class="sidebar-bottom">字段、调用链与 Trace 排查</div></aside>
 <div class="page-shell"><header class="topbar"><button class="mobile-menu" id="menuToggle" aria-label="展开目录" aria-expanded="false">☰</button><div class="breadcrumb"><a href="index.html">推理系统</a><span>/</span><strong>投机解码：调度、元数据与流式时延</strong></div><a class="source-link" href="speculation.md" download>下载本章 Markdown ↗</a></header>
 <main><header class="chapter-hero"><div class="eyebrow">INFERENCE SYSTEMS / 源码与排查</div><h1>投机解码<br><span>与流式指标</span></h1><div class="hero-actions"><a class="primary-button" href="#spec-player">逐步看接受与回退 →</a><a class="text-button" href="#spec-stream">对照 ITL 与 TPOT ↓</a></div></header><div class="article-layout"><article class="chapter-article"><p>上一章里，一条普通 Decode 请求通常只给本轮增加一行输入。现在让它一次带来三个候选：目标模型算了四行，最后提交三个输出。调度进度该加几？下一轮从哪里开始？如果客户端一次收到三个 Token，ITL 又在量哪段时间？</p>
 <p>这章只追踪一条请求 R：K=3，前两个候选接受，第三个拒绝。先把这次执行的账算清，再沿源码看结果怎样传到下一轮。图和播放器都是构造例，时间线也不代表设备实测。</p>
 <section class="lesson observed" id="speculation-1" data-title="1. 验证开始前，R 手里已经有什么？"><h2>1. 验证开始前，R 手里已经有什么？</h2>
-<p>R 的目标模型 KV 已覆盖位置 0～7。最后一次采样得到 t0，位置为 8；它已经确认输出，却还没作为目标模型输入计算自己的 KV。我们把它叫作本轮 anchor。Draft 沿 t0 继续提出 d1、d2、d3。</p>
-<pre class="source-code"><code>已确认、已有目标 KV：位置 0 … 7
-已确认、尚无目标 KV：t0@8
-尚待验证的候选：    d1@9、d2@10、d3@11</code></pre>
-<p>输出确认、目标 KV 和候选验证有各自的进度，需要分别记录。t0 已经确认，不能再算作本轮新输出；但本轮目标计算仍然要处理它，才能得到验证 d1 的分布。客户端何时收到它，是后半章另外一条时间线。</p>
-<p>提议路径可以是独立草稿模型，也可以复用目标模型的预测头或其他机制。下面只取一条因果候选链，不把某种提议器的内部布局当成通用规范。<a class="inline-source" href="https://docs.vllm.ai/en/latest/features/speculative_decoding/" target="_blank" rel="noopener">投机解码概览</a></p>
+<p>Target 的 KV 已覆盖位置 0～7。上一次采样得到 t0@8，已经确认输出；但 Target 还没有把 t0 当作输入计算它自己的 KV。Draft 从 t0 开始，依次提出 d1、d2、d3。下面把这条候选链拆成八步播放。</p>
+<section class="spec-lab" id="spec-player" aria-labelledby="spec-player-title">
+  <div class="spec-lab-heading">
+    <span class="spec-eyebrow">SVG 动画 · 单链贪心构造例</span>
+    <h3 id="spec-player-title">一轮投机，哪些 token 真正留下来？</h3>
+    <p>固定本轮 K＝3，从 t0 开始逐个提出候选，再看一次 Target 验证与下一轮接续。可拖动进度或点击步骤。</p>
+  </div>
+  <div class="spec-controls">
+    <label for="spec-accepted">连续接受长度 a
+      <select id="spec-accepted"><option value="0">0：第一个就不匹配</option><option value="1">1：接受 d1</option><option value="2" selected>2：接受 d1、d2</option><option value="3">3：全部接受</option></select>
+    </label>
+    <div class="spec-buttons" role="group" aria-label="投机事件播放">
+      <button type="button" id="spec-prev">上一步</button>
+      <button type="button" id="spec-play" aria-pressed="false">播放</button>
+      <button type="button" id="spec-next">下一步</button>
+      <button type="button" id="spec-reset">重置</button>
+    </div>
+  </div>
+  <ol class="spec-stage-list" id="spec-stages" aria-label="八个投机事件"></ol>
+  <div class="spec-progress"><label for="spec-progress">播放进度</label><input id="spec-progress" type="range" min="0" max="7" step="1" value="0" aria-label="投机解码播放进度"><output id="spec-progress-label" for="spec-progress">1 / 8</output></div>
+  <div class="spec-scene-options"><span>图中按角色显示依赖；完整泳道可横向滚动。</span><button type="button" id="spec-toggle-view" aria-pressed="false">展开完整泳道</button></div>
+  <div id="spec-scene" class="spec-scene-wrap" tabindex="0" role="region" aria-label="投机解码SVG过程与教学泳道；窄屏可横向滚动"></div>
+  <div class="spec-live" aria-live="polite" aria-atomic="true">
+    <h4 id="spec-event-title">① 先分清已输出的 t0 与已有 Target KV</h4>
+    <p id="spec-event-note"></p>
+  </div>
+  <details class="spec-field-details"><summary>展开本轮 Token、KV 与 metadata 字段</summary>
+  <div class="spec-board" aria-label="Target KV 和本轮输入">
+    <div class="spec-board-row"><p class="spec-row-label">已有 Target KV<span>位置 0–7</span></p><div class="spec-token-row" id="spec-prefix"></div></div>
+    <div class="spec-board-row"><p class="spec-row-label">本轮输入位置<span>t0 已确认；d 是候选</span></p><div class="spec-token-row" id="spec-query"></div></div>
+    <div class="spec-board-row"><p class="spec-row-label">新提交的输出<span>不重复发送已输出的 t0</span></p><div class="spec-token-row" id="spec-output"></div></div>
+  </div>
+  <div class="spec-metadata" id="spec-metadata" aria-label="本轮 Metadata"></div>
+  <div class="spec-stat-grid" id="spec-stats"></div>
+  <p class="spec-boundary" id="spec-kv-boundary"></p>
+  </details>
+  <p class="spec-footnote">泳道只有相对先后，色块宽度不表示实测耗时。不同角色可运行在同一设备，具体 stream 和 rank 由部署决定。这是记账演示：手选 a 不表示接受概率；事件不等时，也不预测速度。x 刚被采样出来，尚未作为 Target 输入，不能算入已有 Target KV。</p>
+  <div class="spec-continuation" aria-labelledby="spec-continuation-title">
+    <h4 id="spec-continuation-title">下一轮 metadata 预览（按所选接受长度推算）</h4>
+    <p>上一轮固定 K＝3，用接受长度 a 纠正下一轮的起点；新的 K 决定这次有多少行 Query。预览使用上方选定的 a，不随播放步骤变化。</p>
+    <div class="spec-controls"><label for="spec-next-k">下一轮候选数 K
+      <select id="spec-next-k"><option value="0">0：只计算 anchor x</option><option value="1" selected>1：x + e1</option><option value="3">3：x + e1、e2、e3</option></select>
+    </label></div>
+    <div class="spec-continuation-result" aria-live="polite" aria-atomic="true">
+      <p class="spec-boundary" id="spec-continuation-correction"></p>
+      <div id="spec-continuation-metadata"></div>
+      <p class="spec-continuation-address" id="spec-continuation-address"></p>
+    </div>
+    <p class="spec-footnote">沿用 B＝4、块表 [7, 2, 9, 10] 的寻址示例。这里对照的是输入与地址，不模拟后端性能，也不决定应采用哪种投机策略。</p>
+  </div>
+  <noscript><p>可展开下方“完整过程”阅读静态 SVG 图解；播放器需要 JavaScript。</p></noscript>
+</section>
+
+
+<p>先停在起点，比较“已确认输出”与“已有 Target KV”；再逐步生成候选，观察 Target 怎样一次计算四行。默认连续接受两个候选：本轮新输出为 <code>[d1,d2,x]</code>，有效 Target KV 到位置 10；x@11 留到下一轮输入。切换接受长度后，输出和 KV 边界会一起变化。</p>
+<details class="chapter-figure-details"><summary>一图回看完整过程 · 下载可编辑 SVG</summary><figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/speculative-cycle.svg?rev=f8bb7470" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="1190" src="assets/speculative-cycle.svg?rev=f8bb7470" alt="K=3、a=2：从已确认但尚无自身Target KV的t0，经逐个提议、四行验证，接到下一轮x" loading="lazy"></a><figcaption>K=3、a=2：从已确认但尚无自身Target KV的t0，经逐个提议、四行验证，接到下一轮x<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure></details>
+<h3>1.1 对照提供的 profiling 原图</h3>
+<p>工作坊中的 <code>draft-model-graph-mode-fixed.png</code> 展示了真实 Ascend 设备时间线：左侧可读到 Stream 371、372 等标签，同一横轴上分布着多行密集事件。上方播放器借用这种泳道组织方式，把 Host 准备、Draft 提议、Target 验证分别画出来，便于追踪依赖；角色行不代表三个独立设备，也未使用截图中的 stream 编号。</p>
+<details class="chapter-figure-details"><summary>展开工作坊 profiling 原图 · 可放大查看 stream</summary><figure class="diagram-figure technical-figure raster-figure"><a class="diagram-expand" href="assets/profile-draft-graph.png?rev=4d34321f" target="_blank" rel="noopener" title="打开完整原图（PNG）"><img width="1651" height="494" src="assets/profile-draft-graph.png?rev=4d34321f" alt="原图（PNG）：工作坊原始设备时间线，可辨认stream标签与事件分布；截图未标注Draft/Target分界、候选数或接受数" loading="lazy"></a><figcaption>原图（PNG）：工作坊原始设备时间线，可辨认stream标签与事件分布；截图未标注Draft/Target分界、候选数或接受数<em>原图（PNG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure></details>
+<p>截图中的色块不能直接对应动画中的 d1、d2、d3。要从实际采集还原同一轮，需要同时记录请求与轮号、Draft／Target 的执行范围，以及接受结果。这里的 K=3、a=2 是教学条件；原图用来展示真实时间线的形态，不据它计算加速比。<a class="inline-source" href="assets/profile-sources.json">素材来源与校验信息</a></p>
 </section>
 <section class="lesson observed" id="speculation-2" data-title="2. 把四行送进 Target，第三个候选在哪里被拒绝？"><h2>2. 把四行送进 Target，第三个候选在哪里被拒绝？</h2>
 <p>本例的目标输入和 Metadata 可以写成：</p>
@@ -50,54 +104,6 @@ index_to_sample = query_end - 1 - rejected</code></pre>
 <p>还要区分源码里的两种累计数组：候选数的累计和不带开头的零，两条请求分别有 3、1 个候选时，它是 <code>[3,4]</code>；本轮 query 边界若各自带一个 anchor，则是 <code>[0,4,6]</code>。前者用于还原 K，后者用于找 batch 中的行。把两者混用，会得到看似合法却属于另一条请求的索引。</p>
 <p>读计数变量也要沿生产者核对。本例 a=2 是接受的草稿数，<code>valid_count=3</code> 是有效采样输出数，不能看到名字里有 accepted 就都代入 2。这里公式中的额外 1 已经包含纠正或 bonus；再次补一个会把采样索引向前多退一行。源码还对没有候选的请求把拒绝数置零，避免把普通 Prefill／Decode 行套进这次投机回退。</p>
 </section>
-<section class="spec-lab" id="spec-player" aria-labelledby="spec-player-title">
-  <div class="spec-lab-heading">
-    <span class="spec-eyebrow">单链贪心 · 构造例</span>
-    <h3 id="spec-player-title">一轮投机，哪些 token 真正留下来？</h3>
-    <p>固定 K＝3。手选连续接受的候选数，看 Query、临时 KV 和最终输出怎样分开记账。</p>
-  </div>
-  <div class="spec-controls">
-    <label for="spec-accepted">连续接受长度 a
-      <select id="spec-accepted"><option value="0">0：第一个就不匹配</option><option value="1">1：接受 d1</option><option value="2" selected>2：接受 d1、d2</option><option value="3">3：全部接受</option></select>
-    </label>
-    <div class="spec-buttons" role="group" aria-label="投机事件播放">
-      <button type="button" id="spec-prev">上一步</button>
-      <button type="button" id="spec-play" aria-pressed="false">播放</button>
-      <button type="button" id="spec-next">下一步</button>
-      <button type="button" id="spec-reset">重置</button>
-    </div>
-  </div>
-  <ol class="spec-stage-list" id="spec-stages" aria-label="四个事件"></ol>
-  <div class="spec-live" aria-live="polite" aria-atomic="true">
-    <h4 id="spec-event-title">① Draft：先提出 3 个候选</h4>
-    <p id="spec-event-note"></p>
-  </div>
-  <div class="spec-board" aria-label="Target KV 和本轮输入">
-    <div class="spec-board-row"><p class="spec-row-label">已有 Target KV<span>位置 0–7</span></p><div class="spec-token-row" id="spec-prefix"></div></div>
-    <div class="spec-board-row"><p class="spec-row-label">本轮输入位置<span>t0 已确认；d 是候选</span></p><div class="spec-token-row" id="spec-query"></div></div>
-    <div class="spec-board-row"><p class="spec-row-label">新提交的输出<span>不重复计算已输出的 t0</span></p><div class="spec-token-row" id="spec-output"></div></div>
-  </div>
-  <div class="spec-metadata" id="spec-metadata" aria-label="本轮 Metadata"></div>
-  <div class="spec-stat-grid" id="spec-stats"></div>
-  <p class="spec-boundary" id="spec-kv-boundary"></p>
-  <p class="spec-footnote">这是记账演示：手选 a 不表示接受概率；事件不等时，也不预测速度。x 刚被采样出来，尚未作为 Target 输入，不能算入已有 Target KV。</p>
-  <div class="spec-continuation" aria-labelledby="spec-continuation-title">
-    <h4 id="spec-continuation-title">下一轮 metadata 预览（按所选接受长度推算）</h4>
-    <p>上一轮固定 K＝3，用接受长度 a 纠正下一轮的起点；新的 K 决定这次有多少行 Query。预览使用上方选定的 a，不随播放步骤变化。</p>
-    <div class="spec-controls"><label for="spec-next-k">下一轮候选数 K
-      <select id="spec-next-k"><option value="0">0：只计算 anchor x</option><option value="1" selected>1：x + e1</option><option value="3">3：x + e1、e2、e3</option></select>
-    </label></div>
-    <div class="spec-continuation-result" aria-live="polite" aria-atomic="true">
-      <p class="spec-boundary" id="spec-continuation-correction"></p>
-      <div id="spec-continuation-metadata"></div>
-      <p class="spec-continuation-address" id="spec-continuation-address"></p>
-    </div>
-    <p class="spec-footnote">沿用 B＝4、块表 [7, 2, 9, 10] 的寻址示例。这里对照的是输入与地址，不模拟后端性能，也不决定应采用哪种投机策略。</p>
-  </div>
-  <noscript><p>交互演示需要启用 JavaScript。正文和图解仍可阅读。</p></noscript>
-</section>
-
-
 <section class="lesson observed" id="speculation-5" data-title="5. Host 已排下一轮，Device 怎样纠正 R 的位置？"><h2>5. Host 已排下一轮，Device 怎样纠正 R 的位置？</h2>
 <h3>5.1 接受结果先确定下一轮的起点</h3>
 <p>异步调度允许 Host 在上一轮结果尚未完整回传时安排下一轮。Host 可以按候选全接受估计容量和批形状；Device 执行前，R 的起点必须从上界 12 纠正为有效 KV 长度 11，才能输入 x@11。</p>

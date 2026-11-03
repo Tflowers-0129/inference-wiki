@@ -23,12 +23,19 @@ test('each accepted prefix preserves KV/output boundaries and candidate conserva
   }
 });
 
-test('the four events separate draft, metadata, verification, and commitment', () => {
+test('eight events follow candidate dependencies before target verification and continuation', () => {
   const frames = model.frames(2);
-  assert.deepEqual(frames.map(frame => frame.key), ['draft', 'metadata', 'verify', 'commit']);
-  assert.deepEqual(frames.map(frame => frame.hasMetadata), [false, true, true, true]);
-  assert.deepEqual(frames.map(frame => frame.hasVerification), [false, false, true, true]);
-  assert.deepEqual(frames.map(frame => frame.committed), [false, false, false, true]);
+  assert.deepEqual(frames.map(frame => frame.key), ['anchor', 'draft-1', 'draft-2', 'draft-3', 'metadata', 'verify', 'commit', 'next']);
+  assert.deepEqual(frames.map(frame => frame.proposedCount), [0, 1, 2, 3, 3, 3, 3, 3]);
+  assert.deepEqual(frames.map(frame => frame.hasMetadata), [false, false, false, false, true, true, true, true]);
+  assert.deepEqual(frames.map(frame => frame.hasVerification), [false, false, false, false, false, true, true, true]);
+  assert.deepEqual(frames.map(frame => frame.committed), [false, false, false, false, false, false, true, true]);
+  for (let a = 0; a <= 3; a++) {
+    const variant = model.frames(a);
+    assert.equal(variant.length, 8);
+    assert.equal(variant[6].result.emittedCount, a + 1);
+    assert.equal(variant[7].result.extraToken.hasTargetKv, false);
+  }
   assert.throws(() => model.verification(-1), RangeError);
   assert.throws(() => model.verification(4), RangeError);
   assert.throws(() => model.verification(1.5), RangeError);

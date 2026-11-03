@@ -64,10 +64,13 @@ def render_markdown(source, key):
     parts, headings, paragraph = [], [], []
     section_open = False
     injected = {}
+    spec_player = ""
+    figure_summary = None
     if key == 'speculation':
         fragment = (ROOT / 'scripts' / 'spec-player.html').read_text(encoding='utf-8')
         split = fragment.index('<section class="spec-lab" id="spec-stream"')
-        injected = {'5.': fragment[:split], '7.': fragment[split:]}
+        spec_player = fragment[:split]
+        injected = {'7.': fragment[split:]}
 
     def flush():
         if paragraph:
@@ -79,6 +82,10 @@ def render_markdown(source, key):
         line = lines[i].strip()
         if not line:
             flush(); i += 1; continue
+        if line == '<!-- SPEC_PLAYER -->':
+            flush(); parts.append(spec_player); i += 1; continue
+        if match := re.fullmatch(r'<!-- COLLAPSIBLE_FIGURE: (.+) -->', line):
+            flush(); figure_summary = match.group(1); i += 1; continue
         if line.startswith('```'):
             flush(); code = []; i += 1
             while i < len(lines) and not lines[i].strip().startswith('```'):
@@ -101,7 +108,11 @@ def render_markdown(source, key):
                 parts.append('<h3>' + inline(title) + '</h3>')
             i += 1; continue
         if match := re.fullmatch(r'!\[([^\]]*)\]\(([^)]+)\)', line):
-            flush(); parts.append(figure(*match.groups())); i += 1; continue
+            flush(); rendered = figure(*match.groups())
+            if figure_summary:
+                rendered = '<details class="chapter-figure-details"><summary>' + html.escape(figure_summary) + '</summary>' + rendered + '</details>'
+                figure_summary = None
+            parts.append(rendered); i += 1; continue
         if line.startswith('>'):
             flush(); quote = []
             while i < len(lines) and lines[i].strip().startswith('>'):
@@ -142,7 +153,7 @@ def build_chapters():
         chapter_nav = '<a href="index.html">01　调度、PD 与 KV</a>' + ''.join(f'<a href="{slug}.html"' + (' class="active" aria-current="page"' if slug == key else '') + f'>{number:02d}　{html.escape(label)}</a>' for number, (slug, _, label, _) in enumerate(CHAPTERS, 2))
         if key == 'speculation':
             player_links = '<a href="#spec-player">投机验证播放器</a><a href="#spec-stream">流式指标实验室</a>'
-            extra = f'<link rel="stylesheet" href="{asset_url("spec.css")}"><script defer src="{asset_url("spec-model.js")}"></script><script defer src="{asset_url("spec-app.js")}"></script>'
+            extra = f'<link rel="stylesheet" href="{asset_url("spec.css")}"><link rel="stylesheet" href="{asset_url("spec-scene.css")}"><script defer src="{asset_url("spec-model.js")}"></script><script defer src="{asset_url("spec-scene.js")}"></script><script defer src="{asset_url("spec-app.js")}"></script>'
             next_link = '<a href="execution.html">← 回看一次前向</a>'
             action = '<a class="primary-button" href="#spec-player">逐步看接受与回退 →</a><a class="text-button" href="#spec-stream">对照 ITL 与 TPOT ↓</a>'
         else:

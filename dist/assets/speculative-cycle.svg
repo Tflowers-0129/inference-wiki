@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1190" viewBox="0 0 1120 1190" role="img" aria-labelledby="title desc">
+<title id="title">一次投机解码：三个候选接受两个，输出与 Target KV 怎样接续</title>
+<desc id="desc">K等于3、a等于2的单请求贪心构造例。开始时有效Target KV覆盖位置0至7，位置8的t0已经确认输出但还没有自己的Target KV。Draft沿t0依次提出d1位置9、d2位置10、d3位置11。Target一次输入t0、d1、d2、d3四行，每行只读取历史及截至本行的输入。t0行logits验证d1，d1行验证d2，两者接受；d2行用于验证d3，拒绝d3并采样纠正Token x，位置11。d3行即使计算完成也不采用。本轮新输出为d1、d2、x；有效Target KV仅保留位置0至10，包括本轮输入t0、d1、d2的KV。d3位置11的KV失效，x位置11还没有自己的Target KV。下一轮需把x位置11作为输入，才能计算x自己的状态。此图不包含性能数据，也不表示所有投机方案使用同一种输入布局。</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#6080a9" /></marker>
+  <marker id="arrow-muted" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#a3afbf" /></marker>
+</defs>
+<rect width="1120" height="1190" rx="18" fill="#fff" />
+
+<text x="28" y="40" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:28px;font-weight:700;fill:#223855">一次投机验证：算四行，确认三个新输出</text>
+<text x="28" y="72" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">K=3 · 连续接受 a=2 个候选 · 单请求、单候选链的贪心构造例</text>
+<rect x="29" y="91" width="14" height="14" rx="3" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="52" y="104" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:400;fill:#526780">已确认 / 有效 Target KV</text>
+<rect x="304" y="91" width="14" height="14" rx="3" fill="#edf3ff" stroke="#7c9fd8" stroke-width="1.2" />
+<text x="327" y="104" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:400;fill:#526780">待验证候选</text>
+<rect x="524" y="91" width="14" height="14" rx="3" fill="#fff4de" stroke="#d7ae63" stroke-width="1.2" />
+<text x="547" y="104" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:400;fill:#526780">已确认，尚无自身 Target KV</text>
+<rect x="875" y="91" width="14" height="14" rx="3" fill="#fff0ee" stroke="#d29692" stroke-width="1.2" />
+<text x="898" y="104" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:400;fill:#526780">失效 / 不采用</text>
+<rect x="22" y="124" width="1076" height="146" rx="10" fill="#fcfdff" stroke="#d4deeb" stroke-width="1.2" />
+<circle cx="47" cy="152" r="16" fill="#234c82" />
+<text x="47" y="158" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:700;fill:#fff" text-anchor="middle">1</text>
+<text x="77" y="159" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:22px;font-weight:700;fill:#223855">开始：Target KV 到位置 7，t0@8 已确认</text>
+<text x="41" y="198" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">历史状态</text>
+<rect x="166" y="174" width="52" height="39" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="192" y="199.5" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#237b61" text-anchor="middle">0</text>
+<rect x="228" y="174" width="52" height="39" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="254" y="199.5" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#237b61" text-anchor="middle">1</text>
+<rect x="290" y="174" width="52" height="39" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="316" y="199.5" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#237b61" text-anchor="middle">2</text>
+<rect x="352" y="174" width="52" height="39" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="378" y="199.5" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#237b61" text-anchor="middle">3</text>
+<rect x="414" y="174" width="52" height="39" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="440" y="199.5" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#237b61" text-anchor="middle">4</text>
+<rect x="476" y="174" width="52" height="39" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="502" y="199.5" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#237b61" text-anchor="middle">5</text>
+<rect x="538" y="174" width="52" height="39" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="564" y="199.5" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#237b61" text-anchor="middle">6</text>
+<rect x="600" y="174" width="52" height="39" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="626" y="199.5" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#237b61" text-anchor="middle">7</text>
+<line x1="680" y1="167" x2="680" y2="220" stroke="#d4deeb" stroke-width="1.3" stroke-dasharray="4 4" />
+<rect x="709" y="174" width="142" height="39" rx="6" fill="#fff4de" stroke="#d7ae63" stroke-width="1.2" />
+<text x="780" y="199.5" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#9b6513" text-anchor="middle">t0 @ 8</text>
+<text x="870" y="188" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#9b6513">已确认输出</text>
+<text x="870" y="213" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:400;fill:#9b6513">尚无自身 Target KV</text>
+<text x="166" y="232" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:400;fill:#237b61">位置 0…7：已有 Target KV</text>
+<text x="41" y="254" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">上一轮采样得到 t0，只确定了它的值；本轮输入 t0，才会生成它自己的 Target KV。</text>
+<rect x="22" y="284" width="1076" height="133" rx="10" fill="#fcfdff" stroke="#d4deeb" stroke-width="1.2" />
+<circle cx="47" cy="312" r="16" fill="#234c82" />
+<text x="47" y="318" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:700;fill:#fff" text-anchor="middle">2</text>
+<text x="77" y="319" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:22px;font-weight:700;fill:#223855">Draft 沿 t0 依次提出三个候选</text>
+<rect x="166" y="337" width="160" height="39" rx="6" fill="#fff4de" stroke="#d7ae63" stroke-width="1.2" />
+<text x="246" y="362.5" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#9b6513" text-anchor="middle">t0 @ 8</text>
+<rect x="398" y="337" width="160" height="39" rx="6" fill="#edf3ff" stroke="#7c9fd8" stroke-width="1.2" />
+<text x="478" y="362.5" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#4c7ecb" text-anchor="middle">d1 @ 9</text>
+<rect x="630" y="337" width="160" height="39" rx="6" fill="#edf3ff" stroke="#7c9fd8" stroke-width="1.2" />
+<text x="710" y="362.5" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#4c7ecb" text-anchor="middle">d2 @ 10</text>
+<rect x="862" y="337" width="160" height="39" rx="6" fill="#edf3ff" stroke="#7c9fd8" stroke-width="1.2" />
+<text x="942" y="362.5" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#4c7ecb" text-anchor="middle">d3 @ 11</text>
+<line x1="335" y1="356" x2="388" y2="356" stroke="#4c7ecb" stroke-width="2" />
+<polygon points="388,356 380,351.5 380,360.5" fill="#4c7ecb" /><line x1="567" y1="356" x2="620" y2="356" stroke="#4c7ecb" stroke-width="2" />
+<polygon points="620,356 612,351.5 612,360.5" fill="#4c7ecb" /><line x1="799" y1="356" x2="852" y2="356" stroke="#4c7ecb" stroke-width="2" />
+<polygon points="852,356 844,351.5 844,360.5" fill="#4c7ecb" /><text x="41" y="400" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">d1、d2、d3 尚待 Target 验证；箭头表示这条候选链的依赖顺序。</text>
+<rect x="22" y="431" width="1076" height="344" rx="10" fill="#fcfdff" stroke="#d4deeb" stroke-width="1.2" />
+<circle cx="47" cy="459" r="16" fill="#234c82" />
+<text x="47" y="465" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:700;fill:#fff" text-anchor="middle">3</text>
+<text x="77" y="466" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:22px;font-weight:700;fill:#223855">Target 一次输入：[t0, d1, d2, d3]，位置为 [8, 9, 10, 11]</text>
+<text x="42" y="492" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">每行生成自身 KV；该行 logits 预测下一个位置，用来验证右侧候选。</text>
+<text x="75" y="524" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#526780">Target 输入行</text>
+<text x="420" y="524" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#526780">这行 logits 验证谁？</text>
+<text x="820" y="524" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#526780">验证结果</text>
+<rect x="67" y="542" width="174" height="36" rx="6" fill="#fff4de" stroke="#d7ae63" stroke-width="1.2" />
+<text x="154" y="566" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#9b6513" text-anchor="middle">t0 @ 8</text>
+<line x1="254" y1="560" x2="390" y2="560" stroke="#4c7ecb" stroke-width="1.8" />
+<polygon points="390,560 382,555.5 382,564.5" fill="#4c7ecb" /><text x="322" y="553" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:15px;font-weight:400;fill:#526780" text-anchor="middle">logits</text>
+<rect x="414" y="542" width="239" height="36" rx="6" fill="#edf3ff" stroke="#7c9fd8" stroke-width="1.2" />
+<text x="533.5" y="566" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#4c7ecb" text-anchor="middle">d1 @ 9</text>
+<line x1="666" y1="560" x2="752" y2="560" stroke="#4c7ecb" stroke-width="1.8" />
+<polygon points="752,560 744,555.5 744,564.5" fill="#4c7ecb" /><rect x="773" y="542" width="298" height="36" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="922" y="566" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#237b61" text-anchor="middle">接受 d1</text>
+<line x1="42" y1="585" x2="1077" y2="585" stroke="#e8edf5" stroke-width="1.4" />
+<rect x="67" y="593" width="174" height="36" rx="6" fill="#edf3ff" stroke="#7c9fd8" stroke-width="1.2" />
+<text x="154" y="617" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#4c7ecb" text-anchor="middle">d1 @ 9</text>
+<line x1="254" y1="611" x2="390" y2="611" stroke="#4c7ecb" stroke-width="1.8" />
+<polygon points="390,611 382,606.5 382,615.5" fill="#4c7ecb" /><text x="322" y="604" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:15px;font-weight:400;fill:#526780" text-anchor="middle">logits</text>
+<rect x="414" y="593" width="239" height="36" rx="6" fill="#edf3ff" stroke="#7c9fd8" stroke-width="1.2" />
+<text x="533.5" y="617" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#4c7ecb" text-anchor="middle">d2 @ 10</text>
+<line x1="666" y1="611" x2="752" y2="611" stroke="#4c7ecb" stroke-width="1.8" />
+<polygon points="752,611 744,606.5 744,615.5" fill="#4c7ecb" /><rect x="773" y="593" width="298" height="36" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="922" y="617" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#237b61" text-anchor="middle">接受 d2</text>
+<line x1="42" y1="636" x2="1077" y2="636" stroke="#e8edf5" stroke-width="1.4" />
+<rect x="67" y="644" width="174" height="36" rx="6" fill="#edf3ff" stroke="#7c9fd8" stroke-width="1.2" />
+<text x="154" y="668" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#4c7ecb" text-anchor="middle">d2 @ 10</text>
+<line x1="254" y1="662" x2="390" y2="662" stroke="#4c7ecb" stroke-width="1.8" />
+<polygon points="390,662 382,657.5 382,666.5" fill="#4c7ecb" /><text x="322" y="655" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:15px;font-weight:400;fill:#526780" text-anchor="middle">logits</text>
+<rect x="414" y="644" width="239" height="36" rx="6" fill="#edf3ff" stroke="#7c9fd8" stroke-width="1.2" />
+<text x="533.5" y="668" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#4c7ecb" text-anchor="middle">d3 @ 11</text>
+<line x1="666" y1="662" x2="752" y2="662" stroke="#4c7ecb" stroke-width="1.8" />
+<polygon points="752,662 744,657.5 744,666.5" fill="#4c7ecb" /><rect x="773" y="644" width="298" height="36" rx="6" fill="#fff4de" stroke="#d7ae63" stroke-width="1.2" />
+<text x="922" y="668" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#9b6513" text-anchor="middle">拒绝 d3；采样 x @ 11</text>
+<line x1="438" y1="653" x2="630" y2="671" stroke="#b44e4e" stroke-width="1.3" />
+<line x1="42" y1="687" x2="1077" y2="687" stroke="#e8edf5" stroke-width="1.4" />
+<rect x="67" y="695" width="174" height="36" rx="6" fill="#f0f3f8" stroke="#bcc8d7" stroke-width="1.2" />
+<text x="154" y="719" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:19px;font-weight:600;fill:#718297" text-anchor="middle">d3 @ 11</text>
+<line x1="254" y1="713" x2="390" y2="713" stroke="#a3afbf" stroke-width="1.8" />
+<polygon points="390,713 382,708.5 382,717.5" fill="#a3afbf" /><text x="322" y="706" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:15px;font-weight:400;fill:#8593a6" text-anchor="middle">logits</text>
+<rect x="414" y="695" width="239" height="36" rx="6" fill="#f0f3f8" stroke="#bcc8d7" stroke-width="1.2" />
+<text x="533.5" y="719" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#718297" text-anchor="middle">若全接受：bonus @ 12</text>
+<line x1="666" y1="713" x2="752" y2="713" stroke="#a3afbf" stroke-width="1.8" />
+<polygon points="752,713 744,708.5 744,717.5" fill="#a3afbf" /><rect x="773" y="695" width="298" height="36" rx="6" fill="#f0f3f8" stroke="#bcc8d7" stroke-width="1.2" />
+<text x="922" y="719" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#718297" text-anchor="middle">本例不采用</text>
+<text x="42" y="757" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:400;fill:#526780">d3 行即使已算完，也建立在被拒绝的输入上，不能接入正确历史。</text>
+<rect x="22" y="789" width="1076" height="213" rx="10" fill="#fcfdff" stroke="#d4deeb" stroke-width="1.2" />
+<circle cx="47" cy="817" r="16" fill="#234c82" />
+<text x="47" y="823" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:700;fill:#fff" text-anchor="middle">4</text>
+<text x="77" y="824" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:22px;font-weight:700;fill:#223855">回收结果：输出确认与有效 Target KV 的边界不同</text>
+<text x="42" y="850" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">本轮新输出：[d1, d2, x]；有效 Target KV：位置 0…10，长度 11。</text>
+<text x="295" y="877" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:400;fill:#526780" text-anchor="middle">位置 0…7</text>
+<text x="479" y="877" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:400;fill:#526780" text-anchor="middle">位置 8</text>
+<text x="626" y="877" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:400;fill:#526780" text-anchor="middle">位置 9</text>
+<text x="773" y="877" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:400;fill:#526780" text-anchor="middle">位置 10</text>
+<text x="962.5" y="877" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:400;fill:#526780" text-anchor="middle">位置 11</text>
+<text x="42" y="916" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#526780">确认输出</text>
+<text x="42" y="963" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:600;fill:#526780">Target KV</text>
+<rect x="194" y="890" width="202" height="36" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="295" y="914" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#237b61" text-anchor="middle">此前已确认</text>
+<rect x="414" y="890" width="130" height="36" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="479" y="914" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#237b61" text-anchor="middle">t0（旧）</text>
+<rect x="561" y="890" width="130" height="36" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="626" y="914" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#237b61" text-anchor="middle">d1（新增）</text>
+<rect x="708" y="890" width="130" height="36" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="773" y="914" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#237b61" text-anchor="middle">d2（新增）</text>
+<rect x="855" y="890" width="215" height="36" rx="6" fill="#fff4de" stroke="#d7ae63" stroke-width="1.2" />
+<text x="962.5" y="914" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#9b6513" text-anchor="middle">x（新增）</text>
+<rect x="194" y="938" width="202" height="36" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="295" y="962" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#237b61" text-anchor="middle">已有 8 个位置</text>
+<rect x="414" y="938" width="130" height="36" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="479" y="962" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#237b61" text-anchor="middle">t0 的 KV</text>
+<rect x="561" y="938" width="130" height="36" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="626" y="962" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#237b61" text-anchor="middle">d1 的 KV</text>
+<rect x="708" y="938" width="130" height="36" rx="6" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
+<text x="773" y="962" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#237b61" text-anchor="middle">d2 的 KV</text>
+<rect x="855" y="934" width="215" height="44" rx="6" fill="#fff0ee" stroke="#d29692" stroke-width="1.2" />
+<text x="962.5" y="952" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:600;fill:#b44e4e" text-anchor="middle">d3 的 KV 失效</text>
+<text x="962.5" y="970" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:600;fill:#9b6513" text-anchor="middle">x 尚无自身 Target KV</text>
+<text x="42" y="991" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:400;fill:#526780">t0 不重复计入新输出；位置 11 算过 d3，不代表 x 已经有 KV。</text>
+<rect x="22" y="1016" width="1076" height="126" rx="10" fill="#fcfdff" stroke="#d4deeb" stroke-width="1.2" />
+<circle cx="47" cy="1044" r="16" fill="#234c82" />
+<text x="47" y="1050" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:700;fill:#fff" text-anchor="middle">5</text>
+<text x="77" y="1051" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:22px;font-weight:700;fill:#223855">下一轮：把 x@11 作为 Target 输入</text>
+<rect x="68" y="1071" width="197" height="39" rx="6" fill="#fff4de" stroke="#d7ae63" stroke-width="1.2" />
+<text x="166.5" y="1096.5" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:21px;font-weight:600;fill:#9b6513" text-anchor="middle">x @ 11</text>
+<line x1="279" y1="1090" x2="373" y2="1090" stroke="#4c7ecb" stroke-width="2" />
+<polygon points="373,1090 365,1085.5 365,1094.5" fill="#4c7ecb" /><text x="395" y="1095" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:20px;font-weight:600;fill:#223855">读取有效历史 0…10，计算 x 自己的 Target KV。</text>
+<text x="42" y="1126" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">若继续投机，可在 x 后接新候选；这里先标出接续起点。</text>
+<text x="28" y="1174" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:400;fill:#526780">构造例：未触发 EOS 或长度上限。图中状态为逻辑有效范围，未画内存分块与提议器内部缓存。</text>
+</svg>

@@ -8,11 +8,11 @@
 
 网页不依赖前端框架、外部字体或脚本。克隆仓库后即可在本地预览；运行时只需要 Python 3。模型测试另需 Node.js 18 或更新版本。
 
-新增两篇由 Markdown 生成的图解网页：从调度到一次前向（输入组织、metadata、算子与访存、KV 地址、图提交与 Trace、metadata 同步与跨轮异步调度），以及投机解码（候选验证、KV 有效范围、成组输出与 ITL/TPOT）。投机实验室可逐步播放接受/回退，并比较逐 Token、成组与代理缓冲三种发送场景。网页不展示具体引擎发行编号。
+新增两篇由 Markdown 生成的图解网页：从调度到一次前向（输入组织、metadata、算子与访存、KV 地址、图提交与 Trace、metadata 同步与跨轮异步调度），以及投机解码（候选验证、KV 有效范围、成组输出与 ITL/TPOT）。投机章开头的 SVG 播放器沿八个步骤展示起点、逐个提议、四行验证、提交回退与下一轮输入，配合静态完整流程图和工作坊 profiling 原图阅读；实验室另比较逐 Token、成组与代理缓冲三种发送场景。网页不展示具体引擎发行编号。
 
 第二、三篇按字段和执行现场展开：先走通五 Token 的输入与 KV 地址，再查 Host/Device 对账、CPU 输入缓冲复用和跨轮提交；投机章沿 K=3、a=2 的同一份账本追到 padded 输入和客户端指标。metadata 部分从投机候选数追到验证后的有效 KV，再切换下一轮 K=0/1/3，对照 query 边界、位置和块寻址；Host / Device 的等待分别解释数据冲突与消费者依赖。每处源码片段注明调用路径，Trace 排查给出可区分的证据，不把机制示例写成实测经验。
 
-工作坊素材仅在格式转换与 KV 启动容量的对应讲解处采用两张原图。PD 的交接依赖由播放器与简短说明呈现。正文区分 P/D 实例池、本地 KV 块池和共享 KV 缓存池，以 QPS 推导配比，并分别计算 KDA 和 Lightning Indexer + DSA 的状态、缓存与交接带宽。抢占按分配失败、解除引用、重排队与重算恢复解释；播放器区分本轮执行量与轮末四类请求状态。
+工作坊素材在格式转换、KV 启动容量和投机章真实设备时间线的对应讲解处采用三张原图。PD 的交接依赖由播放器与简短说明呈现。正文区分 P/D 实例池、本地 KV 块池和共享 KV 缓存池，以 QPS 推导配比，并分别计算 KDA 和 Lightning Indexer + DSA 的状态、缓存与交接带宽。抢占按分配失败、解除引用、重排队与重算恢复解释；播放器区分本轮执行量与轮末四类请求状态。
 
 [素材来源清单](dist/assets/profile-sources.json) 保存源文件名、上传提交、Git blob 校验值、采用位置及重绘依据；源仓库为私有，站内图片已本地保存，阅读站点不需要源仓库权限。公开仓库和下载包只含挑选的图片与新写分析。
 
@@ -57,7 +57,7 @@ python3 scripts/serve.py --port 4174
 - `dist/chapter.js`、`dist/chapters.css`：新篇章的目录、搜索与排版。
 - `scripts/spec-player.html`：投机交互面板源片段。
 - `dist/assets/*.svg`：矢量图源与 favicon，可直接编辑。
-- `dist/assets/profile-*.png`：格式转换与 KV 启动容量的原始截图；`profile-sources.json` 保存来源。
+- `dist/assets/profile-*.png`：格式转换、KV 启动容量与设备时间线的原始截图；`profile-sources.json` 保存来源。
 - `scripts/image_assets.py`：本地图源校验、PNG/SVG 尺寸与可移植链接处理。
 - `dist/index.html`、`dist/style.css`：网页讲解、布局与样式。
 - `dist/model.js`、`dist/app.js`：混部调度模型与播放器。

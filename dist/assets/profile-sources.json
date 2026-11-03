@@ -24,7 +24,26 @@
       "asset": "assets/profile-kv-capacity.png",
       "handling": "original",
       "observation": "启动规划容量及长度假设下的并发估算，非实时剩余容量。"
+    },
+    {
+      "source_name": "draft-model-graph-mode-fixed.png",
+      "git_blob_sha": "8798974ca6ee1c547bfcd734535791fbe3cc771c",
+      "source_url": "https://github.com/Tflowers-0129/module-all-in-one-business-workshop/blob/37f0a3e7c84c349669c71db7908905ac7a0b049a/draft-model-graph-mode-fixed.png",
+      "uploaded_at": "2026-11-01T13:25:17Z",
+      "bytes": 590114,
+      "asset": "assets/profile-draft-graph.png",
+      "handling": "original",
+      "observation": "可辨认Ascend stream标签及设备事件分布；没有Draft/Target边界、rank或接受数，不与K=3教学动画逐事件对齐。"
     }
   ],
-  "selection_note": "仅收录直接说明当前正文机制或口径的两张原图；不据局部截图推断优化因果或绘制未证实后态。"
+  "selection_note": "收录直接说明格式转换、KV启动容量以及设备profiling时间线形态的原图。投机动画与泳道为独立教学构造，不用原图推断接受率、加速比或未标出的rank。",
+  "derived": [
+    {
+      "asset": "assets/speculative-cycle.svg",
+      "basis": [
+        "https://proceedings.mlr.press/v202/leviathan23a.html"
+      ],
+      "status": "单请求K=3、a=2的贪心教学构造；区分确认输出、目标KV与下一轮输入，不是实测Trace。"
+    }
+  ]
 }

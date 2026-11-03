@@ -1,0 +1,7 @@
+.spec-scene-wrap{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;margin:20px 0;border-radius:12px;background:#fff;scrollbar-gutter:stable}
+.spec-scene-wrap:focus-visible{outline:3px solid #1d4ed8;outline-offset:3px}
+.spec-scene-svg{display:block;width:100%;min-width:1050px;height:auto;max-width:none}
+.spec-scene-svg.spec-scene-compact-svg{width:100%;min-width:0;max-width:100%;height:auto}
+.spec-scene-svg .spec-scene-token,.spec-scene-svg .spec-scene-phase{transition:opacity .16s ease}
+@media(prefers-reduced-motion:reduce){.spec-scene-svg *{animation:none!important;transition:none!important}}
+@media(max-width:640px){.spec-scene-wrap{margin:16px 0;border-radius:8px}}

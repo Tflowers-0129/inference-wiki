@@ -8,7 +8,8 @@
   let index = 0;
   let events = model.frames(accepted);
   let timer = null;
-  const stageNames = ['Draft', '组 Metadata', '并行验证', '提交与回退'];
+  const scene = globalThis.WikiSpecScene;
+  let fullScene = false;
 
   function node(tag, className, text) {
     const element = document.createElement(tag);
@@ -57,15 +58,35 @@
     byId('spec-play').textContent = '播放';
     byId('spec-play').setAttribute('aria-pressed', 'false');
   }
+  function renderScene() {
+    if (!scene) return;
+    const host = byId('spec-scene');
+    const useFull = fullScene || host.clientWidth >= 1050;
+    const draw = !useFull && scene.renderCompact ? scene.renderCompact : scene.render;
+    host.innerHTML = draw(events[index], Number(byId('spec-next-k').value));
+    host.dataset.layout = useFull ? 'full' : 'compact';
+    byId('spec-toggle-view').textContent = fullScene ? '返回自适应图示' : '展开完整泳道';
+    byId('spec-toggle-view').setAttribute('aria-pressed', String(fullScene));
+  }
   function render() {
     const frame = events[index];
     const result = frame.result;
     const stages = byId('spec-stages');
-    stages.replaceChildren(...stageNames.map((name, i) => {
-      const item = node('li', i === index ? 'is-current' : i < index ? 'is-complete' : '', `${i + 1} ${name}`);
-      if (i === index) item.setAttribute('aria-current', 'step');
+    stages.replaceChildren(...events.map((event, i) => {
+      const item = node('li', i === index ? 'is-current' : i < index ? 'is-complete' : '');
+      const jump = node('button', '', `${i + 1} ${event.shortTitle}`);
+      jump.type = 'button';
+      jump.setAttribute('aria-label', `跳到第 ${i + 1} 步：${event.shortTitle}`);
+      if (i === index) jump.setAttribute('aria-current', 'step');
+      jump.addEventListener('click', () => {stop(); index = i; render();});
+      item.append(jump);
       return item;
     }));
+    byId('spec-progress').max = events.length - 1;
+    byId('spec-progress').value = index;
+    byId('spec-progress').setAttribute('aria-valuetext', events[index].shortTitle);
+    byId('spec-progress-label').textContent = `${index + 1} / ${events.length}`;
+    renderScene();
     byId('spec-event-title').textContent = frame.title;
     byId('spec-event-note').textContent = frame.note;
     byId('spec-prev').disabled = index === 0;
@@ -73,13 +94,14 @@
 
     byId('spec-prefix').replaceChildren(...Array.from({length: 8}, (_, i) => token(`h${i}`, i, 'valid', '有效 KV')));
     const query = [token('t0', 8, frame.hasVerification ? 'valid' : 'anchor', frame.hasVerification ? '有效 KV' : '待计算 KV')];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < frame.proposedCount; i++) {
       const acceptedHere = i < accepted;
       const status = frame.hasVerification ? acceptedHere ? 'valid' : frame.committed ? 'invalid' : 'reject' : 'draft';
       const label = frame.hasVerification ? acceptedHere ? '接受 · KV 有效' : frame.committed ? '逻辑作废' : '不提交' : 'Draft 候选';
       query.push(token(`d${i + 1}`, i + 9, status, label));
     }
     byId('spec-query').replaceChildren(...query);
+    if (!frame.proposedCount) byId('spec-query').append(node('span', 'spec-empty', '尚未提出候选'));
     const output = byId('spec-output');
     if (frame.committed) {
       output.replaceChildren(...result.acceptedTokens.map((label, i) => token(label, i + 9, 'valid', '已提交 · 有 KV')),
@@ -99,7 +121,7 @@
       pairs.forEach(([term, value]) => list.append(node('dt', '', term), node('dd', '', value)));
       metadata.append(list);
     } else {
-      metadata.append(node('p', 'spec-empty', '下一事件才建立 Target 本轮 Metadata；候选的生成不等于 Target 已计算这些位置。'));
+      metadata.append(node('p', 'spec-empty', '候选生成完后再打包 Target 输入；当前仍只有前缀的 Target KV。'));
     }
     byId('spec-stats').replaceChildren(
       stat('本轮 Target Query', frame.hasMetadata ? 4 : '待组装', frame.hasMetadata ? '行；不是 4 个有效新输出' : ''),
@@ -111,13 +133,16 @@
       ? `提交后下一位置是 ${result.extraToken.position}：这里的 x 已确认输出，但没有 Target KV。${result.invalidTailLength ? '它将替换同一逻辑位置上被拒绝的候选，后续无效位置也不能作为历史读取。' : '它在最后一个已接受候选之后，留待下一轮计算。'}`
       : '本例始终区分三件事：候选已提出、Target 已计算 KV、输出已确认提交。';
   }
+  byId('spec-toggle-view').addEventListener('click', () => {fullScene = !fullScene; renderScene();});
+  window.addEventListener('resize', renderScene);
   byId('spec-prev').addEventListener('click', () => {stop(); index = Math.max(0, index - 1); render();});
   byId('spec-next').addEventListener('click', () => {stop(); index = Math.min(events.length - 1, index + 1); render();});
   byId('spec-reset').addEventListener('click', () => {stop(); index = 0; render();});
   byId('spec-accepted').addEventListener('change', event => {
     stop(); accepted = Number(event.target.value); events = model.frames(accepted); index = 0; render(); renderContinuation();
   });
-  byId('spec-next-k').addEventListener('change', renderContinuation);
+  byId('spec-next-k').addEventListener('change', () => {renderContinuation(); render();});
+  byId('spec-progress').addEventListener('input', event => {stop(); index = Number(event.target.value); render();});
   byId('spec-play').addEventListener('click', () => {
     if (timer !== null) {stop(); return;}
     if (index === events.length - 1) {index = 0; render();}
