@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1120" viewBox="0 0 1120 1120" role="img" aria-labelledby="title desc">
+  <title id="title">完整历史、TopK 和 resident slot 是三件事</title>
+  <desc id="desc">稀疏 KV 卸载的教学算例。Host 保存完整 Main MLA KV，Device 保留完整 indexer 历史和每层固定容量的 resident 主 KV 工作集。本轮逻辑 TopK 为 5、9、13、20，映射到 resident slot 1、2、0、3。以 block size 4 为例，逻辑 token 13 先查 block table 第 3 项得到 Host block 5，再加块内偏移 1，读 Host physical token slot 21，并把 miss 数据复制到 resident slot 0。复制不会删除 Host 中的完整 KV。</desc>
+  <defs>
+    <style>
+      text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;fill:#172b4d}
+      .title{font-size:28px;font-weight:700}
+      .head{font-size:22px;font-weight:700}
+      .label{font-size:18px}
+      .small{font-size:17px;fill:#475569}
+      .number{font-size:23px;font-weight:700;text-anchor:middle}
+      .hit{fill:#0f766e}
+      .miss{fill:#9a3412}
+      .blue{fill:#1d4ed8}
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" markerWidth="9" markerHeight="9" refX="9" refY="5" orient="auto"><path d="M1 1L9 5L1 9" fill="none" stroke="#1d4ed8" stroke-width="1.6"/></marker>
+    <marker id="muted-arrow" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto"><path d="M1 1L9 5L1 9" fill="none" stroke="#475569" stroke-width="1.6"/></marker>
+  </defs>
+  <rect width="1120" height="1120" rx="20" fill="#f8fafc"/>
+  <text x="32" y="47" class="title">完整历史、TopK 和 resident slot，是三件事</text>
+  <text x="32" y="81" class="label" fill="#475569">教学算例：一层、一个请求；TopK 数量 K=4，resident 容量 C=6。</text>
+
+  <rect x="32" y="112" width="480" height="342" rx="12" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+  <text x="54" y="150" class="head blue">Host：完整 Main MLA KV</text>
+  <text x="54" y="184" class="label">本轮没选中的历史 KV，也继续保留。</text>
+  <text x="54" y="223" class="small">完整历史中的 token（仅展开部分）</text>
+  <g class="number">
+    <rect x="54" y="239" width="58" height="54" rx="6" fill="#fff" stroke="#64748b"/>
+    <text x="83" y="274">0</text>
+    <rect x="124" y="239" width="58" height="54" rx="6" fill="#fff" stroke="#64748b"/>
+    <text x="153" y="274">1</text>
+    <text x="213" y="274">…</text>
+    <rect x="244" y="239" width="66" height="54" rx="6" fill="#fff7ed" stroke="#b45309" stroke-width="2"/>
+    <text x="277" y="274" class="miss">13</text>
+    <text x="345" y="274">…</text>
+    <rect x="384" y="239" width="66" height="54" rx="6" fill="#fff" stroke="#64748b"/>
+    <text x="417" y="274">21</text>
+  </g>
+  <text x="54" y="334" class="label">这些是逻辑位置；Host 按物理块组织 KV。</text>
+  <text x="54" y="371" class="small">block_table 把请求的逻辑块映到 Host 块。</text>
+  <text x="54" y="419" class="label blue">完整历史长度 ≠ 本轮 K</text>
+
+  <rect x="544" y="112" width="544" height="342" rx="12" fill="#fff" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="566" y="150" class="head">Device：两种不同的缓存</text>
+  <rect x="566" y="169" width="500" height="104" rx="8" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="586" y="200" class="label blue">完整 indexer 历史仍在 Device</text>
+  <text x="586" y="234" class="small">Indexer 选出逻辑 TopK：[5, 9, 13, 20]</text>
+  <rect x="566" y="290" width="500" height="142" rx="8" fill="#f0fdfa" stroke="#5f9b92"/>
+  <text x="586" y="321" class="label hit">当前层 resident：Main KV 的局部工作集</text>
+  <text x="586" y="351" class="small">slot</text>
+  <g class="small" text-anchor="middle">
+    <text x="678" y="351">0</text><text x="746" y="351">1</text><text x="814" y="351">2</text>
+    <text x="882" y="351">3</text><text x="950" y="351">4</text><text x="1018" y="351">5</text>
+  </g>
+  <text x="586" y="392" class="small">token</text>
+  <g class="number">
+    <rect x="648" y="365" width="60" height="43" rx="5" fill="#fff7ed" stroke="#b45309" stroke-width="2"/><text x="678" y="394" class="miss">13</text>
+    <rect x="716" y="365" width="60" height="43" rx="5" fill="#ccfbf1" stroke="#0f766e"/><text x="746" y="394" class="hit">5</text>
+    <rect x="784" y="365" width="60" height="43" rx="5" fill="#ccfbf1" stroke="#0f766e"/><text x="814" y="394" class="hit">9</text>
+    <rect x="852" y="365" width="60" height="43" rx="5" fill="#fff7ed" stroke="#b45309" stroke-width="2"/><text x="882" y="394" class="miss">20</text>
+    <rect x="920" y="365" width="60" height="43" rx="5" fill="#f1f5f9" stroke="#64748b"/><text x="950" y="394">18</text>
+    <rect x="988" y="365" width="60" height="43" rx="5" fill="#f1f5f9" stroke="#64748b"/><text x="1018" y="394">21</text>
+  </g>
+  <path d="M272 455V502H810V455" fill="none" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="331" y="476" width="410" height="25" fill="#f8fafc"/>
+  <text x="536" y="495" text-anchor="middle" class="label blue">只复制 miss：13、20；Host 副本仍保留</text>
+
+  <text x="32" y="551" class="head">TopK 给出“要哪个 token”；attention 还要知道“它在哪个 slot”</text>
+  <rect x="32" y="575" width="1056" height="206" rx="12" fill="#fff" stroke="#cbd5e1"/>
+  <text x="54" y="621" class="label">本轮 TopK（逻辑位置）</text>
+  <text x="54" y="713" class="label">current_slots（resident 地址）</text>
+  <g class="number">
+    <rect x="489" y="589" width="104" height="52" rx="6" fill="#ccfbf1" stroke="#0f766e"/><text x="541" y="623" class="hit">5</text>
+    <rect x="637" y="589" width="104" height="52" rx="6" fill="#ccfbf1" stroke="#0f766e"/><text x="689" y="623" class="hit">9</text>
+    <rect x="785" y="589" width="104" height="52" rx="6" fill="#fff7ed" stroke="#b45309"/><text x="837" y="623" class="miss">13</text>
+    <rect x="933" y="589" width="104" height="52" rx="6" fill="#fff7ed" stroke="#b45309"/><text x="985" y="623" class="miss">20</text>
+    <rect x="489" y="681" width="104" height="52" rx="6" fill="#ccfbf1" stroke="#0f766e"/><text x="541" y="715" class="hit">1</text>
+    <rect x="637" y="681" width="104" height="52" rx="6" fill="#ccfbf1" stroke="#0f766e"/><text x="689" y="715" class="hit">2</text>
+    <rect x="785" y="681" width="104" height="52" rx="6" fill="#fff7ed" stroke="#b45309"/><text x="837" y="715" class="miss">0</text>
+    <rect x="933" y="681" width="104" height="52" rx="6" fill="#fff7ed" stroke="#b45309"/><text x="985" y="715" class="miss">3</text>
+  </g>
+  <g fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#muted-arrow)">
+    <path d="M541 645V676"/><path d="M689 645V676"/><path d="M837 645V676"/><path d="M985 645V676"/>
+  </g>
+  <text x="54" y="762" class="small">青绿：命中 5、9；橙色：miss 13、20；灰色：18、21 本轮未选中，仍可驻留。</text>
+
+  <text x="32" y="833" class="head">单看 token 13：从逻辑位置到 Host，再到 resident</text>
+  <g>
+    <rect x="32" y="855" width="240" height="155" rx="9" fill="#fff" stroke="#94a3b8"/>
+    <text x="50" y="887" class="label">① 逻辑 token</text>
+    <text x="152" y="935" class="number">13</text>
+    <text x="50" y="979" class="small">block=3，offset=1</text>
+    <rect x="304" y="855" width="240" height="155" rx="9" fill="#eff6ff" stroke="#5a87c4"/>
+    <text x="322" y="887" class="label">② block_table 查块</text>
+    <text x="424" y="935" text-anchor="middle" font-size="20" font-weight="700" class="blue">block_table[3]=5</text>
+    <text x="322" y="979" class="small">Host physical block 5</text>
+    <rect x="576" y="855" width="240" height="155" rx="9" fill="#eff6ff" stroke="#5a87c4"/>
+    <text x="594" y="887" class="label">③ Host physical slot</text>
+    <text x="696" y="935" class="number blue">5 × 4 + 1 = 21</text>
+    <text x="594" y="979" class="small">从完整 Main KV 池读出</text>
+    <rect x="848" y="855" width="240" height="155" rx="9" fill="#fff7ed" stroke="#b45309"/>
+    <text x="866" y="887" class="label">④ resident slot</text>
+    <text x="968" y="935" class="number miss">0</text>
+    <text x="866" y="979" class="small">复制到当前工作集</text>
+  </g>
+  <g fill="none" stroke="#1d4ed8" stroke-width="1.7" marker-end="url(#arrow)">
+    <path d="M276 932H299"/><path d="M548 932H571"/><path d="M820 932H843"/>
+  </g>
+  <text x="32" y="1052" class="label">block_size=4；Host physical slot 21 与 resident slot 0 属于不同地址空间。</text>
+  <text x="32" y="1086" class="small">本例假定 request 未换占，且这些 token 均处于稳定前缀；数字用于展示映射，不代表性能。</text>
+</svg>

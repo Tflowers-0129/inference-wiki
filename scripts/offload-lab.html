@@ -1,0 +1,9 @@
+<section class="offload-lab" id="offload-lab" aria-labelledby="offload-title">
+  <div class="offload-lab-head"><div><span class="eyebrow">ADDRESS LAB / 教学缩比</span><h3 id="offload-title">选中一行，不等于搬运一行</h3></div><label>缓存策略 <select id="offloadKind"><option value="lru">初版：CPU LRU</option><option value="hisparse">HiSparse：Resident → Hot → Source</option></select></label></div>
+  <p id="offloadSetup"></p>
+  <div class="offload-stages" role="group" aria-label="选择映射阶段"><button data-offload-phase="0" aria-pressed="true">1　逻辑 TopK</button><button data-offload-phase="1" aria-pressed="false">2　命中与缺失</button><button data-offload-phase="2" aria-pressed="false">3　回填与物理索引</button></div>
+  <div class="offload-counts" id="offloadCounts"></div>
+  <div class="offload-table-wrap"><table class="offload-table"><thead><tr><th>逻辑 token ID</th><th>命中来源</th><th>Host 物理行</th><th>Attention 槽位</th></tr></thead><tbody id="offloadRows"></tbody></table></div>
+  <p class="offload-explanation" id="offloadExplanation" aria-live="polite"></p>
+  <p class="offload-disclaimer">K=4/8、block size=4 仅用于读图，不是合法启动配置。槽号是教学地址；不模拟异步 DMA、实际缓存容量、MTP 或算子时延。</p>
+</section>
