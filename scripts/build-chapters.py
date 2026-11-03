@@ -185,7 +185,7 @@ def build_chapters():
             player_links = '<a href="#offload-lab">TopK 缓存与地址实验室</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("offload.css")}"><script defer src="{asset_url("offload-model.js")}"></script><script defer src="{asset_url("offload-app.js")}"></script>'
             next_link = '<a href="load-balancing.html">← 回看 DPLB 与 EPLB</a>'
-            action = '<a class="primary-button" href="#offload-lab">解析一次 TopK →</a><a class="text-button" href="#sparse-offload-9">看 HiSparse 依赖泳道 ↓</a>'
+            action = '<a class="primary-button" href="#offload-lab">解析一次 TopK →</a><a class="text-button" href="#sparse-offload-8">看 HiSparse 依赖泳道 ↓</a>'
         else:
             raise ValueError(f'Unknown chapter: {key}')
         page = f'''<!doctype html>
