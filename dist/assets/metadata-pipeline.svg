@@ -1,11 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1300" viewBox="0 0 1120 1300" role="img" aria-labelledby="title desc">
-<title id="title">Host 的调度计划怎样接上设备的真实进度</title><desc id="desc">按字段区分Host计划和设备采样结果，使用K等于3接受2个候选的账本，区分CPU输入缓冲复用、设备依赖及精确CPU回读三种等待。</desc>
-<defs><style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}</style><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M1 1L8 4.5L1 8" fill="none" stroke="#1d4ed8" stroke-width="1.5"/></marker></defs>
-<rect x="0" y="0" width="1120" height="1300" rx="20" fill="#f8fafc" stroke="#f8fafc"/>
-<text x="32" y="47" font-size="28" fill="#172b4d" font-weight="700">Host 的调度计划，怎样接上设备的真实进度？</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1420" viewBox="0 0 1120 1420" role="img" aria-labelledby="title desc">
+<title id="title">Host 的调度计划怎样接上 Device 的真实进度</title><desc id="desc">Host准备的字段与Device验证结果，以及K等于3接受两个候选后，下一轮K改为1时的query边界、位置和长度。三处等待分别对应H2D读完、Device流依赖和D2H写完。</desc>
+<defs><style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}</style><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M1 1L8 4.5L1 8" fill="none" stroke="#1d4ed8" stroke-width="1.5" /></marker></defs>
+<rect x="0" y="0" width="1120" height="1420" rx="20" fill="#f8fafc" stroke="#f8fafc" />
+<text x="32" y="47" font-size="28" fill="#172b4d" font-weight="700">Host 的调度计划，怎样接上 Device 的真实进度？</text>
 <text x="32" y="80" font-size="18" fill="#475569" font-weight="400">仍有 H2D 和同步依赖；关键是哪些数据需要回到 CPU 才能继续。</text>
-<rect x="32" y="108" width="468" height="270" rx="12" fill="#eff6ff" stroke="#93c5fd"/>
-<rect x="620" y="108" width="468" height="270" rx="12" fill="#e6f4f1" stroke="#99c9bf"/>
+<rect x="32" y="108" width="468" height="270" rx="12" fill="#eff6ff" stroke="#93c5fd" />
+<rect x="620" y="108" width="468" height="270" rx="12" fill="#e6f4f1" stroke="#99c9bf" />
 <text x="54" y="146" font-size="22" fill="#1d4ed8" font-weight="700">Host 已经知道的计划</text>
 <text x="54" y="187" font-size="17" fill="#172b4d" font-weight="400">num_scheduled_tokens / query_start_loc</text>
 <text x="54" y="220" font-size="17" fill="#172b4d" font-weight="400">prev_positions：当前行 → 上轮请求行</text>
@@ -19,14 +19,14 @@
 <text x="642" y="305" font-size="17" fill="#0f766e" font-weight="600">positions + block_table → slot_mapping</text>
 <text x="642" y="341" font-size="17" fill="#475569" font-weight="400">下游沿设备依赖消费，不必逐项回读。</text>
 <text x="522" y="219" font-size="18" fill="#1d4ed8" font-weight="600">H2D</text>
-<path d="M507 235L610 235" fill="none" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M507 235L610 235" fill="none" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow)" />
 <text x="32" y="412" font-size="18" fill="#172b4d" font-weight="600">Host 持有 NPU Tensor 的 shape、地址和句柄，不等于已读到它的元素值。</text>
-<rect x="32" y="442" width="1056" height="312" rx="12" fill="#fff" stroke="#cbd5e1"/>
+<rect x="32" y="442" width="1056" height="432" rx="12" fill="#fff" stroke="#cbd5e1" />
 <text x="54" y="478" font-size="22" fill="#172b4d" font-weight="700">走一次 K=3、a=2：两侧可以暂时持有不同含义的计数</text>
-<rect x="54" y="501" width="1012" height="48" rx="6" fill="#f1f5f9" stroke="#e2e8f0"/>
+<rect x="54" y="501" width="1012" height="48" rx="6" fill="#f1f5f9" stroke="#e2e8f0" />
 <text x="72" y="532" font-size="18" fill="#172b4d" font-weight="600">状态</text>
 <text x="315" y="532" font-size="18" fill="#172b4d" font-weight="600">Host 的计划 / 镜像</text>
-<text x="740" y="532" font-size="18" fill="#172b4d" font-weight="600">设备实际状态</text>
+<text x="740" y="532" font-size="18" fill="#172b4d" font-weight="600">Device 实际状态</text>
 <text x="72" y="578" font-size="17" fill="#172b4d" font-weight="600">验证前</text>
 <text x="315" y="578" font-size="17" fill="#172b4d" font-weight="400">按 8 + 1 anchor + 3 draft 安排位置</text>
 <text x="740" y="578" font-size="17" fill="#172b4d" font-weight="400">query 为 [t0,d1,d2,d3]</text>
@@ -36,22 +36,22 @@
 <text x="72" y="670" font-size="17" fill="#172b4d" font-weight="600">准备下一轮</text>
 <text x="315" y="670" font-size="17" fill="#172b4d" font-weight="400">发送计划、请求映射；接收输出计数</text>
 <text x="740" y="670" font-size="17" fill="#172b4d" font-weight="400">x@11 接续为输入，尚无自身 KV</text>
-<text x="54" y="722" font-size="17" fill="#b45309" font-weight="600">若某个 CPU 接口此刻必须精确读取 11，就仍需等待 D2H；上界 12 不能代替有效范围。</text>
-<text x="32" y="804" font-size="24" fill="#172b4d" font-weight="700">三个等待点，保护的是不同的东西</text>
-<rect x="32" y="828" width="1056" height="126" rx="12" fill="#fff7ed" stroke="#fdba74"/>
-<text x="52" y="858" font-size="20" fill="#172b4d" font-weight="700">① Host 即将覆盖复用的 CPU 输入缓冲</text>
-<text x="670" y="858" font-size="17" fill="#334155" font-weight="600">prepare_inputs_event.synchronize()</text>
-<text x="52" y="893" font-size="17" fill="#172b4d" font-weight="400">上轮 H2D 可能仍在读取源内存；等这次读取完成，不能提前覆盖。</text>
-<text x="52" y="926" font-size="17" fill="#475569" font-weight="400">这个 fence 保护输入准备，不能直接解释成“等待整轮前向完成”。</text>
-<rect x="32" y="970" width="1056" height="126" rx="12" fill="#e6f4f1" stroke="#99c9bf"/>
-<text x="52" y="1000" font-size="20" fill="#172b4d" font-weight="700">② Device 即将消费或复用 metadata 缓冲</text>
-<text x="670" y="1000" font-size="17" fill="#334155" font-weight="600">stream.wait_event(...)</text>
-<text x="52" y="1035" font-size="17" fill="#172b4d" font-weight="400">保证输入到齐 → metadata 就绪 → 消费完成 → 允许复用。</text>
-<text x="52" y="1068" font-size="17" fill="#475569" font-weight="400">这是设备流依赖；Python 通常可继续提交，设备消费者仍可能等待。</text>
-<rect x="32" y="1112" width="1056" height="126" rx="12" fill="#eff6ff" stroke="#93c5fd"/>
-<text x="52" y="1142" font-size="20" fill="#172b4d" font-weight="700">③ Host 必须消费设备产生的精确结果</text>
-<text x="670" y="1142" font-size="17" fill="#334155" font-weight="600">D2H + event.synchronize()</text>
-<text x="52" y="1177" font-size="17" fill="#172b4d" font-weight="400">例如精确接受数 / 长度，或最终输出转 Python list。</text>
-<text x="52" y="1210" font-size="17" fill="#475569" font-weight="400">回读可以提前发起、延后消费；没有完成时，Host 仍会等。</text>
-<text x="32" y="1280" font-size="16" fill="#475569" font-weight="400">字段来自各自标注的 Runner 路径；专用 DeviceMetadataExecutor 并非所有后端的统一入口。</text>
-</svg>
+<text x="54" y="842" font-size="17" fill="#b45309" font-weight="600">若某个 CPU 接口此刻必须精确读取 11，就仍需等待 D2H；上界 12 不能代替有效范围。</text>
+<text x="32" y="924" font-size="24" fill="#172b4d" font-weight="700">三个等待点，保护的是不同的东西</text>
+<rect x="32" y="948" width="1056" height="126" rx="12" fill="#fff7ed" stroke="#fdba74" />
+<text x="52" y="978" font-size="20" fill="#172b4d" font-weight="700">① Host 即将改写复用的输入缓冲</text>
+<text x="670" y="978" font-size="17" fill="#334155" font-weight="600">prepare_inputs_event.synchronize()</text>
+<text x="52" y="1013" font-size="17" fill="#172b4d" font-weight="400">H2D 返回后 DMA 仍可能读第 n 轮数组；提前写入 n+1 会混入数据。</text>
+<text x="52" y="1046" font-size="17" fill="#475569" font-weight="400">这个 fence 保护输入准备，不能直接解释成“等待整轮前向完成”。</text>
+<rect x="32" y="1232" width="1056" height="126" rx="12" fill="#e6f4f1" stroke="#99c9bf" />
+<text x="52" y="1262" font-size="20" fill="#172b4d" font-weight="700">③ Device 即将消费或复用 metadata 缓冲</text>
+<text x="670" y="1262" font-size="17" fill="#334155" font-weight="600">stream.wait_event(...)</text>
+<text x="52" y="1297" font-size="17" fill="#172b4d" font-weight="400">保证输入到齐 → metadata 就绪 → 消费完成 → 允许复用。</text>
+<text x="52" y="1330" font-size="17" fill="#475569" font-weight="400">这是 Device 流依赖；Host 可继续提交，Device 消费者仍可能等待。</text>
+<rect x="32" y="1090" width="1056" height="126" rx="12" fill="#eff6ff" stroke="#93c5fd" />
+<text x="52" y="1120" font-size="20" fill="#172b4d" font-weight="700">② Host 必须读取 Device 产生的精确结果</text>
+<text x="670" y="1120" font-size="17" fill="#334155" font-weight="600">D2H + event.synchronize()</text>
+<text x="52" y="1155" font-size="17" fill="#172b4d" font-weight="400">例如精确接受数 / 长度，或最终输出转 Python list。</text>
+<text x="52" y="1188" font-size="17" fill="#475569" font-weight="400">回读可以提前发起、延后消费；没有完成时，Host 仍会等。</text>
+<text x="32" y="1400" font-size="16" fill="#475569" font-weight="400">字段来自各自标注的 Runner 路径；专用 DeviceMetadataExecutor 并非所有后端的统一入口。</text>
+<text x="72" y="716" font-size="17" fill="#172b4d" font-weight="600">下一轮改用 K=1</text><text x="315" y="716" font-size="17" fill="#172b4d" font-weight="400">按新 K 安排 2 行 query</text><text x="740" y="716" font-size="17" fill="#172b4d" font-weight="400">[x,e1] @ [11,12]</text><text x="72" y="762" font-size="17" fill="#172b4d" font-weight="600">本轮 metadata</text><text x="315" y="762" font-size="17" fill="#172b4d" font-weight="400">query_start_loc = [0,2]</text><text x="740" y="762" font-size="17" fill="#172b4d" font-weight="400">seq_lens = [13]</text></svg>

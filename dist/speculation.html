@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="投机解码：调度、元数据与流式时延：沿输入字段、状态记账和源码调用定位推理性能问题。"><title>投机解码：调度、元数据与流式时延 · Inference Wiki</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="reading.css"><link rel="stylesheet" href="chapters.css"><script defer src="chapter.js"></script><link rel="stylesheet" href="spec.css"><script defer src="spec-model.js"></script><script defer src="spec-app.js"></script></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="投机解码：调度、元数据与流式时延：沿输入字段、状态记账和源码调用定位推理性能问题。"><title>投机解码：调度、元数据与流式时延 · Inference Wiki</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="reading.css"><link rel="stylesheet" href="chapters.css"><script defer src="chapter.js"></script><link rel="stylesheet" href="spec.css?rev=d608872a"><script defer src="spec-model.js?rev=a97f8c8b"></script><script defer src="spec-app.js?rev=fe1c9d0d"></script></head>
 <body><div class="reading-progress" id="readingProgress"></div>
-<aside class="sidebar" id="sidebar"><a class="brand" href="index.html"><span class="brand-mark"><i></i><i></i><i></i></span><span>Inference<span class="brand-sub">图解推理系统</span></span><b>WIKI</b></a><button class="search-trigger" data-search>搜索本章 <kbd>⌘ K</kbd></button><div class="nav-group-label">学习篇章</div><nav class="main-nav" aria-label="学习篇章"><a href="index.html">01　调度、PD 与 KV</a><a href="execution.html">02　从一轮调度到一次前向</a><a href="speculation.html" class="active" aria-current="page">03　投机解码：调度、元数据与流式时延</a></nav><div class="nav-group-label resources-label">本章目录</div><nav class="main-nav chapter-nav" aria-label="本章目录"><a href="#spec-player">投机验证播放器</a><a href="#spec-stream">流式指标实验室</a><a href="#speculation-1">1. 验证开始前，R 手里已经有什么？</a><a href="#speculation-2">2. 把四行送进 Target，第三个候选在哪里被拒绝？</a><a href="#speculation-3">3. 提交三个输出后，下一轮不能从长度 12 接着算</a><a href="#speculation-4">4. 源码怎样从接受结果找到正确的采样行？</a><a href="#speculation-5">5. CPU 已排下一轮，设备怎样纠正 R 的位置？</a><a href="#speculation-6">6. 三次接收事件，为什么能算出两种时延？</a><a href="#speculation-7">7. 先排除发送分组，再解释客户端停顿</a><a href="#speculation-8">8. 真要定位慢在哪里，就把同一个输出追到客户端</a><a href="#speculation-9">9. 用同一份账检查结果</a></nav><div class="sidebar-bottom">字段、调用链与 Trace 排查</div></aside>
+<aside class="sidebar" id="sidebar"><a class="brand" href="index.html"><span class="brand-mark"><i></i><i></i><i></i></span><span>Inference<span class="brand-sub">图解推理系统</span></span><b>WIKI</b></a><button class="search-trigger" data-search>搜索本章 <kbd>⌘ K</kbd></button><div class="nav-group-label">学习篇章</div><nav class="main-nav" aria-label="学习篇章"><a href="index.html">01　调度、PD 与 KV</a><a href="execution.html">02　从一轮调度到一次前向</a><a href="speculation.html" class="active" aria-current="page">03　投机解码：调度、元数据与流式时延</a></nav><div class="nav-group-label resources-label">本章目录</div><nav class="main-nav chapter-nav" aria-label="本章目录"><a href="#spec-player">投机验证播放器</a><a href="#spec-stream">流式指标实验室</a><a href="#speculation-1">1. 验证开始前，R 手里已经有什么？</a><a href="#speculation-2">2. 把四行送进 Target，第三个候选在哪里被拒绝？</a><a href="#speculation-3">3. 提交三个输出后，下一轮不能从长度 12 接着算</a><a href="#speculation-4">4. 源码怎样从接受结果找到正确的采样行？</a><a href="#speculation-5">5. Host 已排下一轮，Device 怎样纠正 R 的位置？</a><a href="#speculation-6">6. 三次接收事件，为什么能算出两种时延？</a><a href="#speculation-7">7. 先排除发送分组，再解释客户端停顿</a><a href="#speculation-8">8. 沿同一个输出定位客户端停顿</a><a href="#speculation-9">9. 核对有效 KV 与客户端时延</a></nav><div class="sidebar-bottom">字段、调用链与 Trace 排查</div></aside>
 <div class="page-shell"><header class="topbar"><button class="mobile-menu" id="menuToggle" aria-label="展开目录" aria-expanded="false">☰</button><div class="breadcrumb"><a href="index.html">推理系统</a><span>/</span><strong>投机解码：调度、元数据与流式时延</strong></div><a class="source-link" href="speculation.md" download>下载本章 Markdown ↗</a></header>
 <main><header class="chapter-hero"><div class="eyebrow">INFERENCE SYSTEMS / 源码与排查</div><h1>投机解码<br><span>与流式指标</span></h1><div class="hero-actions"><a class="primary-button" href="#spec-player">逐步看接受与回退 →</a><a class="text-button" href="#spec-stream">对照 ITL 与 TPOT ↓</a></div></header><div class="article-layout"><article class="chapter-article"><p>上一章里，一条普通 Decode 请求通常只给本轮增加一行输入。现在让它一次带来三个候选：目标模型算了四行，最后提交三个输出。调度进度该加几？下一轮从哪里开始？如果客户端一次收到三个 Token，ITL 又在量哪段时间？</p>
 <p>这章只追踪一条请求 R：K=3，前两个候选接受，第三个拒绝。先把这次执行的账算清，再沿源码看结果怎样传到下一轮。图和播放器都是构造例，时间线也不代表设备实测。</p>
@@ -10,7 +10,7 @@
 <pre class="source-code"><code>已确认、已有目标 KV：位置 0 … 7
 已确认、尚无目标 KV：t0@8
 尚待验证的候选：    d1@9、d2@10、d3@11</code></pre>
-<p>这里有三个不同的进度：哪些输出已经确认，目标模型算过哪些输入，哪些候选还没有确认。若用一个“当前长度”包办三者，后面的差一就很难查。t0 已经确认，不能再算作本轮新输出；但本轮目标计算仍然要处理它，才能得到验证 d1 的分布。客户端何时收到它，是后半章另外一条时间线。</p>
+<p>输出确认、目标 KV 和候选验证有各自的进度，需要分别记录。t0 已经确认，不能再算作本轮新输出；但本轮目标计算仍然要处理它，才能得到验证 d1 的分布。客户端何时收到它，是后半章另外一条时间线。</p>
 <p>提议路径可以是独立草稿模型，也可以复用目标模型的预测头或其他机制。下面只取一条因果候选链，不把某种提议器的内部布局当成通用规范。<a class="inline-source" href="https://docs.vllm.ai/en/latest/features/speculative_decoding/" target="_blank" rel="noopener">投机解码概览</a></p>
 </section>
 <section class="lesson observed" id="speculation-2" data-title="2. 把四行送进 Target，第三个候选在哪里被拒绝？"><h2>2. 把四行送进 Target，第三个候选在哪里被拒绝？</h2>
@@ -21,7 +21,7 @@ query_start_loc： [0, 4]      # 本例只有一条请求
 临时序列长度：   12          # 8 个历史位置 + 4 行 query</code></pre>
 <p>t0 行的 logits 预测 d1，d1 行预测 d2，d2 行预测 d3。贪心示例中，前两处匹配，第三处目标模型选择 x，于是本轮输出是 <code>[d1,d2,x]</code>。d3 行也可能已经计算完成，但它建立在错误的 d3 输入上，不能继续从那里接正确历史。并行计算这些行不破坏因果性：每行只能读取历史及截至本行的候选前缀，不能看后面的候选。</p>
 <p>若三个候选全接受，d3 行的预测还能给出一个 bonus Token。随机采样不能只比较两个模型选中的 Token；经典算法按目标／草稿概率决定接受，并在首次拒绝处使用校正分布，才能保持目标采样分布。下文手选接受长度只演示记账。单链流程在未触发 EOS 或长度上限时提交 <code>a+1</code> 个输出，a 是连续接受的候选数。<a class="inline-source" href="https://proceedings.mlr.press/v202/leviathan23a.html" target="_blank" rel="noopener">经典接受与校正算法</a></p>
-<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/speculative-verify.svg" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="920" src="assets/speculative-verify.svg" alt="三个候选的验证输入，以及接受两个后 KV 与输出的不同边界" loading="lazy"></a><figcaption>三个候选的验证输入，以及接受两个后 KV 与输出的不同边界<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
+<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/speculative-verify.svg?rev=13764d1b" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="920" src="assets/speculative-verify.svg?rev=13764d1b" alt="三个候选的验证输入，以及接受两个后 KV 与输出的不同边界" loading="lazy"></a><figcaption>三个候选的验证输入，以及接受两个后 KV 与输出的不同边界<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
 <p>四行是这个 anchor 布局的结果，不是所有投机方案必须满足的 K+1 定义。真正的 query 边界、位置、因果掩码和 KV 写入映射，仍要对照使用的后端。</p>
 </section>
 <section class="lesson observed" id="speculation-3" data-title="3. 提交三个输出后，下一轮不能从长度 12 接着算"><h2>3. 提交三个输出后，下一轮不能从长度 12 接着算</h2>
@@ -44,7 +44,8 @@ query_start_loc： [0, 4]      # 本例只有一条请求
 query_end = query_start_loc[req_index + 1]
 index_to_sample = query_end - 1 - rejected</code></pre>
 <p>本例 <code>valid_count=3</code>，包含 d1、d2 和 x；因此 <code>rejected=3+1−3=1</code>。本请求从批内索引 0 开始、末端为 4，采样索引就是 <code>4−1−1=2</code>：落在 d2 行，恰好是给出 x 的那一行。它不是 x 已存在于 query 中的证据。</p>
-<p>这段属于 <strong>drafter 的 padded 输入准备</strong>。调用方 <code>prepare_inputs_padded</code> 保留批形状，把被拒绝的尾部当作 padding，再通过索引选择正确的接续位置，随后把目标 Token、位置、隐藏状态与 <code>next_token_ids</code> 交给提议器。不能把这几行代码叫作“构建全部 Target Attention Metadata”；它也没有单独完成所有 seq_len 修正。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/spec_decode/utils.py" target="_blank" rel="noopener">设备侧拒绝数与索引</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v1/spec_decode/llm_base_proposer.py" target="_blank" rel="noopener">调用方与 padded 输入</a></p>
+<p>这段属于 <strong>drafter 的 padded 输入准备</strong>。调用方 <code>prepare_inputs_padded</code> 保留批形状，把被拒绝的尾部当作 padding，再通过索引选择正确的接续位置，随后把目标 Token、位置、隐藏状态与 <code>next_token_ids</code> 交给提议器。不能把这几行代码叫作“构建全部 Target Attention Metadata”；它也没有单独完成所有 seq_len 修正。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/v1/spec_decode/utils.py" target="_blank" rel="noopener">设备侧拒绝数与索引</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v1/spec_decode/llm_base_proposer.py" target="_blank" rel="noopener">调用方与 padded 输入</a></p>
+<p>DFlash 的另一条输入准备路径会在 <code>_prepare_dflash_inputs_kernel</code> 中融合 query/context positions、slot mapping、采样映射和图 padding。它属于该 proposer 的准备流程；上面的 <code>prepare_inputs_padded_kernel</code> 则通过有效计数选择接续行，二者要按各自调用方阅读。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/v2/spec_decode/prepare_dflash_inputs.py" target="_blank" rel="noopener">DFlash 输入准备</a></p>
 <p>多请求时，<code>query_end</code> 是扁平 batch 中的边界，不能把所有请求都代入 4。各请求 K、接受数和起始偏移都可能不同；一个统一的 D 请求数已经不足以恢复本轮工作量。</p>
 <p>还要区分源码里的两种累计数组：候选数的累计和不带开头的零，两条请求分别有 3、1 个候选时，它是 <code>[3,4]</code>；本轮 query 边界若各自带一个 anchor，则是 <code>[0,4,6]</code>。前者用于还原 K，后者用于找 batch 中的行。把两者混用，会得到看似合法却属于另一条请求的索引。</p>
 <p>读计数变量也要沿生产者核对。本例 a=2 是接受的草稿数，<code>valid_count=3</code> 是有效采样输出数，不能看到名字里有 accepted 就都代入 2。这里公式中的额外 1 已经包含纠正或 bonus；再次补一个会把采样索引向前多退一行。源码还对没有候选的请求把拒绝数置零，避免把普通 Prefill／Decode 行套进这次投机回退。</p>
@@ -80,17 +81,49 @@ index_to_sample = query_end - 1 - rejected</code></pre>
   <div class="spec-stat-grid" id="spec-stats"></div>
   <p class="spec-boundary" id="spec-kv-boundary"></p>
   <p class="spec-footnote">这是记账演示：手选 a 不表示接受概率；事件不等时，也不预测速度。x 刚被采样出来，尚未作为 Target 输入，不能算入已有 Target KV。</p>
+  <div class="spec-continuation" aria-labelledby="spec-continuation-title">
+    <h4 id="spec-continuation-title">下一轮 metadata 预览（按所选接受长度推算）</h4>
+    <p>上一轮固定 K＝3，用接受长度 a 纠正下一轮的起点；新的 K 决定这次有多少行 Query。预览使用上方选定的 a，不随播放步骤变化。</p>
+    <div class="spec-controls"><label for="spec-next-k">下一轮候选数 K
+      <select id="spec-next-k"><option value="0">0：只计算 anchor x</option><option value="1" selected>1：x + e1</option><option value="3">3：x + e1、e2、e3</option></select>
+    </label></div>
+    <div class="spec-continuation-result" aria-live="polite" aria-atomic="true">
+      <p class="spec-boundary" id="spec-continuation-correction"></p>
+      <div id="spec-continuation-metadata"></div>
+      <p class="spec-continuation-address" id="spec-continuation-address"></p>
+    </div>
+    <p class="spec-footnote">沿用 B＝4、块表 [7, 2, 9, 10] 的寻址示例。这里对照的是输入与地址，不模拟后端性能，也不决定应采用哪种投机策略。</p>
+  </div>
   <noscript><p>交互演示需要启用 JavaScript。正文和图解仍可阅读。</p></noscript>
 </section>
 
 
-<section class="lesson observed" id="speculation-5" data-title="5. CPU 已排下一轮，设备怎样纠正 R 的位置？"><h2>5. CPU 已排下一轮，设备怎样纠正 R 的位置？</h2>
-<p>异步调度想在上一轮结果尚未完整回到 CPU 时，先安排下一轮。Host 可以按全部候选接受的乐观长度做容量和批形状计划；但设备实际执行时，R 必须从有效 KV 长度 11 接 x，不能从上界 12 接。</p>
-<p>还有一个容易漏的变化：batch 行号可能变了。假设上一轮顺序是 <code>[R,S]</code>，下一轮是 <code>[S,T,R]</code>。当前三行到上一轮的映射应为 <code>[1,−1,0]</code>；T 是新请求，不能拿上一轮第 1 行的接受数充数。</p>
-<p><code>update_num_computed_tokens_for_batch_change</code> 正是在这个映射上 gather 上轮设备进度、有效采样数和候选数。对确实参加过投机的旧请求，它用 <code>prev_gpu + valid_count</code> 纠正进度；新请求和未参加该路径的请求使用 CPU 提供值。沿本例，基准 8 加有效计数 3 得到 11。这里的 3 在输出侧是 d1、d2、x，在本轮输入侧对应 t0、d1、d2；数目相同，Token 集合不同。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/spec_decode_utils.py" target="_blank" rel="noopener">请求映射与进度纠正</a></p>
-<p>随后必须用纠正后的设备状态生成 positions 和 KV 访问范围。若某个消费者需要精确的 Python 长度，设备结果仍要 D2H。Ascend 的另一条执行路径会异步复制计数，再由 <code>_update_seq_lens_cpu</code> 等待 event 后读取；满足跳过条件时，Host 可保留乐观上界，设备的 <code>prepare_pos_seq_lens</code> 使用拒绝纠正后的状态。<strong>提前排好，不等于不再等待数据依赖。</strong> 要查的是谁消费精确值、等待发生在哪里。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v2/model_runner.py" target="_blank" rel="noopener">设备计数回传及 CPU 消费者</a></p>
-<p>例如下一轮仍给 R 三个候选，输入变成 <code>[x,e1,e2,e3]</code>，真实 positions 是 <code>[11,12,13,14]</code>，验证时临时序列长度为 15。Query 行数仍是四，绝对位置却不能沿上轮的乐观值从 12 开始。图回放可以复用同样的四行形状，但必须拿到这次的输入值、位置与映射；“形状没变”不能代替状态纠正。</p>
-<p>调度预算与图捕获也要按实际 query 检查：本例一请求四行，不能继续套 <code>D预算=N_D×1</code>。统一多行 query 可能匹配捕获图；候选长度、padding、功能和后端条件变了，路径也可能变。接受率高不能抵消无限增加的提议、验证和 KV 成本。<a class="inline-source" href="https://docs.vllm.ai/en/latest/design/cuda_graphs/" target="_blank" rel="noopener">图执行的 batch 描述</a></p>
+<section class="lesson observed" id="speculation-5" data-title="5. Host 已排下一轮，Device 怎样纠正 R 的位置？"><h2>5. Host 已排下一轮，Device 怎样纠正 R 的位置？</h2>
+<h3>5.1 接受结果先确定下一轮的起点</h3>
+<p>异步调度允许 Host 在上一轮结果尚未完整回传时安排下一轮。Host 可以按候选全接受估计容量和批形状；Device 执行前，R 的起点必须从上界 12 纠正为有效 KV 长度 11，才能输入 x@11。</p>
+<p>batch 行号也可能变化。假设上一轮顺序是 <code>[R,S]</code>，下一轮是 <code>[S,T,R]</code>，当前请求到上一轮的映射就是 <code>[1,−1,0]</code>。T 是新请求，使用 Host 提供的初始进度；R 则通过映射取回自己的接受结果。</p>
+<p><code>update_num_computed_tokens_for_batch_change</code> 按映射读取上一轮 Device 进度、有效采样数和候选数。对参加过投机的旧请求，它用 <code>prev_gpu + valid_count</code> 修正进度。本例为 <code>8+3=11</code>：输出侧的三个 Token 是 d1、d2、x，建立有效 KV 的三个输入却是 t0、d1、d2。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/spec_decode_utils.py" target="_blank" rel="noopener">请求映射与进度修正</a></p>
+<p>若后续 builder 需要精确的 Python 长度，Host 还需等待 D2H 完成，再修正自己的长度镜像。Device 上的消费者可以沿流依赖使用已修正的 Tensor。执行章第 5 节分别说明了缓冲区复用、计数回传和 Device 流之间的等待。<a class="inline-source" href="execution.html">Host / Device 输入准备</a></p>
+<h3>5.2 下一轮 K 从 3 改为 1，会改哪些字段？</h3>
+<p>上一轮仍按 <code>K_prev=3</code> 计算拒绝数：<code>3+1−valid_count=1</code>，先把有效 KV 长度纠正到 11。下一轮若实际只带一个候选，即 <code>K_next=1</code>：</p>
+<pre class="source-code"><code>query tokens    = [x,e1]
+positions       = [11,12]
+query_start_loc = [0,2]
+seq_lens        = [13]</code></pre>
+<p>若仍带三个候选，则 query 为 <code>[x,e1,e2,e3]</code>，positions 为 <code>[11,12,13,14]</code>，边界为 <code>[0,4]</code>，临时序列长度为 15。两种选择都从同一个正确起点 11 开始。</p>
+<div class="comparison-table"><table><thead><tr><th>字段或工作</th><th>使用哪一轮的信息</th><th>K 改变后怎样处理</th></tr></thead><tbody>
+<tr><td>拒绝数与有效 KV 起点</td><td>上一轮 K 和实际接受结果</td><td>先完成回退，不能拿新 K 代入旧计数</td></tr>
+<tr><td>query 边界、候选累计数、采样行</td><td>本轮实际候选列表</td><td>重新累加并构造索引</td></tr>
+<tr><td>positions、seq_lens、slot_mapping</td><td>已纠正起点和本轮 query</td><td>按新行数生成位置与读写范围</td></tr>
+<tr><td>调度预算、lookahead 空间</td><td>本轮实际工作与预留要求</td><td>分别记录真实输入行数和预留容量</td></tr>
+<tr><td>图执行与 padding</td><td>后端支持和捕获档位</td><td>选择可用图或回退，更新有效边界与映射</td></tr>
+</tbody></table></div>
+<p>K=0 时，这个 anchor 布局仍需要输入 x，计算一行普通 Decode。改变候选预算没有消除自回归接续所需的输入。</p>
+<p>本页的下一轮 metadata 面板固定上一轮 K=3，用所选接受长度确定起点，再切换下一轮 K。它演示字段变化，不选择最佳 K，也不预测加速比。</p>
+<h3>5.3 动态策略怎样产生本轮候选列表？</h3>
+<p>按 batch size 查表的实现，会用本轮已调度请求数选择共享的 <code>num_spec_tokens_to_schedule</code>，交给 proposer 生成供后续验证的候选。这个预算控制新候选的生成；当前 Target 验证的 Ki 则来自已送达、经调度后的每请求候选列表。预算相同，请求实际带来的候选也可能不同。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/docs/features/speculative_decoding/dynamic_speculative_decoding.md" target="_blank" rel="noopener">动态提议预算</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py" target="_blank" rel="noopener">Scheduler 与候选调度</a></p>
+<p>Ascend <code>worker/v1</code> 的置信度策略还可以先生成候选，再按每请求预算裁剪验证长度；<code>worker/v2</code> 的 adaptive verification 则有独立的重分配和 query 紧凑化路径。构建 metadata 时，最终都要使用这次实际参与计算的列表和边界。v2 的部分后端需要把重排后的边界读回 Host，因此也要核对这条路径上的 Host 等待点。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v1/spec_decode/utils.py" target="_blank" rel="noopener">v1 候选裁剪</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v2/model_runner.py" target="_blank" rel="noopener">v2 自适应验证</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/docs/source/user_guide/feature_guide/speculative_decoding.md" target="_blank" rel="noopener">Ascend 功能说明</a></p>
+<p>K 变化会影响提议、验证及状态维护成本。图的容量 shape 可能仍落在同一捕获档位，也可能需要改选图或回退；即便容量未变，也要更新真实输入、有效边界和采样索引。<a class="inline-source" href="https://docs.vllm.ai/en/latest/design/cuda_graphs/" target="_blank" rel="noopener">图执行的 batch 描述</a></p>
 </section>
 <section class="lesson observed" id="speculation-6" data-title="6. 三次接收事件，为什么能算出两种时延？"><h2>6. 三次接收事件，为什么能算出两种时延？</h2>
 <p>现在换到客户端。构造一条请求在 0 ms 发出，收到如下内容；最后的统计和结束消息不另算内容事件：</p>
@@ -101,8 +134,8 @@ index_to_sample = query_end - 1 - rejected</code></pre>
 </tbody></table></div>
 <p>逐行计算：首内容事件在 100 ms，TTFT 为 100 ms；后两次到达分别减前一次，得到 <code>[60,60] ms</code>。若客户端把相邻内容事件间隔叫作 ITL，其均值就是 60 ms。本算例把末内容事件视作 E2EL 的结束边界，因此请求 TPOT 为 <code>(220−100)/(7−1)=20 ms/Token</code>。实际工具常用 <code>(E2EL−TTFT)/(O−1)</code>；若 E2EL 还包含尾部控制消息或结束处理，其结束边界就不必等于末内容事件，须先核对工具实现。</p>
 <p>这个客户端并没有观察到“每个 Token 都隔 20 ms”。它观察到两次各 60 ms 的停顿，然后把总时间摊给 6 个后续输出。当前官方 benchmark 也分别按输出事件记录间隔、按请求计算 TPOT，同事件内多个 Token 不额外生成零间隔样本。<a class="inline-source" href="https://docs.vllm.ai/en/latest/benchmarking/cli/#understanding-the-latency-metrics" target="_blank" rel="noopener">客户端计时与聚合口径</a></p>
-<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/stream-metrics.svg" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="840" src="assets/stream-metrics.svg" alt="多 Token 同一事件返回时，事件间隔与 TPOT 使用不同分母" loading="lazy"></a><figcaption>多 Token 同一事件返回时，事件间隔与 TPOT 使用不同分母<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
-<p>因此不能笼统说两者“开始计时的时间越来越不同”。投机让执行轮、输出事件和 Token 不再一一对应，更容易暴露口径差异；数值是否拉开，还取决于接受结果与发送行为。</p>
+<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/stream-metrics.svg?rev=7896915e" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="840" src="assets/stream-metrics.svg?rev=7896915e" alt="多 Token 同一事件返回时，事件间隔与 TPOT 使用不同分母" loading="lazy"></a><figcaption>多 Token 同一事件返回时，事件间隔与 TPOT 使用不同分母<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
+<p>投机的一轮执行可产生多个输出 Token，发送端又可能合并事件，所以执行轮、输出事件和 Token 数需要分别统计。ITL 与 TPOT 的数值差异还取决于接受结果与发送行为。</p>
 </section>
 <section class="spec-lab" id="spec-stream" aria-labelledby="spec-stream-title">
   <div class="spec-lab-heading">
@@ -133,7 +166,7 @@ index_to_sample = query_end - 1 - rejected</code></pre>
 <p>同一块里 Token 的生成先后不可观测，不能把它们都贴上同一个到达时间，补几个零以后称作设备 ITL。若第一块包含多个 Token，首块内部的间隔也丢失了。极端情况下，所有输出一块到达，按上式 TPOT 为 0、事件间隔样本为空；O≤1 时分母没有意义，应单独标记，不拿它冒充正常请求的 TPOT。</p>
 <p>汇总时还有权重问题：一条请求有 1 个 100 ms 间隔，另一条有 10 个 10 ms 间隔。逐请求 TPOT 均值是 55 ms，合并 11 个间隔的均值约 18.18 ms。先核对请求集与权重，再比较两个均值。</p>
 </section>
-<section class="lesson observed" id="speculation-8" data-title="8. 真要定位慢在哪里，就把同一个输出追到客户端"><h2>8. 真要定位慢在哪里，就把同一个输出追到客户端</h2>
+<section class="lesson observed" id="speculation-8" data-title="8. 沿同一个输出定位客户端停顿"><h2>8. 沿同一个输出定位客户端停顿</h2>
 <p>从 R 的一次验证建账，别只在压测末尾保留均值。设备侧按 request_id、验证轮号记录提议／验证起止、实际 query 行数及 padding、接受数和提交数；服务端输出边界接着记单调时间、输出序号、本次确认的 Token ID 数和累计数。代理与客户端沿用请求和输出关联信息，各记自己的接收、发送事件。</p>
 <p>客户端收到 SSE 后先分离完整消息，排除无内容的角色、usage 和结束消息，再对有效内容事件打本地单调时间。总 O 优先核对服务端 usage 或最终 Token ID；单靠每段文本分别 tokenize，可能因跨段拼接边界得到错误计数。若拿不到每事件 Token 数，就明确缺这一列，不能用 chunk 数代替。不同机器的时钟未经校准时，先比较各自内部间隔，不能直接相减当网络耗时。</p>
 <p>对照前面的构造时间线，客户端账本至少能逐行还原为：</p>
@@ -145,8 +178,8 @@ request=R  output=3  recv_ms=220  delta_tokens=3  total=7</code></pre>
 <p>若服务端已经按小间隔连续输出，而代理出口或客户端成组到达，停顿应继续往缓冲与传输查。反过来，服务端从一开始就只在每次验证结束后交付一组，客户端的大间隔可能只是批次交付的直接表现。请求号和输出序号把这些证据连起来，才能避免把代理等待归咎于 Attention。</p>
 <p>比较普通与投机时固定模型、输入、输出约束、采样策略和负载。每轮的提议、验证及状态维护成本要按实际提交量摊销；流水线重叠和排队又决定端到端体验。接受率只是账本中的一列，不是最终结论。</p>
 </section>
-<section class="lesson observed" id="speculation-9" data-title="9. 用同一份账检查结果"><h2>9. 用同一份账检查结果</h2>
+<section class="lesson observed" id="speculation-9" data-title="9. 核对有效 KV 与客户端时延"><h2>9. 核对有效 KV 与客户端时延</h2>
 <p>回到 R：本轮四行 query，确认三个新输出，有效目标 KV 从 8 到 11，下一轮仍要输入 x@11。如果日志把进度写成 12、把 x 标成已有 KV，或者下一轮按旧 batch 行号读取了别人的接受数，应先修正确性，再谈加速。</p>
 <p>客户端账本则是 TTFT 100 ms、两个 60 ms 输出事件间隔、O=7、TPOT 20 ms/Token。它们可以同时正确。下一次看到“投机后 TPOT 变小，停顿却没变短”，先沿提交、发送、接收三条边界核对，确定改善的是哪一段、用户实际看到的又是哪一段。</p>
-</section><nav class="chapter-next" aria-label="继续阅读"><a href="index.html">← 调度与 PD 总览</a><a href="execution.html">← 回看一次前向</a></nav><a class="download-source" href="technical-wiki-source.zip" download>下载全部 Markdown 与图源（SVG / PNG） ↓</a></article><aside class="page-toc"><span>本章导读</span><a href="#spec-player">投机验证播放器</a><a href="#spec-stream">流式指标实验室</a><a href="#speculation-1">1. 验证开始前，R 手里已经有什么？</a><a href="#speculation-2">2. 把四行送进 Target，第三个候选在哪里被拒绝？</a><a href="#speculation-3">3. 提交三个输出后，下一轮不能从长度 12 接着算</a><a href="#speculation-4">4. 源码怎样从接受结果找到正确的采样行？</a><a href="#speculation-5">5. CPU 已排下一轮，设备怎样纠正 R 的位置？</a><a href="#speculation-6">6. 三次接收事件，为什么能算出两种时延？</a><a href="#speculation-7">7. 先排除发送分组，再解释客户端停顿</a><a href="#speculation-8">8. 真要定位慢在哪里，就把同一个输出追到客户端</a><a href="#speculation-9">9. 用同一份账检查结果</a></aside></div></main></div>
+</section><nav class="chapter-next" aria-label="继续阅读"><a href="index.html">← 调度与 PD 总览</a><a href="execution.html">← 回看一次前向</a></nav><a class="download-source" href="technical-wiki-source.zip" download>下载全部 Markdown 与图源（SVG / PNG） ↓</a></article><aside class="page-toc"><span>本章导读</span><a href="#spec-player">投机验证播放器</a><a href="#spec-stream">流式指标实验室</a><a href="#speculation-1">1. 验证开始前，R 手里已经有什么？</a><a href="#speculation-2">2. 把四行送进 Target，第三个候选在哪里被拒绝？</a><a href="#speculation-3">3. 提交三个输出后，下一轮不能从长度 12 接着算</a><a href="#speculation-4">4. 源码怎样从接受结果找到正确的采样行？</a><a href="#speculation-5">5. Host 已排下一轮，Device 怎样纠正 R 的位置？</a><a href="#speculation-6">6. 三次接收事件，为什么能算出两种时延？</a><a href="#speculation-7">7. 先排除发送分组，再解释客户端停顿</a><a href="#speculation-8">8. 沿同一个输出定位客户端停顿</a><a href="#speculation-9">9. 核对有效 KV 与客户端时延</a></aside></div></main></div>
 <dialog id="searchDialog"><div class="search-dialog-input"><input id="searchInput" type="search" aria-label="搜索本章知识点" placeholder="搜索本章内容"><button id="closeSearch" aria-label="关闭搜索">Esc</button></div><div id="searchResults" class="search-results"></div></dialog></body></html>

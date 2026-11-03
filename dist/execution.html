@@ -23,7 +23,7 @@ positions       = [  8,  5,  2,  3,  4 ]
 query_start_loc = [ 0, 1, 2, 5 ]
 seq_lens        = [ 9, 6, 5 ]</code></pre>
 <p><code>a8</code> 是符号名，表示 A 在位置 8 的 Token，实际输入存放词表 ID。A、B 的输入是上一轮已经采样出来、尚未计算 KV 的 Token；C 的输入从 Prompt 中继续取第 2～4 个位置。<code>positions</code> 是各请求内部的位置，不是展平后的行号。</p>
-<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/batch-metadata.svg" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="900" src="assets/batch-metadata.svg" alt="五行输入、请求边界、位置与本轮 KV 写地址" loading="lazy"></a><figcaption>五行输入、请求边界、位置与本轮 KV 写地址<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
+<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/batch-metadata.svg?rev=e7e4aa40" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="900" src="assets/batch-metadata.svg?rev=e7e4aa40" alt="五行输入、请求边界、位置与本轮 KV 写地址" loading="lazy"></a><figcaption>五行输入、请求边界、位置与本轮 KV 写地址<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
 <h3>1.2 哪个字段错了，会错在哪里？</h3>
 <p><code>query_start_loc</code> 划出 <code>[0,1)</code>、<code>[1,2)</code>、<code>[2,5)</code>。它回答“哪几行属于同一个 query”；<code>seq_lens</code> 在这个例子里是已有长度加本轮 query 长度，回答 Attention 可见的总长度。C 的位置 2 只能看自己的 0～2，位置 4 才能看自己的 0～4，不能因五行相邻就跨请求读取 A、B。</p>
 <p>因此排查时先做三个确定的检查：边界差分是否为 <code>[1,1,3]</code>，最后一个边界是否等于真实输入行数 5，<code>positions</code> 是否从每条请求的已有进度连续接上。把 padding 加入以后，还应同时记录真实行数与填充行数，不能只检查张量总 shape。<a class="inline-source" href="https://docs.vllm.ai/projects/ascend/en/main/developer_guide/Design_Documents/ModelRunner_prepare_inputs.html" target="_blank" rel="noopener">输入准备设计</a></p>
@@ -31,9 +31,9 @@ seq_lens        = [ 9, 6, 5 ]</code></pre>
 <section class="lesson observed" id="execution-2" data-title="2. 前向计算使用这些字段做什么？"><h2>2. 前向计算使用这些字段做什么？</h2>
 <p>五行进入模型后，隐藏状态仍按展平的行排列。线性层可以让五行一起乘相同权重；Attention 需要请求边界、上下文长度和 KV 地址，把读取范围重新分开。</p>
 <p>沿一个层追数据：归一化和 QKV 投影产生本轮的 Q、K、V；位置编码使用各行的 <code>positions</code>；新 K、V 按 <code>slot_mapping</code> 写入缓存；Attention 的 Q 读取自己可见的历史与当前 KV；输出再经投影、残差与 MLP 进入下一层。实际后端会融合、拆分或交错执行这些工作，图中的方框表示依赖，不用于数 Kernel。</p>
-<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/forward-dataflow.svg" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="900" src="assets/forward-dataflow.svg" alt="同一批隐藏状态共享线性层权重，Attention 按请求读取 KV" loading="lazy"></a><figcaption>同一批隐藏状态共享线性层权重，Attention 按请求读取 KV<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
+<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/forward-dataflow.svg?rev=1d65e754" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="900" src="assets/forward-dataflow.svg?rev=1d65e754" alt="同一批隐藏状态共享线性层权重，Attention 按请求读取 KV" loading="lazy"></a><figcaption>同一批隐藏状态共享线性层权重，Attention 按请求读取 KV<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
 <p>在本例中，A 的位置 0～7 不再经过本轮所有层的 QKV 投影与 MLP，它们留下的 KV 被继续读取；只有位置 8 的隐藏状态向前推进。C 则有三行需要推进。把历史长度加进“本轮 Token 数”，会把线性层的工作量算错；完全忽略历史长度，又会低估 Attention 的工作量。</p>
-<p>Runner 准备通用信息，Attention builder 再组织后端要用的参数、长度、工作区或设备侧任务。<strong>Python 中创建一个 metadata 对象，与设备已经算完其中引用的张量，是两件事。</strong> 这一区别会决定下一轮能提前准备到哪一步。</p>
+<p>Runner 准备通用信息，Attention builder 再组织后端需要的参数、长度、工作区或 Device 任务。Python 可以先创建 metadata 对象，里面引用的 Tensor 值则可能仍在 Device 上计算；消费这些值前需要满足相应依赖。</p>
 <p>最后，Decode 和完成 Prefill 的请求按需选取隐藏状态、运行输出头并采样；C 若尚未完成 Prompt，本轮中间结果不会直接成为客户端输出。不要用客户端收到的 Token 个数反推这一轮一共计算了几行。</p>
 </section>
 <section class="lesson observed" id="execution-3" data-title="3. 设备确实在忙，再算权重与 KV 的账"><h2>3. 设备确实在忙，再算权重与 KV 的账</h2>
@@ -43,7 +43,7 @@ seq_lens        = [ 9, 6, 5 ]</code></pre>
 <pre class="source-code"><code>计算量 C ≈ 2 × T × H × F
 理想数据量 M ≈ s × (T×H + H×F + T×F)</code></pre>
 <p><code>s</code> 是每元素字节数，数据量按输入和权重各读一次、输出写一次估计。五行共用一份 <code>W</code>；扩大 <code>T</code> 可以把权重读取摊给更多计算。真正的读取还受切块、片上容量、量化格式和工作区影响，分析时应记录线性层实际形状，而不是只写“当前为 Decode”。<a class="inline-source" href="https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html" target="_blank" rel="noopener">矩阵乘法的计算与访存</a></p>
-<p>若图回放消除了 Host 提交间隙，但主要矩阵乘法耗时不变，这符合它主要节省提交开销的作用；不能据此判断图没有生效。</p>
+<p>图回放主要减少重复提交。如果 Host 提交间隙缩短、主要矩阵乘法耗时不变，可以分别记录这两项变化。</p>
 <h3>3.2 200 条 Decode 的上下文有多长？</h3>
 <p>对标准全 Attention，普通 Decode 每条请求产生一个新 Q，仍要访问该请求允许的历史 KV。令有效上下文为 <code>S_i</code>，跨层 KV 的逻辑数据规模可估为：</p>
 <pre class="source-code"><code>V_KV ≈ 2 × L × Hkv × dh × sKV × Σ S_i</code></pre>
@@ -51,7 +51,7 @@ seq_lens        = [ 9, 6, 5 ]</code></pre>
 <p>设算术强度 <code>I=C/M</code>，简化 Roofline 给出性能上界 <code>min(P,B×I)</code>、时间下界 <code>max(C/P,M/B)</code>。先统一精度、FLOP 与流量口径，再用它解释已观察到的算子；空泡、低并行度和通信不能塞进一个“带宽受限”标签里。<a class="inline-source" href="https://docs.nvidia.com/deeplearning/performance/dl-performance-gpu-background/" target="_blank" rel="noopener">性能约束分析</a></p>
 <h3>3.3 MatMul 周围还有哪些设备工作？</h3>
 <p>前面的计算与访存估算针对选定算子，不包括它前后的布局处理。下图所选事件的输入格式是 <code>ND</code>、输出格式是 <code>FRACTAL_NZ</code>，后续区段可见 MatMul。读时间线时，应将这段布局处理与矩阵乘法分开记账，再结合输入形状、算子布局要求及整轮关键路径判断它的开销。</p>
-<figure class="diagram-figure technical-figure raster-figure"><a class="diagram-expand" href="assets/profile-layout-ndnz.png" target="_blank" rel="noopener" title="打开完整原图（PNG）"><img width="1764" height="1059" src="assets/profile-layout-ndnz.png" alt="原图（PNG）：MatMul 周围的布局处理：所选事件显示 ND 到 FRACTAL_NZ 的转换，后续区段可见 MatMul" loading="lazy"></a><figcaption>原图（PNG）：MatMul 周围的布局处理：所选事件显示 ND 到 FRACTAL_NZ 的转换，后续区段可见 MatMul<em>原图（PNG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
+<figure class="diagram-figure technical-figure raster-figure"><a class="diagram-expand" href="assets/profile-layout-ndnz.png?rev=8909169b" target="_blank" rel="noopener" title="打开完整原图（PNG）"><img width="1764" height="1059" src="assets/profile-layout-ndnz.png?rev=8909169b" alt="原图（PNG）：MatMul 周围的布局处理：所选事件显示 ND 到 FRACTAL_NZ 的转换，后续区段可见 MatMul" loading="lazy"></a><figcaption>原图（PNG）：MatMul 周围的布局处理：所选事件显示 ND 到 FRACTAL_NZ 的转换，后续区段可见 MatMul<em>原图（PNG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
 </section>
 <section class="lesson observed" id="execution-4" data-title="4. 用块表把位置换成 KV 写地址"><h2>4. 用块表把位置换成 KV 写地址</h2>
 <p>前面留下一个字段：新 KV 写到哪里？设每块容纳 4 个 Token，用扁平化槽号演示地址计算：</p>
@@ -60,39 +60,60 @@ seq_lens        = [ 9, 6, 5 ]</code></pre>
 块内偏移 = position % 4
 槽号     = block_table[逻辑块号] × 4 + 块内偏移</code></pre>
 <p>A 的位置 8 落在逻辑块 2、偏移 0，映射到物理块 9，所以槽号 36。B 的位置 5 落在物理块 6、偏移 1，槽号 25。C 的位置 2、3、4 分别得到 34、35、12，最终 <code>slot_mapping = [36,25,34,35,12]</code>。</p>
-<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/kv-addressing.svg" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="900" src="assets/kv-addressing.svg" alt="连续逻辑位置通过块表找到分散的物理 KV" loading="lazy"></a><figcaption>连续逻辑位置通过块表找到分散的物理 KV<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
+<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/kv-addressing.svg?rev=59b83716" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="900" src="assets/kv-addressing.svg?rev=59b83716" alt="连续逻辑位置通过块表找到分散的物理 KV" loading="lazy"></a><figcaption>连续逻辑位置通过块表找到分散的物理 KV<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
 <p>在代码中，先看 <code>commit_block_table(num_reqs)</code> 将 Host 分配结果送往设备，再看 <code>compute_slot_mapping(...)</code> 用设备端边界和 positions 计算本轮写地址。<strong>块表描述历史各块在哪里，slot mapping 描述本轮各行写哪里。</strong> 实际缓存还有层、K/V、头和维度布局，多 KV 组也可能各有块表；这里的槽号只演示 Token 维度的寻址。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/block_table.py" target="_blank" rel="noopener">块表与写地址计算</a></p>
 <p>这也给出一条有用的排查顺序：输入 Token 正确但结果异常，先验证请求重排后的块表是否仍对应同一请求，再用该行 position 手算 slot。只看内存地址“落在缓存范围内”，发现不了读写到了另一条请求的问题。</p>
 <p>PagedAttention 处理块化 KV 的访问与管理；FlashAttention 处理 Attention 内怎样分块、利用片上存储来减少数据搬运，两者可以组合。前缀复用还允许符合身份与完整前缀匹配条件的请求引用已有块，引用释放与物理擦除也不同。<a class="inline-source" href="https://docs.vllm.ai/en/latest/design/paged_attention/" target="_blank" rel="noopener">PagedAttention</a>、<a class="inline-source" href="https://docs.vllm.ai/en/latest/design/prefix_caching/" target="_blank" rel="noopener">前缀缓存</a>、<a class="inline-source" href="https://arxiv.org/abs/2205.14135" target="_blank" rel="noopener">FlashAttention 论文</a></p>
 </section>
 <section class="lesson observed" id="execution-5" data-title="5. Host 与 Device 怎样对上同一轮 metadata？"><h2>5. Host 与 Device 怎样对上同一轮 metadata？</h2>
-<h3>5.1 把“知道长度”拆成三种状态</h3>
-<p>普通五 Token 例子中，Host 已有准确进度，<code>已有长度 + 调度长度</code> 就够用。投机验证后，上一轮拒绝了几个位置需要设备结果才能确定，不能再默认 Host 的进度立即精确。读 Ascend 主线时，把这些数据分开：</p>
-<div class="comparison-table"><table><thead><tr><th>数据</th><th>从哪里来</th><th>下一轮怎样接上</th></tr></thead><tbody>
-<tr><td>请求 ID、批次行号、调度预算、块分配</td><td>Host 控制状态</td><td>更新映射与缓冲区，必要字段 H2D</td></tr>
-<tr><td>真实 sampled Token IDs、有效采样数</td><td>设备采样与验证</td><td>保留设备张量，复制或索引到下一轮输入</td></tr>
-<tr><td>精确 positions、computed length、seq_lens</td><td>已有进度加实际接受结果</td><td>设备端修正；Host 精确消费者等计数回传后再修正</td></tr>
+<p>这里用 Host 指 CPU、主机内存及 Python 控制逻辑，用 Device 指 NPU、设备内存及设备执行。Runner 的 Python 方法运行在 Host；方法提交的算子和拷贝在 Device 执行。</p>
+<h3>5.1 投机请求怎样改变本轮 metadata？</h3>
+<p>先把第 1 节的 A 改成投机请求。A 仍有 8 个位置的目标 KV，已确认的 a8 尚无自己的 KV；提议器沿 a8 生成三个候选 d1、d2、d3。B 仍做普通 Decode，C 仍处理三行 Prefill。目标模型收到的输入变为：</p>
+<pre class="source-code"><code>input_ids       = [a8,d1,d2,d3, b5, c2,c3,c4]
+本轮 query 长度 = [4,1,3]
+query_start_loc = [0,4,5,8]
+positions       = [8,9,10,11, 5, 2,3,4]
+seq_lens        = [12,6,5]
+slot_mapping    = [36,37,38,39, 25, 34,35,12]</code></pre>
+<p>块表沿用第 4 节。A 多出的三行需要各自的位置和 KV 写入槽，Attention 还要按请求边界隔开 A、B、C。<code>query_start_loc</code> 来自本轮实际调度行数；候选数则来自各请求实际送入验证的列表。<code>SpecDecodeMetadata</code> 另存候选累计数、Target 与 bonus 的 logits 行索引，让采样器找对每个候选对应的分布。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v1/model_runner.py" target="_blank" rel="noopener">输入准备与 SpecDecodeMetadata</a></p>
+<p>假设 A 接受 d1、d2，拒绝 d3，并从 d2 行的分布采样出纠正 Token x。本轮确认三个新输出，<code>valid_sampled_token_count=3</code>；A 的有效目标 KV 长度是 <code>8+1+2=11</code>，x 位于 11，尚无自己的 KV。验证前按四行安排的临时长度是 12，下一轮续算前要去掉被拒绝的一行。具体的接受与 KV 回退过程见<a class="inline-source" href="speculation.html">第三章</a>。</p>
+<p>这使下一轮输入准备分成两部分：</p>
+<div class="comparison-table"><table><thead><tr><th>字段</th><th>由谁提供</th><th>准备下一轮时做什么</th></tr></thead><tbody>
+<tr><td>请求顺序、本轮调度行数、块表</td><td>Host 调度与内存管理</td><td>整理边界、请求映射，上传所需字段</td></tr>
+<tr><td>实际输出 Token、有效采样数</td><td>Device 验证与采样</td><td>在 Device 上选择下一轮输入，保留接受结果</td></tr>
+<tr><td>精确计算进度、positions、seq_lens</td><td>原有进度加验证结果</td><td>按请求映射修正起点，再生成位置、长度和写入槽</td></tr>
 </tbody></table></div>
-<p><code>_prepare_inputs()</code> 并没有把全部工作搬到 NPU：<code>query_start_loc</code>、<code>req_indices</code>、<code>query_pos</code>、本轮调度数和请求重排索引等仍会准备或上传，块表也仍需提交。优化省掉的是某些“设备算出 → Host 读取 → 再送回设备”的绕路，不能称为每轮零同步。</p>
-<p>异步投机路径先形成 <code>optimistic_seq_lens_cpu</code>，相当于暂按上一轮候选全接受记账；随后用 <code>valid_sampled_token_count_gpu</code>、<code>prev_num_draft_tokens</code> 和 <code>prev_positions</code> 调用 <code>update_num_computed_tokens_for_batch_change(...)</code>，在设备上纠正进度，再生成 positions、seq_lens 与 slot mapping。<strong>Host 计划可以先走，Attention 访问的真实有效边界必须纠正。</strong><a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v1/model_runner.py" target="_blank" rel="noopener">主线输入准备与计数修正</a></p>
-<h3>5.2 Python 能构造对象，不等于 Python 读过数据</h3>
-<p>Host 上持有一个 NPU Tensor 的 Python 对象，可以取得其设备、dtype、已知 shape 和地址，再把这个对象放进 metadata；这些操作并不要求把 Tensor 内部的数值复制回来。例如 <code>seq_lens.shape[0]</code> 告诉你长度数组有多少项，不会告诉你其中最大的真实序列长度。对设备 Tensor 做 <code>.item()</code>、<code>.tolist()</code>，或读取刚 D2H 的 Host 缓冲区，才涉及数值是否已经可用。</p>
-<p>预分配的输入容量、图使用的填充 shape、真实 query 数、有效 KV 范围也要分开。固定容量的 buffer 可以反复写新值；Kernel 用设备端有效长度与 mask 决定哪些位置有意义。某个后端若仍要求精确的 Python 长度列表，光有固定容量就不够。</p>
-<p>Ascend Attention builder 的 <code>_select_seq_lens()</code> 正体现这条边界：一些路径选 Host 镜像，一些路径选设备长度；后面的 <code>seq_lens.tolist()</code> 因来源不同而具有不同代价。CPU 镜像必须由正确的计数维护，不能把乐观上界换个字段名就交给需要精确值的消费者。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/attention/utils.py" target="_blank" rel="noopener">长度来源选择</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/attention/attention_v1.py" target="_blank" rel="noopener">Attention builder</a></p>
-<h3>5.3 三种等待，分别保护什么？</h3>
-<p>第一种保护复用的 Host 输入缓冲区。Ascend 的准备阶段使用继承来的 <code>synchronize_input_prep()</code>：进入时执行 <code>prepare_inputs_event.synchronize()</code>，离开时记录事件，确保上一轮异步 H2D 尚在读取的 Host 数据不被改写。这是真正的 Host 等待；事件已完成时会很快返回，尚未完成时会阻塞。其范围覆盖状态更新、输入和 metadata 准备，在主 forward 前结束，并非每轮为了这个 fence 等完整前向完成。父类中的 CUDA 命名经 Ascend 兼容包装映射为 NPU event；不能据名字认定 Ascend 没有这层等待。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu_model_runner.py" target="_blank" rel="noopener">继承方法</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v1/model_runner.py" target="_blank" rel="noopener">Ascend 调用与兼容包装</a></p>
-<p>第二种是 Host 消费设备产生的精确值。主线 <code>_copy_valid_sampled_token_count()</code> 在侧流发起有效计数 D2H；若 <code>_needs_seq_lens_cpu_sync</code>，后续 <code>_correct_optimistic_seq_lens_cpu()</code> 会先 <code>valid_sampled_token_count_event.synchronize()</code>，再修正 Host 长度。提前发起 copy 可以把等待藏到其他工作后面，不能保证事件到这里总已完成。另一路 <code>worker/v2</code> 的 <code>_update_seq_lens_cpu()</code> 也有精确计数回读；它的 <code>_can_skip_spec_cpu_length_sync()</code> 是另一条路径的条件判断，不能拼进上述调用链。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v2/model_runner.py" target="_blank" rel="noopener">另一 Runner 的对照</a></p>
-<p>第三种发生在设备流之间。对实现了 <code>DeviceMetadataTaskProvider</code> 协议的 builder，Runner 才收集设备任务并启用 <code>DeviceMetadataExecutor</code>；普通 builder 不因此自动变成设备侧构造。<code>submit()</code> 在独立流生产 metadata，按 stage/group 记录就绪事件；消费者的 <code>wait()</code> 让执行流等待相应事件。<code>release()</code> 与 <code>_buffer_reusable</code> 保护设备缓冲区，避免上一轮消费者尚未读完就被下一轮覆盖。这些 event 依赖可以让 Host 继续提交，但消费者流仍可能等待，不能解释成数据已经提前准备好。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/device_metadata.py" target="_blank" rel="noopener">设备侧 metadata 执行器</a></p>
-<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/metadata-pipeline.svg" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="1300" src="assets/metadata-pipeline.svg" alt="Host 计划、设备实际进度与缓冲区及结果的三类等待" loading="lazy"></a><figcaption>Host 计划、设备实际进度与缓冲区及结果的三类等待<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
-<h3>5.4 Triton 融合到底缩短哪一段？</h3>
-<p><code>_compute_slot_mapping_kernel</code> 把块号、块内偏移和写地址计算放在设备；<code>compute_slot_mapping_fused_groups</code> 在支持条件下用一次 launch 处理多 KV 组，省去逐组提交。这直接对应第 4 节的地址算例。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/compute_slot_mapping.py" target="_blank" rel="noopener">实现</a></p>
-<p><code>prepare_inputs_padded_kernel</code> 从设备有效计数推导拒绝数和采样索引。调用它的 proposer 保留拒绝位置作 padding，再按索引筛选，不立刻为了紧凑形状读取接受数。它把多步差分、<code>where</code> 和索引操作合在一起；有效范围与容量分离，才能少走 Host。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/spec_decode/utils.py" target="_blank" rel="noopener">融合 Kernel</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v1/spec_decode/llm_base_proposer.py" target="_blank" rel="noopener">padded 输入路径</a></p>
-<p>DFlash 的 <code>_prepare_dflash_inputs_kernel</code> 又在特定路径融合 query/context positions、slot mapping、采样映射与图 padding。这是另一处输入准备实现，不是所有请求都会经过的统一阶段。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/v2/spec_decode/prepare_dflash_inputs.py" target="_blank" rel="noopener">DFlash 实现</a></p>
-<p>融合主要减少小 Kernel 的提交、中间读写和临时张量。图回放减少可复用执行序列的重复提交；设备侧 metadata 把依赖留在设备。三者可以配合，但下游若仍要求立即读取精确 Host 长度，那条等待依然存在。<a class="inline-source" href="https://docs.vllm.ai/en/latest/design/cuda_graphs/" target="_blank" rel="noopener">图执行设计</a></p>
+<p>异步投机路径中的 <code>optimistic_seq_lens_cpu</code> 暂按候选全接受估计长度。<code>update_num_computed_tokens_for_batch_change(...)</code> 使用 <code>valid_sampled_token_count_gpu</code>、<code>prev_num_draft_tokens</code> 和 <code>prev_positions</code> 修正 Device 进度；请求重排后，要先找到该请求上一轮的计数行。Host 仍负责计划、映射和 H2D，Device 负责按实际接受结果纠正有效范围。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/spec_decode_utils.py" target="_blank" rel="noopener">进度修正</a></p>
+<h3>5.2 Python 构造 metadata 时，读到了哪些数据？</h3>
+<p>Host 持有 NPU Tensor 的 Python 对象，可以取得已知 shape、dtype、地址，再把 Tensor 放进 metadata。这些操作只用到对象属性。例如 <code>seq_lens.shape[0]</code> 给出请求数，并未读取每条请求的长度；<code>.item()</code>、<code>.tolist()</code> 或读取 D2H 的 Host 缓冲区，才需要相应数值已经可用。</p>
+<p>固定容量的输入 buffer 可反复写入新值，Kernel 再按有效长度和 mask 访问数据。图回放复用的也是容量与执行结构，每轮仍须更新 Token、位置、边界和映射。</p>
+<p>Ascend builder 的 <code>_select_seq_lens()</code> 会选择 Host 镜像或 Device 长度，取决于后端路径。若后续接口需要 Python 长度列表，Host 镜像就必须先用真实接受结果修正；若消费者直接读 Device Tensor，则可在 Device 上完成修正并通过流依赖保证顺序。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/attention/utils.py" target="_blank" rel="noopener">长度来源选择</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/attention/attention_v1.py" target="_blank" rel="noopener">Attention builder</a></p>
+<h3>5.3 准备下一轮时，哪些地方仍要等？</h3>
+<p><strong>复用 Host 输入缓冲区，要等上一轮 H2D 读完。</strong> Runner 反复使用同一组 Host 数组存放输入和 metadata，以减少分配。异步 H2D 调用返回时，拷贝可能还在排队，或 DMA 仍在读取这些数组。若 Host 随即把第 n+1 轮写进同一块内存，第 n 轮的拷贝就可能混入下一轮的数据，导致 Device 收到错误的 Token、长度或索引。</p>
+<p><code>synchronize_input_prep()</code> 在下一轮改写前等待 <code>prepare_inputs_event</code>，在本轮准备结束处记录事件，标记此前提交的准备操作何时完成。Ascend 在 <code>synchronize_input_prep()</code> 的上下文中更新状态、准备输入和 metadata，退出后才调用主 forward。因此这里等待的是缓冲区可以安全改写；无需为这个 event 等完整前向。事件已完成时立即继续，未启用该事件的路径则不在这里等待。上游 CUDA 命名通过 Ascend 兼容包装映射为 NPU 操作。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu_model_runner.py" target="_blank" rel="noopener">上游缓冲区复用与 event</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v1/model_runner.py" target="_blank" rel="noopener">Ascend 调用范围</a></p>
+<p><strong>Host 读取 Device 产生的精确值，要等 D2H 写完。</strong> A 的有效计数 3 在 Device 验证后才确定。Host 若需要据此把乐观长度 12 修正为 11，就必须先拿到本轮的计数；提前读取尚未完成写入的 Host 镜像，可能得到旧值，进而生成错误的长度。</p>
+<p>Ascend 主线的 <code>_copy_valid_sampled_token_count()</code> 在侧流发起 D2H 并记录完成事件。若 <code>_needs_seq_lens_cpu_sync</code>，下一轮 <code>_correct_optimistic_seq_lens_cpu()</code> 先等 <code>valid_sampled_token_count_event</code>，再读取 Host 计数、修正长度，供 Attention metadata 构建使用。提前发起拷贝能与其他工作重叠；到读取点是否还要阻塞，取决于拷贝是否已经完成。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v1/model_runner.py" target="_blank" rel="noopener">计数拷贝与 Host 修正</a></p>
+<p><strong>计算流读取 metadata，要等准备流产出。</strong> 对实现 <code>DeviceMetadataTaskProvider</code> 的 builder，<code>DeviceMetadataExecutor.submit()</code> 可在独立 Device 流生成 metadata。计算流若直接读取尚未写完的长度或索引，也会得到错误数据，因此消费者通过 <code>wait()</code> 等相应 stage/group 的就绪事件。反向还有一条依赖：上一轮计算流尚未读完的缓冲区，下一轮准备流也不能覆写；<code>release()</code> 与 <code>_buffer_reusable</code> 管理这次复用。流间 event 允许 Host 继续提交，等待由 Device 上的消费者承担。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/device_metadata.py" target="_blank" rel="noopener">Device metadata 执行器</a></p>
+<p>这三处分别等待 H2D 读完、D2H 写完和 Device 流间的数据就绪。<code>worker/v2</code> 的计数回传与 <code>_update_seq_lens_cpu()</code> 属于另一条 Runner 路径；使用哪一种，要沿实际的 builder 与调用分支核对。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v2/model_runner.py" target="_blank" rel="noopener">另一 Runner 的计数处理</a></p>
+<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/metadata-pipeline.svg?rev=1ec432ed" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="1420" src="assets/metadata-pipeline.svg?rev=1ec432ed" alt="Host 与 Device 的准备依赖，以及 K=3 接受两个候选后改用 K=1 的 metadata" loading="lazy"></a><figcaption>Host 与 Device 的准备依赖，以及 K=3 接受两个候选后改用 K=1 的 metadata<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
+<h3>5.4 动态 K 怎样传到下一轮 metadata？</h3>
+<p>继续看 A。上一轮候选数 <code>K_prev=3</code>，有效采样数为 3，拒绝数是 <code>3+1−3=1</code>，因此先把 KV 进度从 12 纠正到 11。现在让下一轮实际验证的候选数改为 <code>K_next=1</code>：</p>
+<pre class="source-code"><code>下一轮 query    = [x,e1]
+positions       = [11,12]
+query_start_loc = [0,2]        # 单独看 A
+seq_lens        = [13]        # 11 个历史位置 + 2 行 query</code></pre>
+<p><code>K_prev</code> 用于解释上一轮的拒绝数，<code>K_next</code> 用于安排下一轮的 query。若误用新的 1 去回退上一轮，就会得到错误起点。下一轮还有两个 KV 写入位置：11 重写被拒绝候选的槽，12 使用后续槽。沿第 4 节的 A 块表，给逻辑块 3 新分配尚未占用的物理块 10 后，块表为 <code>[7,2,9,10]</code>，两行 <code>slot_mapping=[39,40]</code>。</p>
+<p>实际 batch 的边界要对所有请求重新累加。若每条 Decode 请求 i 实际携带 Ki 个候选，且采用本例的单 anchor 布局，其 query 长度为 <code>1+Ki</code>；Prefill 则使用本轮分块长度。采样所需的候选累计数、logits 索引也要按这次列表重建。上一轮的接受数决定本轮起点，本轮实际候选数决定要算多少行。</p>
+<p>动态策略的输出要先落实为候选列表。按 batch size 查表的实现，用本轮已调度请求数选择共享的提议预算，交给 proposer 生成供后续验证的候选；Ascend <code>worker/v1</code> 的置信度裁剪则可缩短每请求的验证列表。当前 Target 输入中的 Ki，仍应从本次 <code>scheduled_spec_decode_tokens</code> 读取，而非直接套配置最大值。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/docs/features/speculative_decoding/dynamic_speculative_decoding.md" target="_blank" rel="noopener">动态提议预算</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v1/spec_decode/utils.py" target="_blank" rel="noopener">Ascend 每请求裁剪</a></p>
+<p>K 变化后，真实 query 行数可能改变，图执行则根据后端支持和捕获档位决定填充、改选图或回退。即便仍使用同一容量的图，有效行数、query 边界和采样映射也必须更新。Ascend <code>worker/v2</code> 的 adaptive verification 还有独立的 query 重排路径；其中部分后端仍需把新边界读回 Host，应单独核对，不能套用上面的 v1 调用链。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v1/model_runner.py" target="_blank" rel="noopener">v1 图匹配</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v2/model_runner.py" target="_blank" rel="noopener">v2 重分配与 metadata</a></p>
+<p>第三章的下一轮 metadata 面板可切换 K=0、1、3，对照接受结果、位置、写入槽和 query 边界。<a class="inline-source" href="speculation.html">查看投机接续示例</a></p>
+<h3>5.5 融合怎样减少输入准备的工作？</h3>
+<p>第 4 节先由 position 算逻辑块与块内偏移，再查块表得到写入槽。<code>_compute_slot_mapping_kernel</code> 将这些计算放在 Device；支持多 KV 组时，<code>compute_slot_mapping_fused_groups</code> 用一次 launch 处理多个组，减少逐组提交和中间处理。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/compute_slot_mapping.py" target="_blank" rel="noopener">块表与写入槽融合</a></p>
+<p>验证结束后，为 drafter 准备带 padding 的输入时，也可以合并相关计算。它根据有效采样数计算拒绝数和接续索引，保留批形状中的无效尾部；第三章会沿同一个接受例子计算这些索引。融合节省 Kernel 提交、中间读写和临时张量，图回放节省重复提交；精确值的消费与缓冲区复用仍遵守前面的数据依赖。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/v1/spec_decode/utils.py" target="_blank" rel="noopener">投机 padded 输入</a>、<a class="inline-source" href="https://docs.vllm.ai/en/latest/design/cuda_graphs/" target="_blank" rel="noopener">图执行设计</a></p>
 </section>
 <section class="lesson observed" id="execution-6" data-title="6. 异步调度怎样连接两轮？"><h2>6. 异步调度怎样连接两轮？</h2>
 <h3>6.1 EngineCore 不必每轮立刻回收结果</h3>
-<p>同步循环中，<code>schedule()</code>、执行、等待结果、<code>update_from_output()</code> 依次推进。异步调度让第 n 轮还在执行、采样或回传时，Host 先安排后续工作。它主要重叠两侧的工作，不允许同一请求绕过 Token 的自回归依赖。</p>
+<p>上一节看 Runner 内怎样准备数据，这里回到 EngineCore，看 Host 何时能安排下一批。同步循环中，<code>schedule()</code>、执行、等待结果、<code>update_from_output()</code> 依次推进。异步调度让第 n 轮还在执行、采样或回传时，Host 先安排后续工作。它主要重叠两侧的工作，不允许同一请求绕过 Token 的自回归依赖。</p>
 <p>源码应从上游 <code>EngineCore.step_with_batch_queue()</code> 往下读。省略结构化输出等分支后，控制顺序是：</p>
 <pre class="source-code"><code>若能继续调度：
     out = scheduler.schedule()
@@ -106,8 +127,8 @@ seq_lens        = [ 9, 6, 5 ]</code></pre>
     result = future.result()
     scheduler.update_from_output(out, result)</code></pre>
 <p>队列受 <code>max_concurrent_batches</code> 限制，也用于流水线并行；<code>get_scheduler_cls()</code> 是否选择 <code>AsyncScheduler</code> 则由对应配置决定。普通 <code>step()</code> 也可调用 <code>non_block=True</code>，但随后很快等结果。因此要沿“调用返回后做什么”读，不能凭一个异步参数或队列判定跨轮重叠已经发生。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/v1/engine/core.py" target="_blank" rel="noopener">引擎循环</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/config/scheduler.py" target="_blank" rel="noopener">Scheduler 选择</a></p>
-<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/async-scheduling.svg" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="1190" src="assets/async-scheduling.svg" alt="提前调度、设备执行与输出回收的跨轮关系" loading="lazy"></a><figcaption>提前调度、设备执行与输出回收的跨轮关系<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
-<h3>6.2 占位记账，设备接上真实 Token</h3>
+<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/async-scheduling.svg?rev=1b0bf8ba" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="1190" src="assets/async-scheduling.svg?rev=1b0bf8ba" alt="提前调度、设备执行与输出回收的跨轮关系" loading="lazy"></a><figcaption>提前调度、设备执行与输出回收的跨轮关系<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
+<h3>6.2 Host 预留进度，Device 接上真实 Token</h3>
 <p>基础 Scheduler 的 <code>_update_after_schedule()</code> 会提前推进请求的 <code>num_computed_tokens</code>；此时表示已安排进度，不能当成设备完成事件。<code>AsyncScheduler</code> 另外用 <code>num_output_placeholders</code> 记录尚未回收的输出，结果回来时再消解或修正。调度器因此能预算后续工作，Worker 仍必须使用真实 Token。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py" target="_blank" rel="noopener">基础记账</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/async_scheduler.py" target="_blank" rel="noopener">异步占位</a></p>
 <p>以普通 Decode 接续前面的例子。A、B 本轮算完位置 8、5，采样得到 <code>a9</code>、<code>b6</code>；C 尚未完成 Prompt，不作为有效输出回传。假设下一批重排为 <code>[B,D,A]</code>，D 是新请求，计算两个 Prompt Token：</p>
 <pre class="source-code"><code>上一批行号：       A→0，B→1，C→2
@@ -116,7 +137,7 @@ seq_lens        = [ 9, 6, 5 ]</code></pre>
 query_start_loc： [0, 1, 3, 4]
 input_ids：       [b6, d0, d1, a9]
 positions：       [ 6,  0,  1,  9]</code></pre>
-<p>Host 知道 D 的 Prompt、当前请求顺序、调度数及目标行号，所以仍上传新输入与必要索引。<code>b6</code>、<code>a9</code> 已保存在设备 <code>prev_sampled_token_ids</code> 中；<code>_prepare_input_ids()</code> 根据映射将它们复制或 scatter 到行 0、3。批次没变且位置连续时，可直接切片复制；有新请求或重排时要走对应映射。Host 缓冲区中的占位 ID 不承担模型输入的语义，不能拿来替代真实采样结果。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu_model_runner.py" target="_blank" rel="noopener">继承的输入接续方法</a></p>
+<p>Host 已知 D 的 Prompt、当前请求顺序、调度数及目标行号，所以仍上传新输入与必要索引。<code>b6</code>、<code>a9</code> 已保存在 Device 的 <code>prev_sampled_token_ids</code> 中；<code>_prepare_input_ids()</code> 根据映射将它们复制或 scatter 到行 0、3。批次没变且位置连续时，可直接切片复制；有新请求或重排时要走对应映射。Host 缓冲区中的占位 ID 不承担模型输入的语义，不能拿来替代真实采样结果。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu_model_runner.py" target="_blank" rel="noopener">继承的输入接续方法</a></p>
 <p>Ascend 的普通异步采样路径会缓存设备 sampled IDs，并保存 <code>prev_req_id_to_index</code>；它继承上游 Runner 的部分准备方法，这也是只搜 Ascend 仓库不容易找到完整机制的原因。投机路径还要接上有效计数与拒绝修正，即第 5 节的状态对账；多级流水线、并行与特殊模型分支需沿实际调用分支继续追，不能照搬这个单 Worker 例子。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v1/model_runner.py" target="_blank" rel="noopener">Ascend 采样处理与继承</a></p>
 <h3>6.3 输出回收仍在发生</h3>
 <p>采样结果最终还要 D2H，用于输出、停止判断与请求状态更新。多进程 executor 的 <code>handle_output()</code> 在异步配置下把输出放入后台队列，<code>async_output_busy_loop()</code> 再经 <code>enqueue_output()</code> 调用异步输出的 <code>get_output()</code>。等待被移到后台，不等于被删除；EngineCore 到回收队列头时仍可能等待 future。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/v1/executor/multiproc_executor.py" target="_blank" rel="noopener">后台回收源码</a></p>

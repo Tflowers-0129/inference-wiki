@@ -43,6 +43,25 @@
     };
   }
 
+  function continuation(accepted, nextK = 1) {
+    const previous = verification(accepted);
+    if (!Number.isInteger(nextK) || nextK < 0 || nextK > DRAFT_COUNT) {
+      throw new RangeError('Next draft count must be an integer from 0 to 3');
+    }
+    const blockSize = 4;
+    const blockTable = [7, 2, 9, 10];
+    const queryTokens = ['x', ...Array.from({length: nextK}, (_, i) => `e${i + 1}`)];
+    const queryPositions = queryTokens.map((_, i) => previous.validKvLength + i);
+    const slotMapping = queryPositions.map(position =>
+      blockTable[Math.floor(position / blockSize)] * blockSize + position % blockSize);
+    return {
+      previous, nextK, queryTokens, queryPositions,
+      queryOffsets: [0, queryTokens.length],
+      seqLength: previous.validKvLength + queryTokens.length,
+      blockSize, blockTable, slotMapping
+    };
+  }
+
   function frames(accepted = 2) {
     const result = verification(accepted);
     return [
@@ -121,5 +140,5 @@
     };
   }
 
-  return {verification, frames, measureStream, streamScenario};
+  return {verification, continuation, frames, measureStream, streamScenario};
 });

@@ -28,6 +28,29 @@
     if (suffix) box.append(node('span', 'spec-stat-suffix', suffix));
     return box;
   }
+  function renderContinuation() {
+    const next = model.continuation(accepted, Number(byId('spec-next-k').value));
+    const previous = next.previous;
+    const list = node('dl', 'spec-meta-list');
+    const array = values => `[${values.join(', ')}]`;
+    const pairs = [
+      ['上一轮 K / 接受 a', `${previous.draftCount} / ${previous.accepted}`],
+      ['下一轮候选 K', String(next.nextK)],
+      ['query tokens', array(next.queryTokens)],
+      ['positions', array(next.queryPositions)],
+      ['query_start_loc', array(next.queryOffsets)],
+      ['seq_len', String(next.seqLength)],
+      ['slot_mapping', array(next.slotMapping)]
+    ];
+    pairs.forEach(([term, value]) => list.append(node('dt', '', term), node('dd', '', value)));
+    byId('spec-continuation-metadata').replaceChildren(list);
+    byId('spec-continuation-correction').textContent =
+      `上一轮拒绝 ${previous.draftCount} − ${previous.accepted} = ${previous.invalidTailLength} 个候选，起点从 12 纠正到 ${previous.validKvLength}。下一轮从 x@${previous.validKvLength} 开始，${next.nextK === 0 ? '没有新候选，也要计算 x 的 KV。' : `再加 ${next.nextK} 个新候选，共 ${next.queryTokens.length} 行 Query。`}`;
+    byId('spec-continuation-address').textContent = next.queryPositions.map((position, i) => {
+      const logicalBlock = Math.floor(position / next.blockSize);
+      return `${next.queryTokens[i]}@${position} → 块 ${logicalBlock} → 物理块 ${next.blockTable[logicalBlock]}，slot ${next.slotMapping[i]}`;
+    }).join('；');
+  }
   function stop() {
     if (timer !== null) clearInterval(timer);
     timer = null;
@@ -92,8 +115,9 @@
   byId('spec-next').addEventListener('click', () => {stop(); index = Math.min(events.length - 1, index + 1); render();});
   byId('spec-reset').addEventListener('click', () => {stop(); index = 0; render();});
   byId('spec-accepted').addEventListener('change', event => {
-    stop(); accepted = Number(event.target.value); events = model.frames(accepted); index = 0; render();
+    stop(); accepted = Number(event.target.value); events = model.frames(accepted); index = 0; render(); renderContinuation();
   });
+  byId('spec-next-k').addEventListener('change', renderContinuation);
   byId('spec-play').addEventListener('click', () => {
     if (timer !== null) {stop(); return;}
     if (index === events.length - 1) {index = 0; render();}
@@ -136,5 +160,6 @@
   }
   byId('spec-stream-scenario').addEventListener('change', renderStream);
   render();
+  renderContinuation();
   renderStream();
 })();

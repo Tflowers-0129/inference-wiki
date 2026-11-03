@@ -34,6 +34,53 @@ test('the four events separate draft, metadata, verification, and commitment', (
   assert.throws(() => model.verification(1.5), RangeError);
 });
 
+test('next-round K does not change the previous verification or rollback', () => {
+  for (let a = 0; a <= 3; a++) {
+    const previous = model.verification(a);
+    for (let nextK = 0; nextK <= 3; nextK++) {
+      const next = model.continuation(a, nextK);
+      assert.deepEqual(next.previous, previous);
+      assert.equal(next.previous.invalidTailLength, 3 - a);
+      assert.equal(next.queryPositions[0], previous.validKvLength);
+    }
+  }
+});
+
+test('continuation metadata addresses each valid query row across the block boundary', () => {
+  const expectedSlots = {9: 37, 10: 38, 11: 39, 12: 40, 13: 41, 14: 42, 15: 43};
+  for (let a = 0; a <= 3; a++) {
+    for (let nextK = 0; nextK <= 3; nextK++) {
+      const next = model.continuation(a, nextK);
+      assert.deepEqual(next.queryTokens, ['x', ...['e1', 'e2', 'e3'].slice(0, nextK)]);
+      assert.deepEqual(next.queryPositions, Array.from({length: nextK + 1}, (_, i) => 9 + a + i));
+      assert.deepEqual(next.queryOffsets, [0, nextK + 1]);
+      assert.equal(next.seqLength, 10 + a + nextK);
+      assert.deepEqual(next.slotMapping, next.queryPositions.map(position => expectedSlots[position]));
+      assert.equal(new Set(next.slotMapping).size, nextK + 1, 'query rows use distinct physical slots');
+    }
+  }
+  const boundary = model.continuation(2, 1);
+  assert.deepEqual(boundary.queryPositions, [11, 12]);
+  assert.deepEqual(boundary.slotMapping, [39, 40]);
+  assert.equal(boundary.seqLength, 13);
+  assert.equal(model.continuation(2).nextK, 1);
+});
+
+test('zero next candidates still schedules the confirmed anchor to build its KV', () => {
+  for (let a = 0; a <= 3; a++) {
+    const next = model.continuation(a, 0);
+    assert.equal(next.previous.extraToken.hasTargetKv, false);
+    assert.deepEqual(next.queryTokens, ['x']);
+    assert.deepEqual(next.queryPositions, [next.previous.extraToken.position]);
+    assert.deepEqual(next.queryOffsets, [0, 1]);
+    assert.equal(next.seqLength, next.previous.validKvLength + 1);
+  }
+  for (const invalidK of [-1, 4, 1.5, NaN]) {
+    assert.throws(() => model.continuation(2, invalidK), RangeError);
+  }
+  assert.throws(() => model.continuation(4, 1), RangeError);
+});
+
 test('constructed streams distinguish per-event ITL from request TPOT', () => {
   const expectations = {single: [30, 30, 280, 6], specBurst: [20, 60, 220, 2], buffered: [30, 90, 280, 2]};
   for (const [name, [tpot, gap, last, sampleCount]] of Object.entries(expectations)) {

@@ -7,6 +7,7 @@ and standalone local SVG/PNG figures. The chapter manuscripts remain the source.
 """
 from pathlib import Path
 import html
+import hashlib
 import re
 from image_assets import image_dimensions, resolve_asset, rewrite_local_link
 
@@ -19,6 +20,11 @@ CHAPTERS = [
 LINKS = {name: key + '.html' for key, name, *_ in CHAPTERS}
 LINKS['LLM推理调度与执行.md'] = 'index.html'
 TOKEN = re.compile(r'(`[^`]+`|\[[^\]]+\]\([^)]+\)|\*\*.+?\*\*)')
+
+
+def asset_url(name):
+    digest = hashlib.sha256((DIST / name).read_bytes()).hexdigest()[:8]
+    return name + '?rev=' + digest
 
 
 def inline(source):
@@ -47,7 +53,8 @@ def figure(alt, reference):
     alt = html.escape(f'{label}：{alt}' if original else alt, quote=True)
     width, height = (format(value, '.15f').rstrip('0').rstrip('.') for value in (width, height))
     figure_class = "diagram-figure technical-figure" + (" raster-figure" if original else "")
-    return f'<figure class="{figure_class}"><a class="diagram-expand" href="assets/{name}" target="_blank" rel="noopener" title="打开完整{label}"><img width="{width}" height="{height}" src="assets/{name}" alt="{alt}" loading="lazy"></a><figcaption>{alt}<em>{label}；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>'
+    src = asset_url("assets/" + path.name)
+    return f'<figure class="{figure_class}"><a class="diagram-expand" href="{src}" target="_blank" rel="noopener" title="打开完整{label}"><img width="{width}" height="{height}" src="{src}" alt="{alt}" loading="lazy"></a><figcaption>{alt}<em>{label}；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>'
 
 
 def render_markdown(source, key):
@@ -135,7 +142,7 @@ def build_chapters():
         chapter_nav = '<a href="index.html">01　调度、PD 与 KV</a>' + ''.join(f'<a href="{slug}.html"' + (' class="active" aria-current="page"' if slug == key else '') + f'>{number:02d}　{html.escape(label)}</a>' for number, (slug, _, label, _) in enumerate(CHAPTERS, 2))
         if key == 'speculation':
             player_links = '<a href="#spec-player">投机验证播放器</a><a href="#spec-stream">流式指标实验室</a>'
-            extra = '<link rel="stylesheet" href="spec.css"><script defer src="spec-model.js"></script><script defer src="spec-app.js"></script>'
+            extra = f'<link rel="stylesheet" href="{asset_url("spec.css")}"><script defer src="{asset_url("spec-model.js")}"></script><script defer src="{asset_url("spec-app.js")}"></script>'
             next_link = '<a href="execution.html">← 回看一次前向</a>'
             action = '<a class="primary-button" href="#spec-player">逐步看接受与回退 →</a><a class="text-button" href="#spec-stream">对照 ITL 与 TPOT ↓</a>'
         else:

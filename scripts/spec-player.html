@@ -29,6 +29,19 @@
   <div class="spec-stat-grid" id="spec-stats"></div>
   <p class="spec-boundary" id="spec-kv-boundary"></p>
   <p class="spec-footnote">这是记账演示：手选 a 不表示接受概率；事件不等时，也不预测速度。x 刚被采样出来，尚未作为 Target 输入，不能算入已有 Target KV。</p>
+  <div class="spec-continuation" aria-labelledby="spec-continuation-title">
+    <h4 id="spec-continuation-title">下一轮 metadata 预览（按所选接受长度推算）</h4>
+    <p>上一轮固定 K＝3，用接受长度 a 纠正下一轮的起点；新的 K 决定这次有多少行 Query。预览使用上方选定的 a，不随播放步骤变化。</p>
+    <div class="spec-controls"><label for="spec-next-k">下一轮候选数 K
+      <select id="spec-next-k"><option value="0">0：只计算 anchor x</option><option value="1" selected>1：x + e1</option><option value="3">3：x + e1、e2、e3</option></select>
+    </label></div>
+    <div class="spec-continuation-result" aria-live="polite" aria-atomic="true">
+      <p class="spec-boundary" id="spec-continuation-correction"></p>
+      <div id="spec-continuation-metadata"></div>
+      <p class="spec-continuation-address" id="spec-continuation-address"></p>
+    </div>
+    <p class="spec-footnote">沿用 B＝4、块表 [7, 2, 9, 10] 的寻址示例。这里对照的是输入与地址，不模拟后端性能，也不决定应采用哪种投机策略。</p>
+  </div>
   <noscript><p>交互演示需要启用 JavaScript。正文和图解仍可阅读。</p></noscript>
 </section>
 
