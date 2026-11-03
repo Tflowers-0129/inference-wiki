@@ -13,7 +13,7 @@ from image_assets import SOURCE_MANIFEST, image_dimensions, resolve_asset, sourc
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
-DOWNLOADS = {'LLM推理调度与执行.md':'source.md', '从一轮调度到一次前向.md':'execution.md', '投机解码与流式指标.md':'speculation.md'}
+DOWNLOADS = {'LLM推理调度与执行.md':'source.md', '从一轮调度到一次前向.md':'execution.md', '投机解码与流式指标.md':'speculation.md', '负载均衡与专家并行.md':'load-balancing.md'}
 
 
 class Page(HTMLParser):
@@ -66,7 +66,7 @@ def main():
             for identifier in re.findall(r"(?:\$|byId)\(['\"]([^'\"]+)['\"]\)",js.read_text(encoding='utf-8')):
                 if identifier not in page.ids:
                     errors.append(f'{path.name} 的 {script} 引用缺失 DOM：{identifier}')
-    for filename, anchors in {'index.html':['scheduler','pdPlayer'],'speculation.html':['spec-player','spec-stream']}.items():
+    for filename, anchors in {'index.html':['scheduler','pdPlayer'],'speculation.html':['spec-player','spec-stream'],'load-balancing.html':['dplb-lab','eplb-lab']}.items():
         page = pages.get((DIST/filename).resolve())
         if not page or any(anchor not in page.ids for anchor in anchors):
             errors.append(f'{filename} 缺少播放器入口')

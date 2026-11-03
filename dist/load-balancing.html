@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="负载均衡：DPLB 与 EPLB：沿输入字段、状态记账和源码调用定位推理性能问题。"><title>负载均衡：DPLB 与 EPLB · Inference Wiki</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="reading.css"><link rel="stylesheet" href="chapters.css"><script defer src="chapter.js"></script><link rel="stylesheet" href="lb.css?rev=f8e7635c"><script defer src="lb-model.js?rev=4e4d3de3"></script><script defer src="lb-app.js?rev=6cfa1c3a"></script></head>
+<body><div class="reading-progress" id="readingProgress"></div>
+<aside class="sidebar" id="sidebar"><a class="brand" href="index.html"><span class="brand-mark"><i></i><i></i><i></i></span><span>Inference<span class="brand-sub">图解推理系统</span></span><b>WIKI</b></a><button class="search-trigger" data-search>搜索本章 <kbd>⌘ K</kbd></button><div class="nav-group-label">学习篇章</div><nav class="main-nav" aria-label="学习篇章"><a href="index.html">01　调度、PD 与 KV</a><a href="execution.html">02　从一轮调度到一次前向</a><a href="speculation.html">03　投机解码：调度、元数据与流式时延</a><a href="load-balancing.html" class="active" aria-current="page">04　负载均衡：DPLB 与 EPLB</a></nav><div class="nav-group-label resources-label">本章目录</div><nav class="main-nav chapter-nav" aria-label="本章目录"><a href="#dplb-lab">DPLB 请求分发</a><a href="#eplb-lab">EPLB rank 泳道</a><a href="#load-balancing-1">1. 同一张卡，为什么既有 DP rank，又有 EP rank？</a><a href="#load-balancing-2">2. DPLB 收到一个请求，究竟怎样选 rank？</a><a href="#load-balancing-3">3. 请求已经分均了，为什么四条泳道仍不一样长？</a><a href="#load-balancing-4">4. 到了 MoE 层，Router 已经选好专家，EPLB 还能改什么？</a><a href="#load-balancing-5">5. 同样十二个物理槽，怎样把热点摊开？</a><a href="#load-balancing-6">6. 看不同 rank 的 profiling，等待出现在哪里？</a><a href="#load-balancing-7">7. 热度变了，权重和映射怎样安全换过去？</a><a href="#load-balancing-8">8. 专家更均衡了，为什么端到端收益还可能不够？</a><a href="#load-balancing-9">9. 怎样把教学泳道换成真实证据？</a></nav><div class="sidebar-bottom">字段、调用链与 Trace 排查</div></aside>
+<div class="page-shell"><header class="topbar"><button class="mobile-menu" id="menuToggle" aria-label="展开目录" aria-expanded="false">☰</button><div class="breadcrumb"><a href="index.html">推理系统</a><span>/</span><strong>负载均衡：DPLB 与 EPLB</strong></div><a class="source-link" href="load-balancing.md" download>下载本章 Markdown ↗</a></header>
+<main><header class="chapter-hero"><div class="eyebrow">INFERENCE SYSTEMS / 源码与排查</div><h1>负载均衡<br><span>DPLB 与 EPLB</span></h1><div class="hero-actions"><a class="primary-button" href="#dplb-lab">分发一批新请求 →</a><a class="text-button" href="#eplb-lab">对照专家放置与 rank 泳道 ↓</a></div></header><div class="article-layout"><article class="chapter-article"><p>前面沿着一条请求，追到了输入打包、投机验证和下一轮接续。把视角拉到四个 rank，又会遇到一个问题：请求总数不少，为什么有的 rank 持续计算，另一些已经进入通信或等待？</p>
+<p>先看请求分布，再看一次 MoE 前向内部的专家分布。DPLB（Data Parallel Load Balancing）处理请求进入哪个 DP engine；EPLB（Expert Parallel Load Balancing）处理逻辑专家由哪些物理副本承载。它们面对的负载不同，观测指标和调整时机也不同。</p>
+<section class="lesson observed" id="load-balancing-1" data-title="1. 同一张卡，为什么既有 DP rank，又有 EP rank？"><h2>1. 同一张卡，为什么既有 DP rank，又有 EP rank？</h2>
+<p>DP 侧按请求记账：每个 engine 有自己的调度器、请求队列和 KV Cache。EP 侧按专家权重与 token 路由记账：一层 MoE 的专家分布在多个 worker 上，输入要发到对应专家所在的 rank，算完再把结果送回。</p>
+<p>在 Dense 的独立服务副本中，每个副本可以各算各的。使用 DP Attention 加 EP MoE 时，不能再把每个 DP rank 都叫作“完整模型副本”：Attention 按各自 TP 组执行，MoE 专家则跨 EP 组分布。常规 DP、TP、EP 组合下，EP 组大小为 DP 数乘 TP 数。例如 DP=4、TP=2，有四个请求调度单元、八个设备 worker；不是四张卡各放一份全部专家。<a class="inline-source" href="https://docs.vllm.ai/en/latest/serving/data_parallel_deployment/" target="_blank" rel="noopener">DP 部署</a> · <a class="inline-source" href="https://docs.vllm.ai/en/latest/serving/expert_parallel_deployment/" target="_blank" rel="noopener">EP 部署</a></p>
+<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/lb-two-levels.svg?rev=8802840e" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="970" src="assets/lb-two-levels.svg?rev=8802840e" alt="DPLB 选择请求归属，EPLB 调整同一逻辑专家的物理承载；DP 与 EP 是不同维度" loading="lazy"></a><figcaption>DPLB 选择请求归属，EPLB 调整同一逻辑专家的物理承载；DP 与 EP 是不同维度<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
+<p>图中用 TP=1 简化编号，因此一个设备可以同时标为某个 DP rank 和某个 EP rank。两个标签是在描述同一批资源的不同职责，并非前后连接的两套机器。</p>
+<div class="comparison-table"><table><thead><tr><th>观察位置</th><th>DPLB</th><th>EPLB</th></tr></thead><tbody>
+<tr><td>被分配的对象</td><td>新请求及其 engine 归属</td><td>一层 MoE 的专家副本与专家任务</td></tr>
+<tr><td>负载线索</td><td>waiting、running、在途请求、KV 压力等</td><td>每个逻辑/物理专家收到的有效 token 任务数</td></tr>
+<tr><td>调整的状态</td><td>请求送往哪个队列</td><td>专家放置表、逻辑到物理副本的映射</td></tr>
+<tr><td>不会自动完成的事</td><td>搬走已有请求的 KV 与执行状态</td><td>把 Router 选中的热门专家换成另一个冷门专家</td></tr>
+</tbody></table></div>
+</section>
+<section class="lesson observed" id="load-balancing-2" data-title="2. DPLB 收到一个请求，究竟怎样选 rank？"><h2>2. DPLB 收到一个请求，究竟怎样选 rank？</h2>
+<p>先看内置请求入口的实现。<code>DPLBAsyncMPClient.add_request_async()</code> 调用 <code>get_core_engine_for_request()</code>，再把 ADD 消息发给选定 engine。它读的不是设备忙闲截图，而是各 engine 上报的请求与 KV 状态，以及这个 API client 自己记下的在途请求。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/v1/engine/core_client.py" target="_blank" rel="noopener">入口与选择函数</a></p>
+<p>这条路径使用以下量：w 是 waiting，r 是 running，u 是 KV 使用比例，i 是本 API client 尚未结束的请求数，C 是 API client 数。将普通新请求的评分关系写成：</p>
+<pre class="source-code"><code>基础分 = max(C × i, w + r)
+KV 压力项 = 6 × w × max(0, u − 0.5)
+总分 = 基础分 + KV 压力项</code></pre>
+<p>这里的 6 和 0.5 来自所核查的选择路径，是启发式系数；分数没有毫秒单位，也不是预测完成时间。官方部署文档仍把 KV 感知列为可扩展方向，而该源码路径已经包含这个压力项。阅读部署文档时，要再对照实际运行的 <code>get_core_engine_for_request()</code>，不能把两处描述当成同一套策略。</p>
+<p>下面固定一个 API client，自己的在途计数暂未高过遥测请求总数：</p>
+<div class="comparison-table"><table><thead><tr><th>DP rank</th><th>waiting</th><th>running</th><th>KV 使用率</th><th>基础分</th><th>KV 压力项</th><th>总分</th></tr></thead><tbody>
+<tr><td>0</td><td>0</td><td>8</td><td>35%</td><td>8</td><td>0</td><td>8</td></tr>
+<tr><td>1</td><td>2</td><td>2</td><td>40%</td><td>4</td><td>0</td><td><strong>4</strong></td></tr>
+<tr><td>2</td><td>1</td><td>1</td><td>90%</td><td>2</td><td>2.4</td><td>4.4</td></tr>
+<tr><td>3</td><td>0</td><td>5</td><td>80%</td><td>5</td><td>0</td><td>5</td></tr>
+</tbody></table></div>
+<p>只比较请求总数会选 rank 2；加入这里的 KV 压力项后会选 rank 1。rank 3 的 KV 使用率也高，但没有 waiting，这一项为零。不能把这段代码概括为“永远选显存最空的卡”。</p>
+<section class="lb-lab" id="dplb-lab" aria-labelledby="dplb-heading">
+  <header><span class="lb-eyebrow">请求入口 / 固定遥测快照</span><h4 id="dplb-heading">下一条请求会去哪个 DP rank？</h4><p>比较计数对照与含 KV 压力的评分。切换策略会回到同一初始状态；点击送入请求，看本地信用怎样避免连续涌向同一 rank。</p></header>
+  <div class="lb-controls"><div class="lb-modes" role="group" aria-label="DPLB 评分方式"><button type="button" id="lb-count" aria-pressed="false">仅计数 · 对照</button><button type="button" id="lb-kv" aria-pressed="true">计数＋KV 压力</button></div><button type="button" id="lb-send">送入下一条请求 →</button><button type="button" id="lb-reset">重置快照</button></div>
+  <p class="lb-result" id="lb-route-result" aria-live="polite"></p><div class="lb-ranks" id="lb-ranks"></div><p class="lb-history" id="lb-route-history"></p>
+  <p class="lb-note">示例仅截取普通新请求选 rank 与本地计数更新。C=1，无遥测刷新、请求完成或 KV 增长；分数不是毫秒。最多送入 8 条，重置后可继续比较。</p>
+  <noscript>启用 JavaScript 可演示请求到达；上表列出了初始评分和选定目标。</noscript>
+</section>
+
+<h3>快照还没更新，又来了一批请求怎么办？</h3>
+<p>选完目标后，client 会立即给自己的本地 waiting 估计加 C，并增加自己的在途计数，避免所有突发请求都涌向同一个“看起来空闲”的 rank。engine 上报新统计后，再更新快照。完成输出则会减少本 client 的在途计数。上面的交互冻结了遥测，只演示本地信用更新；它没有模拟请求完成、Prefill/Decode 变化或服务耗时。</p>
+<p>上报链可以从 <code>EngineCore._maybe_publish_request_counts()</code> 追到 <code>SchedulerStats</code>，再经 DP coordinator 到 client 的 <code>lb_engines</code>。如果现场看到路由持续压向已忙的 rank，先对齐上报时间、client 本地估计和实际队列，不能只拿两个不同时刻的 running 值比较。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/v1/engine/core.py" target="_blank" rel="noopener">engine 统计</a> · <a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/v1/engine/coordinator.py" target="_blank" rel="noopener">DP coordinator</a></p>
+<h3>internal、external、hybrid 差在谁做选择</h3>
+<p>internal 在 API server 内选 DP engine；external 由外部 router 选择独立 endpoint；hybrid 先由外部选择节点，再由节点内 API server 选择本地 engine。两级选择没有赋予请求自动迁移能力。外部策略可以使用不同指标，但不能把外部 proxy 的启发式写成内置 DPLB 的默认算法。<a class="inline-source" href="https://docs.vllm.ai/en/latest/serving/data_parallel_deployment/" target="_blank" rel="noopener">三种入口拓扑</a></p>
+<p>例如 Ascend 的一个外部 proxy 示例把 <code>request_length</code> 加上部分输出上限作为分数；沿调用方看，这个长度来自 <code>len(req_body)</code>，实际是请求体字节数，并非分词后的输入 token 数。字节长度与输出 token 上限混合，只能当作这个示例的粗略代理值，不能当成通用工作量公式。Prefix locality 还需知道这个请求能在哪里复用缓存；仅有 KV 使用率并不提供这份命中信息。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/examples/dynamic_bucket_load_balancer/hybrid_proxy_server.py" target="_blank" rel="noopener">外部 proxy 的评分及调用方</a></p>
+</section>
+<section class="lesson observed" id="load-balancing-3" data-title="3. 请求已经分均了，为什么四条泳道仍不一样长？"><h2>3. 请求已经分均了，为什么四条泳道仍不一样长？</h2>
+<p>假设四个独立 Dense 服务 rank 各接两条请求。rank 0 的两条各需要九个工作量单位，另外六条各需要三个单位。请求数都是二，累计工作量却是 <code>[18,6,6,6]</code>。这些单位只是构造的剩余工作，不是输入 token 数，更不是测得的时间。</p>
+<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/dplb-rank-work.svg?rev=6618f86a" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="830" src="assets/dplb-rank-work.svg?rev=6618f86a" alt="四个独立服务 rank 请求数相同，工作量仍不同；入口 DPLB 只安排新请求，不搬走已有 KV" loading="lazy"></a><figcaption>四个独立服务 rank 请求数相同，工作量仍不同；入口 DPLB 只安排新请求，不搬走已有 KV<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
+<p>同样是 Decode，上下文更长会改变 KV 访问量；同样是一个请求，长 Prefill 与短 Decode 的本轮工作也不同。请求数量可以帮助路由，却不能完整恢复这些差别。把“各两条”当成“各占相同设备时间”，会漏掉负载均衡最需要解释的部分。</p>
+<p>入口 DPLB 可以把后续请求送往轻侧，让热点逐渐排空。已经在 rank 0 建立的 KV、调度进度和流式会话仍属于它，不能只改目的地址就搬到 rank 2。迁移需要额外的请求状态与 KV 交接协议；前一章讨论的 Host/Device 接续，也必须在目标侧继续成立。</p>
+<h3>换成 MoE，轻侧会不会等重侧？</h3>
+<p>上图是独立服务副本，各自完成即可回包，没有每轮跨 rank 汇合线。DP Attention 加 EP MoE 则不同：各 rank 的输入会参与同一 EP 组的专家通信。某个 DP rank 没有真实请求时，也可能需要 dummy forward 配合集体通信。队列空不等于该设备可以退出这一轮。<a class="inline-source" href="https://docs.vllm.ai/en/latest/serving/data_parallel_deployment/" target="_blank" rel="noopener">MoE 的 DP 协调</a></p>
+<p>还要留意 Ascend 的 DyntraLB：它在支持的单节点、PD 分离 Decode 内部 DP 场景，汇总各 rank 的 KV block 负载，暂停本地运行请求、准入等待请求或冻结新准入，并在后续步消费计划。暂停请求保留原 rank 的 KV，不是跨 rank 迁移。它调整的是已经进入系统的调度进度，与上面新请求入口的打分是两处不同控制点。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/docs/source/user_guide/feature_guide/dyntra_lb.md" target="_blank" rel="noopener">DyntraLB 的适用场景与行为</a></p>
+</section>
+<section class="lesson observed" id="load-balancing-4" data-title="4. 到了 MoE 层，Router 已经选好专家，EPLB 还能改什么？"><h2>4. 到了 MoE 层，Router 已经选好专家，EPLB 还能改什么？</h2>
+<p>拿一个 token 看：Router 的 top-k 选中逻辑专家 E0、E1，并给出相应权重。假设 E0 在三个 rank 上各有一个内容相同的副本，执行时可以选择其中一个。EPLB 调整这些副本的数量和位置，副本选择再把任务送到某个物理槽；它不把 E0 的任务改算为 E7。</p>
+<p>源码中，<code>BaseRouter._select_experts()</code> 先得到 <code>topk_weights</code> 与逻辑 <code>topk_ids</code>，再应用 EPLB 映射。映射后的执行位置变化，逻辑专家及其路由权重保持原来的语义。训练时的负载均衡损失影响模型学到的专家选择分布；推理期 EPLB 承接已经发生的逻辑选择，两者不能互相替代。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/layers/fused_moe/router/base_router.py" target="_blank" rel="noopener">Router 与 EPLB 映射</a></p>
+<p>下面只看一层、四个 EP rank、八个逻辑专家。四十个真实 token 使用 top-2，共产生八十次专家任务。可以由这组选择得到：</p>
+<pre class="source-code"><code>16 token → (E0, E1)     8 token → (E0, E2)
+ 8 token → (E3, E4)     4 token → (E5, E6)
+ 4 token → (E5, E7)
+逻辑专家任务数 = [24,16,8,8,8,8,4,4]，合计 80</code></pre>
+<p>这里统计的是 expert assignments。一个 top-2 token 贡献两次任务，不能把八十写成八十个输入 token；图 padding 也不能混入真实负载。负载与映射按 MoE 层保存，同名 E0 在另一层是另一组权重，不能把全模型的 E0 热度直接相加后搬一次。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/distributed/eplb/eplb_state.py" target="_blank" rel="noopener">每层映射与负载窗口</a> · <a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/layers/fused_moe/eplb_triton.py" target="_blank" rel="noopener">专家计数与副本选择</a></p>
+</section>
+<section class="lesson observed" id="load-balancing-5" data-title="5. 同样十二个物理槽，怎样把热点摊开？"><h2>5. 同样十二个物理槽，怎样把热点摊开？</h2>
+<p>给整个 EP 组预留四个冗余专家槽：八个逻辑专家加四个冗余槽，共十二个物理槽，每个 rank 三个。<code>num_redundant_experts</code> 在这里是整个 EP 组的额外槽位数，不是每个 rank 再加四个。</p>
+<p>先固定“同一逻辑专家的任务均分给它的副本”这一教学假设。旧放置把冗余槽放在了当前较冷的 E4～E7，E0 和 E1 却挤在 rank 0。新放置把更多副本留给热点，得到下面的计数：</p>
+<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/eplb-placement.svg?rev=34783e83" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="1040" src="assets/eplb-placement.svg?rev=34783e83" alt="相同十二个物理槽，旧专家放置产生 48/16/8/8 次任务，新放置在副本均分假设下得到每 rank 二十次" loading="lazy"></a><figcaption>相同十二个物理槽，旧专家放置产生 48/16/8/8 次任务，新放置在副本均分假设下得到每 rank 二十次<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
+<p>旧 rank 0 承担 E0、E1、E2，即 <code>24+16+8=48</code> 次。新布局中 E0 有三个副本，每个八次；E1 两个副本，每个八次；E2 两个副本，每个四次。新 rank 0 是 <code>8+8+4=20</code>，另外三个 rank 也各二十。总任务数始终为八十，前后占用的持久物理槽也始终为十二。</p>
+<section class="lb-lab" id="eplb-lab" aria-labelledby="eplb-heading">
+  <header><span class="lb-eyebrow">单层 MoE / 同样 12 个物理槽</span><h4 id="eplb-heading">调整放置，或让热点换一批专家</h4><p>八十次专家任务总量不变。先比较两种放置，再切换热度，观察原先适配热点的布局怎样失去优势。</p></header>
+  <div class="lb-controls"><div class="lb-modes" role="group" aria-label="专家放置"><button type="button" id="lb-old" aria-pressed="true">旧放置</button><button type="button" id="lb-new" aria-pressed="false">适配 E0 / E1 热点</button></div><label for="lb-heat">逻辑热度 <select id="lb-heat"><option value="original">E0 / E1 较热</option><option value="shifted">热度转向 E4 / E5</option></select></label></div>
+  <div class="lb-heat-grid" id="lb-heat-values" aria-label="各逻辑专家任务数"></div><p class="lb-result" id="lb-expert-result" aria-live="polite"></p>
+  <div class="lb-phase-controls"><button type="button" id="lb-play">播放步骤</button><label for="lb-phase">执行阶段 <input id="lb-phase" type="range" min="0" max="4" step="1" value="4"></label><output id="lb-phase-label" for="lb-phase"></output></div>
+  <div class="lb-scene" id="lb-expert-scene" tabindex="0" role="region" aria-label="可横向滚动的 EP rank 计算与通信教学泳道"></div>
+  <p class="lb-note" id="lb-expert-note"></p>
+  <noscript>启用 JavaScript 可切换放置、热度和执行阶段；相邻的静态 SVG 提供完整对照。</noscript>
+</section>
+
+<p>这个布局是为了讲清机制构造出来的，不声称它就是某个默认策略的精确输出。实际副本选择采用哈希或查表等后端路径，单批任务未必严格均分。交互中的小数表示均分模型的期望任务量，不能当作半个 token 的真实路由。</p>
+<p>上游默认策略会根据逻辑热度分配副本，再在每 rank 固定槽位容量下装箱；满足拓扑条件时还会考虑 expert group 与节点，并尽量保留可复用的原地槽。Ascend 的策略选择另有集成路径，不能把“新增一个热点副本”当成所有后端都使用的完整算法。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/distributed/eplb/policy/default.py" target="_blank" rel="noopener">上游默认放置策略</a></p>
+<p>如果 E0 只有一个副本，它的二十四次任务仍集中在一个 rank；仅把整组 E0 权重换个位置，无法拆开这份热点。冗余副本提供分流空间，但分流是否值得，还要看内存、通信和迁移成本。</p>
+</section>
+<section class="lesson observed" id="load-balancing-6" data-title="6. 看不同 rank 的 profiling，等待出现在哪里？"><h2>6. 看不同 rank 的 profiling，等待出现在哪里？</h2>
+<p>把上面的计数放进一个简化同步路径：dispatch 将任务送到专家，rank 执行自己的专家计算，combine 把结果归还给需要它的 token，后续计算再消费这些结果。为了画出依赖，先假设每次专家任务等成本、dispatch/combine 的比较条件相同。真实算子有 grouped GEMM、不同消息量和分块重叠，不满足这个简单线性模型。</p>
+<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/eplb-rank-swimlanes.svg?rev=0a495453" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="1260" src="assets/eplb-rank-swimlanes.svg?rev=0a495453" alt="四个 EP rank 的计算与通信泳道，展示热点专家结果如何延后 combine 和下游消费；相对阶段，不是设备实测时长" loading="lazy"></a><figcaption>四个 EP rank 的计算与通信泳道，展示热点专家结果如何延后 combine 和下游消费；相对阶段，不是设备实测时长<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
+<p>先看旧布局的 rank 1：它的十六次专家任务完成了，但自己的 token 若还要接收 rank 0 的热点结果，后续消费就不能开始。Trace 上可能表现为通信 kernel 很长、等待事件或轮询，也可能被其他计算覆盖。斜线区表示结果依赖窗口，不等于整张卡都在空闲。</p>
+<p>再看新布局：在这个等成本构造里，最长的专家工作由四十八次降到二十次，计算侧到达结果交换的时刻更接近。能否缩短实际迭代，仍取决于 dispatch/combine、网络链路和其他层是否成为新的关键路径。<code>平均任务数/最大任务数</code> 可以描述计数均衡程度，不能把它或条长比例直接写成真实加速比。</p>
+<p>图中的汇合标记表示这组后续消费者所需的结果到齐，不是在源码中额外插了一次全局 barrier。MC2、DeepEP 等路径可以分块、融合或重叠；分析真实 Trace 时，要按实际通信后端追生产者与消费者，不能强行套成三段串行。<a class="inline-source" href="https://docs.vllm.ai/projects/ascend/en/latest/developer_guide/Design_Documents/model_runner_v2_eplb.html" target="_blank" rel="noopener">Ascend EP 执行与负载记录</a></p>
+<div class="comparison-table"><table><thead><tr><th>真实 Trace 中的现象</th><th>需要补看的证据</th></tr></thead><tbody>
+<tr><td>dispatch 很早出现，通信区间很长</td><td>对端 Attention/packing 是否更晚完成；传输本身与等对端分别占什么</td></tr>
+<tr><td>某 rank 的专家计算明显更长</td><td>同一层各物理专家的有效任务数、真实 GEMM 形状、精度与设备差异</td></tr>
+<tr><td>专家任务数接近，combine 仍拖尾</td><td>各源/目的消息量、跨节点链路、分块与结果消费依赖</td></tr>
+<tr><td>某些 DP 队列很轻，整轮仍慢</td><td>是否在参与同一 EP 组，是否为 dummy forward，其他 rank 的前置工作是否拖后</td></tr>
+</tbody></table></div>
+</section>
+<section class="lesson observed" id="load-balancing-7" data-title="7. 热度变了，权重和映射怎样安全换过去？"><h2>7. 热度变了，权重和映射怎样安全换过去？</h2>
+<p>不能先把 E0 的任务指向新槽，再等 E0 权重慢慢搬来。新槽可能仍放着另一位专家，或只收到部分权重。映射切换必须以对应层的权重可消费为前提。</p>
+<figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/eplb-control-cycle.svg?rev=21d5b12f" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="920" src="assets/eplb-control-cycle.svg?rev=21d5b12f" alt="EPLB 低频控制路径：统计、计划、权重就绪、映射发布与工作区复用，和每轮 MoE 数据路径分开" loading="lazy"></a><figcaption>EPLB 低频控制路径：统计、计划、权重就绪、映射发布与工作区复用，和每轮 MoE 数据路径分开<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
+<p>上游异步路径先在后台把某层权重送入中间缓冲，发布待消费结果；前台确认各 rank 的就绪状态，将权重安装到计算实际读取的存储，再提交该层映射，最后通知后台这一份结果已经消费、缓冲可以复用。异步移走了部分搬运等待，没有取消安装、提交和复用之间的依赖。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/distributed/eplb/async_worker.py" target="_blank" rel="noopener">异步 worker</a> · <a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/distributed/eplb/eplb_state.py" target="_blank" rel="noopener">前台安装与映射提交</a></p>
+<p><code>window_size</code> 控制参与决策的近期负载窗口，<code>step_interval</code> 控制尝试重平衡的步间隔。窗口不是搬权重的周期；若上一轮异步搬移未结束，新计划也不能直接覆盖它。统计窗口越短、调整越频繁，就越需要检查是否追着短期噪声来回搬运。交互里的“热度转移”展示了同一放置如何在流量变化后变差，而不是模拟一个瞬间知道未来负载的调度器。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/config/parallel.py" target="_blank" rel="noopener">配置定义</a></p>
+<h3>Ascend 的两条 Runner 路径要分开读</h3>
+<p>MRv2 使用上游控制器、统计窗口和异步生命周期，Ascend 对接策略、计数、权重通信和映射查表；当前文档明确这条路径只使用异步移动。MRv1 的 legacy dynamic 路径则按热度收集、算法计算、逐层应用组织。两条路径的配置、周期与函数不能拼成一个流程。<a class="inline-source" href="https://docs.vllm.ai/projects/ascend/en/latest/developer_guide/Design_Documents/model_runner_v2_eplb.html" target="_blank" rel="noopener">MRv2 架构</a> · <a class="inline-source" href="https://docs.vllm.ai/projects/ascend/en/latest/developer_guide/Design_Documents/model_runner_v1_eplb.html" target="_blank" rel="noopener">MRv1 架构</a></p>
+</section>
+<section class="lesson observed" id="load-balancing-8" data-title="8. 专家更均衡了，为什么端到端收益还可能不够？"><h2>8. 专家更均衡了，为什么端到端收益还可能不够？</h2>
+<p>冗余首先占内存。假设 L 个 MoE 层规格一致，每个完整专家连同随专家搬移的参数占 B 字节，整个 EP 组加 R 个冗余槽，均摊到 G 个 rank：</p>
+<pre class="source-code"><code>每 rank 额外持久专家存储 ≈ L × B × R / G
+每 rank 总专家存储     ≈ L × B × (E + R) / G</code></pre>
+<p>第二行是总量，不是新增开销。还要算中间缓冲、负载统计和权重迁移流量。固定设备内存下，增加专家副本可能挤占 KV 空间，让 DPLB 看到更高容量压力，甚至改变请求准入。这也是两层均衡需要一起看的原因。</p>
+<p>如果不支持冗余，EPLB 仍可重排完整专家，但不能任意拆开单个热点。在当前 Ascend 文档中，A2 要求冗余数为零；其他硬件、量化格式、Runner 与 offload 组合也有具体限制。上面的十二槽例子讲支持冗余时的机制，不应直接当作任意环境的启动配置。<a class="inline-source" href="https://docs.vllm.ai/projects/ascend/en/latest/user_guide/feature_guide/expert_parallelism_load_balancer.html" target="_blank" rel="noopener">硬件与功能边界</a></p>
+<p>任务数一样，也可能因为跨节点消息、专家 GEMM 形状或设备差异而耗时不同；迁移又可能引入额外通信。要检查的是最长依赖链是否缩短，以及 QPS、TTFT、ITL 和 TPOT 是否按目标负载改善。不能只看均衡度变漂亮，就把它当成性能优化完成。</p>
+</section>
+<section class="lesson observed" id="load-balancing-9" data-title="9. 怎样把教学泳道换成真实证据？"><h2>9. 怎样把教学泳道换成真实证据？</h2>
+<p>先固定模型、输入输出分布、并行拓扑、路由策略、专家槽位预算和缓存前提。DPLB 比较还要保留到达节奏；EPLB 比较要在相同层、相近负载窗口看任务分布。多 rank 的 Trace 需要按同一次迭代与通信操作对齐，跨机器时还要核对时钟基准。</p>
+<div class="comparison-table"><table><thead><tr><th>采集对象</th><th>至少保留什么</th><th>能回答的问题</th></tr></thead><tbody>
+<tr><td>请求入口与各 DP engine</td><td>选择时的 waiting/running/KV、在途估计、目标 rank、请求阶段与长度</td><td>路由依据是否过期，是否把轻请求与重请求混作同一工作量</td></tr>
+<tr><td>同一 MoE 层</td><td>逻辑/物理专家任务数、每 rank 放置、实际输入行数与 padding</td><td>热点来自逻辑选择，还是副本分配与放置</td></tr>
+<tr><td>所有 EP rank 的计算/通信流</td><td>dispatch、专家计算、combine、相关 event 的起止及关联关系</td><td>先慢在前置工作、专家计算，还是传输与结果归还</td></tr>
+<tr><td>重平衡控制路径</td><td>计划生成、权重搬移、就绪、映射生效、旧缓冲释放</td><td>新映射是否晚于权重就绪，迁移是否占了关键链路</td></tr>
+<tr><td>客户端</td><td>QPS、TTFT、逐次接收时间、输出 token 数</td><td>rank 侧变化是否传到实际服务指标</td></tr>
+</tbody></table></div>
+<p>Ascend 服务 profiling 可以导出设备时间线和算子明细，再结合请求日志、专家计数与映射变化做关联。先定位同一层、同一批数据，再解释“谁在等谁”；某张截图缺少 rank、配置或操作关联时，只能支撑它实际记录到的现象。<a class="inline-source" href="https://docs.vllm.ai/projects/ascend/en/latest/developer_guide/performance_and_debug/service_profiling_guide.html" target="_blank" rel="noopener">服务 profiling 指南</a></p>
+<p>继续阅读时可以回到<a class="inline-source" href="execution.html">第二章的 Host/Device 等待</a>和<a class="inline-source" href="speculation.html">第三章的客户端输出时间线</a>：入口分发、层内专家执行、状态交接和客户端接收需要按同一条请求的因果关系接起来。</p>
+</section><nav class="chapter-next" aria-label="继续阅读"><a href="index.html">← 调度与 PD 总览</a><a href="speculation.html">← 回看投机解码与状态接续</a></nav><a class="download-source" href="technical-wiki-source.zip" download>下载全部 Markdown 与图源（SVG / PNG） ↓</a></article><aside class="page-toc"><span>本章导读</span><a href="#dplb-lab">DPLB 请求分发</a><a href="#eplb-lab">EPLB rank 泳道</a><a href="#load-balancing-1">1. 同一张卡，为什么既有 DP rank，又有 EP rank？</a><a href="#load-balancing-2">2. DPLB 收到一个请求，究竟怎样选 rank？</a><a href="#load-balancing-3">3. 请求已经分均了，为什么四条泳道仍不一样长？</a><a href="#load-balancing-4">4. 到了 MoE 层，Router 已经选好专家，EPLB 还能改什么？</a><a href="#load-balancing-5">5. 同样十二个物理槽，怎样把热点摊开？</a><a href="#load-balancing-6">6. 看不同 rank 的 profiling，等待出现在哪里？</a><a href="#load-balancing-7">7. 热度变了，权重和映射怎样安全换过去？</a><a href="#load-balancing-8">8. 专家更均衡了，为什么端到端收益还可能不够？</a><a href="#load-balancing-9">9. 怎样把教学泳道换成真实证据？</a></aside></div></main></div>
+<dialog id="searchDialog"><div class="search-dialog-input"><input id="searchInput" type="search" aria-label="搜索本章知识点" placeholder="搜索本章内容"><button id="closeSearch" aria-label="关闭搜索">Esc</button></div><div id="searchResults" class="search-results"></div></dialog></body></html>

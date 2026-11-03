@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="920" viewBox="0 0 1120 920" role="img" aria-labelledby="title desc">
+<title id="title">新专家映射，什么时候可以给前向使用？</title><desc id="desc">教学示意，非实测。EPLB低频控制路径统计热度窗口、规划副本和physical placement、将待迁专家权重搬到中间缓冲、确认各rank缓冲就绪，再在安全消费边界由前台安装目标slot并发布新映射，后续批次才使用；确认消费后再复用中间缓冲。每轮forward数据路径与控制路径分开，允许的异步重叠不等于消费者没有依赖等待；图中不指定任何Runner函数实现。</desc>
+<defs><style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif}</style><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M1 1L8 4.5L1 8" fill="none" stroke="context-stroke" stroke-width="1.5"/></marker><pattern id="wait" width="10" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#fff7ed"/><path d="M-3 3L3 -3M0 10L10 0M7 13L13 7" stroke="#c2772c" stroke-width="1"/></pattern></defs>
+<rect x="0" y="0" width="1120" height="920" rx="0" fill="#f8fafc" stroke="#f8fafc" stroke-width="1.4"/>
+<text x="32" y="47" font-size="28" fill="#172b4d" font-weight="700">新专家映射，什么时候可以给前向使用？</text>
+<text x="32" y="80" font-size="18" fill="#475569" font-weight="400">教学示意，非实测 · 通用状态关系；不拼接不同 Runner 的函数调用链。</text>
+<rect x="32" y="106" width="1056" height="436" rx="9" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="52" y="141" font-size="22" fill="#6d28d9" font-weight="700">低频控制路径</text>
+<rect x="52" y="167" width="236" height="147" rx="8" fill="#f5f3ff" stroke="#6d28d9" stroke-width="1.4"/>
+<text x="70" y="198" font-size="20" fill="#6d28d9" font-weight="700">1</text>
+<text x="170" y="198" font-size="20" fill="#6d28d9" font-weight="700" text-anchor="middle">热度窗口</text>
+<text x="170" y="240" font-size="17" fill="#172b4d" font-weight="400" text-anchor="middle">汇总 expert assignments</text>
+<text x="170" y="278" font-size="16" fill="#475569" font-weight="400" text-anchor="middle">得到各 logical expert 热度</text>
+<path d="M292 240L308 240" fill="none" stroke="#6d28d9" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="312" y="167" width="236" height="147" rx="8" fill="#f5f3ff" stroke="#6d28d9" stroke-width="1.4"/>
+<text x="330" y="198" font-size="20" fill="#6d28d9" font-weight="700">2</text>
+<text x="430" y="198" font-size="20" fill="#6d28d9" font-weight="700" text-anchor="middle">规划专家副本</text>
+<text x="430" y="240" font-size="17" fill="#172b4d" font-weight="400" text-anchor="middle">例：增加 E0 副本</text>
+<text x="430" y="278" font-size="16" fill="#475569" font-weight="400" text-anchor="middle">腾出冷门副本的目标 slot</text>
+<path d="M552 240L568 240" fill="none" stroke="#6d28d9" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="572" y="167" width="236" height="147" rx="8" fill="#fff7ed" stroke="#b45309" stroke-width="1.4"/>
+<text x="590" y="198" font-size="20" fill="#b45309" font-weight="700">3</text>
+<text x="690" y="198" font-size="20" fill="#b45309" font-weight="700" text-anchor="middle">复制到中间缓冲</text>
+<text x="690" y="240" font-size="17" fill="#172b4d" font-weight="400" text-anchor="middle">后台复制待迁专家权重</text>
+<text x="690" y="278" font-size="16" fill="#475569" font-weight="400" text-anchor="middle">不覆写仍在使用的计算 slot</text>
+<path d="M812 240L828 240" fill="none" stroke="#6d28d9" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="832" y="167" width="236" height="147" rx="8" fill="#e6f4f1" stroke="#0f766e" stroke-width="1.4"/>
+<text x="850" y="198" font-size="20" fill="#0f766e" font-weight="700">4</text>
+<text x="950" y="198" font-size="20" fill="#0f766e" font-weight="700" text-anchor="middle">各 rank 缓冲就绪</text>
+<text x="950" y="240" font-size="17" fill="#172b4d" font-weight="400" text-anchor="middle">待安装的权重已经到齐</text>
+<text x="950" y="278" font-size="16" fill="#475569" font-weight="400" text-anchor="middle">前台仍按旧映射执行</text>
+<path d="M950 319V345H830V363" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="570" y="373" width="498" height="131" rx="9" fill="#e6f4f1" stroke="#0f766e" stroke-width="1.4"/>
+<text x="819" y="409" font-size="21" fill="#0f766e" font-weight="700" text-anchor="middle">5  前台安装目标 slot 并发布映射</text>
+<text x="819" y="446" font-size="17" fill="#172b4d" font-weight="400" text-anchor="middle">在安全消费边界切换，保护仍在执行的旧消费者</text>
+<text x="819" y="480" font-size="18" fill="#0f766e" font-weight="600" text-anchor="middle">目标 slot 权重与映射 v+1 必须一致</text>
+<rect x="52" y="353" width="482" height="151" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.4"/>
+<text x="72" y="389" font-size="21" fill="#1d4ed8" font-weight="700">可以异步重叠，不等于没有等待</text>
+<text x="72" y="428" font-size="18" fill="#172b4d" font-weight="400">条件允许时，副本准备可与旧批前向重叠。</text>
+<text x="72" y="465" font-size="18" fill="#172b4d" font-weight="400">后台写中间缓冲，前台安装仍须满足依赖。</text>
+<text x="32" y="588" font-size="22" fill="#1d4ed8" font-weight="700">每轮 forward 数据路径</text>
+<rect x="32" y="616" width="408" height="114" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.4"/>
+<text x="236" y="655" font-size="22" fill="#1d4ed8" font-weight="700" text-anchor="middle">批 n：旧映射 v</text>
+<text x="236" y="695" font-size="17" fill="#172b4d" font-weight="400" text-anchor="middle">router → dispatch → 专家 → combine</text>
+<path d="M448 673L478 673" fill="none" stroke="#1d4ed8" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="488" y="616" width="144" height="114" rx="6" fill="#ffffff" stroke="#0f766e" stroke-width="1.4"/>
+<text x="560" y="655" font-size="20" fill="#0f766e" font-weight="700" text-anchor="middle">安全消费</text>
+<text x="560" y="689" font-size="20" fill="#0f766e" font-weight="700" text-anchor="middle">边界</text>
+<path d="M640 673L672 673" fill="none" stroke="#0f766e" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="682" y="616" width="406" height="114" rx="9" fill="#e6f4f1" stroke="#0f766e" stroke-width="1.4"/>
+<text x="885" y="655" font-size="22" fill="#0f766e" font-weight="700" text-anchor="middle">6  后续批：新映射 v+1</text>
+<text x="885" y="695" font-size="17" fill="#172b4d" font-weight="400" text-anchor="middle">logical IDs 不变，使用新的 physical 落点</text>
+<path d="M820 509V563H560V605" fill="none" stroke="#0f766e" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrow)"/>
+<path d="M885 737L885 751" fill="none" stroke="#0f766e" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="682" y="762" width="406" height="48" rx="9" fill="#e6f4f1" stroke="#0f766e" stroke-width="1.4"/>
+<text x="885" y="793" font-size="20" fill="#0f766e" font-weight="700" text-anchor="middle">确认消费 → 复用中间缓冲</text>
+<text x="32" y="788" font-size="18" fill="#475569" font-weight="400">中间缓冲与计算 slot，生命周期不同。</text>
+<text x="32" y="850" font-size="18" fill="#475569" font-weight="400">发布关系是逻辑顺序；热度窗口、搬运频率和切换机制由具体实现决定。</text>
+<text x="32" y="891" font-size="19" fill="#b45309" font-weight="600">不能只看“统计出一个更均衡的计划”，就断言下一轮已能安全使用新副本。</text>
+</svg>

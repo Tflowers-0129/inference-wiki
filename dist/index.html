@@ -31,7 +31,7 @@
     <a href="#pd"><span class="nav-num">06</span>PD 分离、池化与配比</a>
     <a href="#kv"><span class="nav-num">07</span>抢占与 KV Cache</a>
   </nav>
-  <div class="nav-group-label resources-label">延伸篇章</div><nav class="main-nav" aria-label="延伸篇章"><a href="execution.html">从一轮调度到一次前向 ↗</a><a href="speculation.html">投机解码与流式指标 ↗</a></nav>
+  <div class="nav-group-label resources-label">延伸篇章</div><nav class="main-nav" aria-label="延伸篇章"><a href="execution.html">从一轮调度到一次前向 ↗</a><a href="speculation.html">投机解码与流式指标 ↗</a><a href="load-balancing.html">负载均衡：DPLB 与 EPLB ↗</a></nav>
   <div class="nav-group-label resources-label">查阅</div>
   <nav class="main-nav resource-nav" aria-label="参考资源"><a href="#downloads"><span class="nav-icon">↓</span>文稿与图源下载</a></nav>
   <div class="sidebar-bottom"><span class="status-dot"></span>教学简化模型<span class="sidebar-bottom-note">基于项目原稿 · 2026.10</span></div>
@@ -49,7 +49,7 @@
       </div>
     </section>
     <div class="learning-path"><div class="path-label"><span>学习主线</span><small>调度 → 两个压测问题 → PD → KV</small></div><a href="#budget"><b>01</b><span>认识预算<small>ms 与 mbt</small></span></a><i>→</i><a href="#scheduler"><b>02</b><span>观察一轮<small>P / D 如何拼批</small></span></a><i>→</i><a href="#benchmark"><b>03</b><span>测量稳态<small>识别阶段偏差</small></span></a><i>→</i><a href="#pd"><b>04</b><span>拆成流水线<small>瓶颈与配比</small></span></a></div>
-    <div class="chapter-cards" aria-label="继续阅读"><a class="chapter-card" href="execution.html"><span class="chapter-label">第二篇 / 从调度走到执行</span><strong>一轮前向，究竟在算什么？ →</strong><p>沿着输入打包、算子与 KV 数据流，继续看 metadata 同步、Triton 融合和跨轮异步调度。</p></a><a class="chapter-card" href="speculation.html"><span class="chapter-label">第三篇 / 可交互</span><strong>投机解码，哪些 Token 留下来？ →</strong><p>逐步看候选验证、KV 回退，再对照成组返回下的 ITL 与 TPOT。</p></a></div>
+    <div class="chapter-cards" aria-label="继续阅读"><a class="chapter-card" href="execution.html"><span class="chapter-label">第二篇 / 从调度走到执行</span><strong>一轮前向，究竟在算什么？ →</strong><p>沿着输入打包、算子与 KV 数据流，继续看 metadata 同步、Triton 融合和跨轮异步调度。</p></a><a class="chapter-card" href="speculation.html"><span class="chapter-label">第三篇 / 可交互</span><strong>投机解码，哪些 Token 留下来？ →</strong><p>逐步看候选验证、KV 回退，再对照成组返回下的 ITL 与 TPOT。</p></a><a class="chapter-card" href="load-balancing.html"><span class="chapter-label">第四篇 / 请求与专家</span><strong>DPLB 与 EPLB，分别均衡什么？ →</strong><p>逐条分发请求，在同样十二个专家槽上切换放置和热度，对照不同 rank 的计算与通信泳道。</p></a></div>
     <div class="evidence-key" aria-label="证据类型说明"><span>本文如何区分证据</span><b class="evidence-tag confirmed">资料确认</b><small>官方机制与定义</small><b class="evidence-tag derived">模型推演</b><small>按所列假设计算</small><b class="evidence-tag pending">待实测</b><small>当前部署尚未验证</small></div>
     <div class="article-layout"><article>
       <section class="lesson observed" id="budget" data-title="ms、mbt 与 KV 容量" data-search-text="ms max-num-seqs mbt max-num-batched-tokens KV Cache 容量 并发">
@@ -182,7 +182,7 @@ KDA 固定部分 = 41.875 MiB / 请求</code></pre>
         <div class="mechanism-block"><h3>完成与抢占，释放后的去向不同</h3><p>请求正常完成或取消后，不再等待恢复；抢占后的请求还要重新排队。两者都会解除缓存引用。开启前缀缓存时，无活跃引用的块仍可保留内容供命中，也可被驱逐覆写；预分配的块池仍由引擎持有，所以进程显存未必下降。</p><p>重算恢复通过再次计算重建状态；换出／换入则先把状态保存到其他存储，再搬回。这是两种不同的恢复机制，上面的步骤描述的是前一种。</p><p class="source-caption"><a class="inline-source" href="https://docs.vllm.ai/en/latest/design/prefix_caching/" target="_blank" rel="noopener">前缀缓存的引用计数与空闲块管理 ↗</a></p></div>
         <div class="callout warning"><span class="callout-icon">!</span><div><strong>把抢占次数、空闲块和输出间隔一起看</strong><p>调小 ms 后 TPOT 改善，可能同时来自批处理变化和更少的抢占重算。需要对照这些变化解释原因。</p></div></div>
       </section>
-      <section class="lesson compact-section" id="downloads"><h2>继续阅读与下载</h2><p><a class="inline-source" href="execution.html">第二篇：从一轮调度到一次前向 →</a>　<a class="inline-source" href="speculation.html">第三篇：投机解码与流式指标 →</a></p>
+      <section class="lesson compact-section" id="downloads"><h2>继续阅读与下载</h2><p><a class="inline-source" href="execution.html">第二篇：从一轮调度到一次前向 →</a>　<a class="inline-source" href="speculation.html">第三篇：投机解码与流式指标 →</a>　<a class="inline-source" href="load-balancing.html">第四篇：负载均衡与专家并行 →</a></p>
         <a class="download-source" href="source.md" download="LLM推理调度与执行.md"><span>↓</span><div><strong>下载本文 Markdown</strong><small>含公式、解释与对应来源</small></div><span>MD</span></a>
         <a class="download-source bundle-download" href="technical-wiki-source.zip" download><span>↓</span><div><strong>下载 Markdown + 图源包</strong><small>含全部篇章与可编辑 SVG，解压即可连图阅读</small></div><span>ZIP</span></a>
       </section>

@@ -25,4 +25,5 @@ node_modules/
 /dist/source.md
 /dist/execution.md
 /dist/speculation.md
+/dist/load-balancing.md
 /dist/technical-wiki-source.zip

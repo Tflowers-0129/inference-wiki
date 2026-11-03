@@ -16,6 +16,7 @@ DIST = ROOT / 'dist'
 CHAPTERS = [
     ('execution', '从一轮调度到一次前向.md', '从一轮调度到一次前向', '从一轮调度<br><span>到一次前向</span>'),
     ('speculation', '投机解码与流式指标.md', '投机解码：调度、元数据与流式时延', '投机解码<br><span>与流式指标</span>'),
+    ('load-balancing', '负载均衡与专家并行.md', '负载均衡：DPLB 与 EPLB', '负载均衡<br><span>DPLB 与 EPLB</span>'),
 ]
 LINKS = {name: key + '.html' for key, name, *_ in CHAPTERS}
 LINKS['LLM推理调度与执行.md'] = 'index.html'
@@ -66,6 +67,7 @@ def render_markdown(source, key):
     injected = {}
     spec_player = ""
     execution_lab = (ROOT / 'scripts' / 'execution-lab.html').read_text(encoding='utf-8') if key == 'execution' else ''
+    lb_panels = {kind: (ROOT / 'scripts' / f'{kind}-lab.html').read_text(encoding='utf-8') for kind in ('dplb', 'eplb')} if key == 'load-balancing' else {}
     figure_summary = None
     if key == 'speculation':
         fragment = (ROOT / 'scripts' / 'spec-player.html').read_text(encoding='utf-8')
@@ -87,6 +89,8 @@ def render_markdown(source, key):
             flush(); parts.append(spec_player); i += 1; continue
         if line == '<!-- EXECUTION_LAB -->':
             flush(); parts.append(execution_lab); i += 1; continue
+        if line in ('<!-- DPLB_LAB -->', '<!-- EPLB_LAB -->'):
+            flush(); parts.append(lb_panels.get('dplb' if 'DPLB' in line else 'eplb', '')); i += 1; continue
         if match := re.fullmatch(r'<!-- DETAILS: (.+) -->', line):
             flush(); parts.append('<details class="execution-source-details"><summary>' + html.escape(match.group(1)) + '</summary>'); i += 1; continue
         if line == '<!-- /DETAILS -->':
@@ -161,13 +165,18 @@ def build_chapters():
         if key == 'speculation':
             player_links = '<a href="#spec-player">投机验证播放器</a><a href="#spec-stream">流式指标实验室</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("spec.css")}"><link rel="stylesheet" href="{asset_url("spec-scene.css")}"><script defer src="{asset_url("spec-model.js")}"></script><script defer src="{asset_url("spec-scene.js")}"></script><script defer src="{asset_url("spec-app.js")}"></script>'
-            next_link = '<a href="execution.html">← 回看一次前向</a>'
+            next_link = '<a href="load-balancing.html">继续：DPLB 与 EPLB →</a>'
             action = '<a class="primary-button" href="#spec-player">逐步看接受与回退 →</a><a class="text-button" href="#spec-stream">对照 ITL 与 TPOT ↓</a>'
-        else:
+        elif key == 'execution':
             player_links = '<a href="#fusion-lab">Triton 输入准备图解</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("execution-lab.css")}"><script defer src="{asset_url("execution-lab.js")}"></script>'
             next_link = '<a href="speculation.html">继续：投机解码与流式指标 →</a>'
             action = '<a class="primary-button" href="#execution-1">从输入打包开始 →</a><a class="text-button" href="#fusion-lab">看 Triton 怎样融合准备 ↓</a>'
+        else:
+            player_links = '<a href="#dplb-lab">DPLB 请求分发</a><a href="#eplb-lab">EPLB rank 泳道</a>'
+            extra = f'<link rel="stylesheet" href="{asset_url("lb.css")}"><script defer src="{asset_url("lb-model.js")}"></script><script defer src="{asset_url("lb-app.js")}"></script>'
+            next_link = '<a href="speculation.html">← 回看投机解码与状态接续</a>'
+            action = '<a class="primary-button" href="#dplb-lab">分发一批新请求 →</a><a class="text-button" href="#eplb-lab">对照专家放置与 rank 泳道 ↓</a>'
         page = f'''<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="{html.escape(title)}：沿输入字段、状态记账和源码调用定位推理性能问题。"><title>{html.escape(title)} · Inference Wiki</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="reading.css"><link rel="stylesheet" href="chapters.css"><script defer src="chapter.js"></script>{extra}</head>
 <body><div class="reading-progress" id="readingProgress"></div>

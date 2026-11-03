@@ -1,0 +1,7 @@
+<section class="lb-lab" id="dplb-lab" aria-labelledby="dplb-heading">
+  <header><span class="lb-eyebrow">请求入口 / 固定遥测快照</span><h4 id="dplb-heading">下一条请求会去哪个 DP rank？</h4><p>比较计数对照与含 KV 压力的评分。切换策略会回到同一初始状态；点击送入请求，看本地信用怎样避免连续涌向同一 rank。</p></header>
+  <div class="lb-controls"><div class="lb-modes" role="group" aria-label="DPLB 评分方式"><button type="button" id="lb-count" aria-pressed="false">仅计数 · 对照</button><button type="button" id="lb-kv" aria-pressed="true">计数＋KV 压力</button></div><button type="button" id="lb-send">送入下一条请求 →</button><button type="button" id="lb-reset">重置快照</button></div>
+  <p class="lb-result" id="lb-route-result" aria-live="polite"></p><div class="lb-ranks" id="lb-ranks"></div><p class="lb-history" id="lb-route-history"></p>
+  <p class="lb-note">示例仅截取普通新请求选 rank 与本地计数更新。C=1，无遥测刷新、请求完成或 KV 增长；分数不是毫秒。最多送入 8 条，重置后可继续比较。</p>
+  <noscript>启用 JavaScript 可演示请求到达；上表列出了初始评分和选定目标。</noscript>
+</section>

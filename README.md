@@ -1,6 +1,6 @@
 # LLM 推理调度与执行 Wiki
 
-[在线演示](https://tflowers-0129.github.io/inference-wiki/) · [混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler) · [PD 播放器](https://tflowers-0129.github.io/inference-wiki/#pdPlayer) · [一次前向](https://tflowers-0129.github.io/inference-wiki/execution.html) · [Triton 输入准备图解](https://tflowers-0129.github.io/inference-wiki/execution.html#fusion-lab) · [投机解码实验室](https://tflowers-0129.github.io/inference-wiki/speculation.html#spec-player)
+[在线演示](https://tflowers-0129.github.io/inference-wiki/) · [混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler) · [PD 播放器](https://tflowers-0129.github.io/inference-wiki/#pdPlayer) · [一次前向](https://tflowers-0129.github.io/inference-wiki/execution.html) · [Triton 输入准备图解](https://tflowers-0129.github.io/inference-wiki/execution.html#fusion-lab) · [投机解码实验室](https://tflowers-0129.github.io/inference-wiki/speculation.html#spec-player) · [DPLB 与 EPLB](https://tflowers-0129.github.io/inference-wiki/load-balancing.html)
 
 [![Pages deployment](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml/badge.svg)](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml)
 
@@ -11,6 +11,8 @@
 新增两篇由 Markdown 生成的图解网页：从调度到一次前向（输入组织、metadata、算子与访存、KV 地址、图提交与 Trace、metadata 同步与跨轮异步调度），以及投机解码（候选验证、KV 有效范围、成组输出与 ITL/TPOT）。投机章开头的 SVG 播放器沿八个步骤展示起点、逐个提议、四行验证、提交回退与下一轮输入，配合静态完整流程图和工作坊 profiling 原图阅读；实验室另比较逐 Token、成组与代理缓冲三种发送场景。网页不展示具体引擎发行编号。
 
 第二章另以六张 SVG 说明权重复用与 KV 规模、精确值的消费者、缓冲复用事件、动态 K 接续、跨轮 Token 重排和 Triton padded 输入计算。Triton 图解可切换 Torch / Triton 及接受长度，区分减少 Host 回读与减少设备算子提交；较长的源码对照可在页内展开。
+
+第四章《负载均衡与专家并行》从请求入口的 DPLB 走到单层 MoE 的 EPLB，用五张 SVG 展开 DP/EP 维度、等请求数与不同工作量、同容量专家副本放置、rank × stream 泳道和权重/映射安全切换。两个交互分别演示冻结遥测下的新请求评分与本地信用，以及同十二个物理槽、八十次专家任务下的布局和热度变化。泳道是明确标注的教学构造，不使用工作坊原图推断负载均衡收益，也不把专家计数均衡度写成实际加速比。
 
 第二、三篇按字段和执行现场展开：先走通五 Token 的输入与 KV 地址，再查 Host/Device 对账、CPU 输入缓冲复用和跨轮提交；投机章沿 K=3、a=2 的同一份账本追到 padded 输入和客户端指标。metadata 部分从投机候选数追到验证后的有效 KV，再切换下一轮 K=0/1/3，对照 query 边界、位置和块寻址；Host / Device 的等待分别解释数据冲突与消费者依赖。每处源码片段注明调用路径，Trace 排查给出可区分的证据，不把机制示例写成实测经验。
 
@@ -54,10 +56,12 @@ python3 scripts/serve.py --port 4174
 
 - `content/LLM推理调度与执行.md`：完整正文，图源路径为 `../dist/assets/`。
 - `content/从一轮调度到一次前向.md`、`content/投机解码与流式指标.md`：新增正文。
+- `content/负载均衡与专家并行.md`：DPLB、EPLB、rank 泳道与真实 Trace 采集口径。
 - `scripts/build-chapters.py`：用标准库渲染后两篇受控 Markdown；修改正文后运行同步命令即可更新网页。
 - `dist/spec-model.js`、`dist/spec-app.js`、`dist/spec.css`：投机验证与流式指标实验室。
 - `dist/chapter.js`、`dist/chapters.css`：新篇章的目录、搜索与排版。
 - `scripts/spec-player.html`：投机交互面板源片段。
+- `dist/lb-model.js`、`dist/lb-app.js`、`dist/lb.css`：DPLB 请求分发与 EPLB 期望专家任务的交互模型、图形和样式；`scripts/dplb-lab.html`、`scripts/eplb-lab.html` 为面板源片段。
 - `dist/assets/*.svg`：矢量图源与 favicon，可直接编辑。
 - `dist/assets/profile-*.png`：格式转换、KV 启动容量与设备时间线的原始截图；`profile-sources.json` 保存来源。
 - `scripts/image_assets.py`：本地图源校验、PNG/SVG 尺寸与可移植链接处理。
@@ -71,9 +75,9 @@ python3 scripts/serve.py --port 4174
 python3 scripts/sync-content.py
 ```
 
-脚本默认读取本仓库的 `content/`，生成 `dist/source.md`、`dist/execution.md`、`dist/speculation.md` 和 `dist/technical-wiki-source.zip`，供页面上的下载链接使用。这些下载生成文件由 `.gitignore` 排除，部署前会重新生成。压缩包正文引用 `figures/`，解压后可直接连图阅读。也可使用 `--manuscript /绝对路径/文稿.md`，图源仍需保存在本仓库 `dist/assets/`。
+脚本默认读取本仓库的 `content/`，生成 `dist/source.md`、`dist/execution.md`、`dist/speculation.md`、`dist/load-balancing.md` 和 `dist/technical-wiki-source.zip`，供页面上的下载链接使用。这些下载生成文件由 `.gitignore` 排除，部署前会重新生成。压缩包正文引用 `figures/`，解压后可直接连图阅读。也可使用 `--manuscript /绝对路径/文稿.md`，图源仍需保存在本仓库 `dist/assets/`。
 
-同步脚本会从后两篇 Markdown 重建 `execution.html` 与 `speculation.html`。这些生成网页随仓库提交便于直接浏览，应修改 Markdown 和模板后重建；原有 `index.html` 仍按手工图文维护。渲染支持本文使用的段落、标题、平面列表、表格、代码块和 SVG / PNG 图片，不是任意 Markdown 的通用转换器。涉及模型假设时也需检查播放器。
+同步脚本会从后三篇 Markdown 重建 `execution.html`、`speculation.html` 与 `load-balancing.html`。这些生成网页随仓库提交便于直接浏览，应修改 Markdown 和模板后重建；原有 `index.html` 仍按手工图文维护。渲染支持本文使用的段落、标题、平面列表、表格、代码块和 SVG / PNG 图片，不是任意 Markdown 的通用转换器。涉及模型假设时也需检查播放器。
 
 ## 检查与测试
 
@@ -83,7 +87,7 @@ python3 scripts/check-site.py
 node --test tests/*.test.cjs
 ```
 
-模型共 26 项测试，覆盖 token 记账、每轮预算与序列上限，以及 PD 交接中的 KV 就绪、传输、源引用保留和释放时序。站点检查覆盖三篇网页的资源、跨页锚点、播放器引用、三篇下载正文和图文源包，并核对 PNG 头部、包内图片与来源清单字节一致性，并防止具体引擎发行号与提交标识混入公开图文。
+模型共 36 项测试，覆盖 token 记账、每轮预算与序列上限，PD 交接中的 KV 就绪、传输、源引用保留和释放时序，以及 DPLB 评分/本地信用和 EPLB 同容量任务守恒、热度漂移。站点检查覆盖四篇网页的资源、跨页锚点、播放器引用、四篇下载正文和图文源包，核对 PNG 头部、包内图片与来源清单字节一致性，并防止具体引擎发行号与提交标识混入公开图文。
 
 ## GitHub Pages
 

@@ -1,0 +1,9 @@
+<section class="lb-lab" id="eplb-lab" aria-labelledby="eplb-heading">
+  <header><span class="lb-eyebrow">单层 MoE / 同样 12 个物理槽</span><h4 id="eplb-heading">调整放置，或让热点换一批专家</h4><p>八十次专家任务总量不变。先比较两种放置，再切换热度，观察原先适配热点的布局怎样失去优势。</p></header>
+  <div class="lb-controls"><div class="lb-modes" role="group" aria-label="专家放置"><button type="button" id="lb-old" aria-pressed="true">旧放置</button><button type="button" id="lb-new" aria-pressed="false">适配 E0 / E1 热点</button></div><label for="lb-heat">逻辑热度 <select id="lb-heat"><option value="original">E0 / E1 较热</option><option value="shifted">热度转向 E4 / E5</option></select></label></div>
+  <div class="lb-heat-grid" id="lb-heat-values" aria-label="各逻辑专家任务数"></div><p class="lb-result" id="lb-expert-result" aria-live="polite"></p>
+  <div class="lb-phase-controls"><button type="button" id="lb-play">播放步骤</button><label for="lb-phase">执行阶段 <input id="lb-phase" type="range" min="0" max="4" step="1" value="4"></label><output id="lb-phase-label" for="lb-phase"></output></div>
+  <div class="lb-scene" id="lb-expert-scene" tabindex="0" role="region" aria-label="可横向滚动的 EP rank 计算与通信教学泳道"></div>
+  <p class="lb-note" id="lb-expert-note"></p>
+  <noscript>启用 JavaScript 可切换放置、热度和执行阶段；相邻的静态 SVG 提供完整对照。</noscript>
+</section>
