@@ -4,7 +4,7 @@
 
 还缺一段执行过程。专家权重在目标 rank 上，输入激活要送过去，计算结果还要回到原 token 所在的行。下面先追这次往返，再看 AllGather、AllToAll、MC2 和 MegaMoE 分别改变哪一段。Prefill 与 Decode 的区别也放回这条数据路径里解释。
 
-> 本章以 Ascend 的 EP 实现为主。算例固定四个 rank、TP=1、无 PCP、八个逻辑专家且没有冗余副本，每 rank 两个专家；四十个 token 使用 top-2，产生八十次专家任务。数字和泳道均为教学构造，不是设备实测。源码选择条件对应本章核查的实现，不是硬件的通用最优策略。
+> 本章以 Ascend 的 EP 实现为主。教学算例固定四个 rank、TP=1、无 PCP、八个逻辑专家且没有冗余副本，每 rank 两个专家；四十个 token 使用 top-2，产生八十次专家任务。这个算例与第 7 节模拟泳道均为教学构造；第 11 节另列 A5 实测。源码选择条件对应本章核查的实现，不是硬件的通用最优策略。
 
 ## 1. Router 选出两个专家以后，究竟要发什么？
 
@@ -228,4 +228,65 @@ DBO 则把 batch 拆为两个 microbatch，用一份的计算覆盖另一份的�
 
 通信与计算重叠以后，不能再把 Trace 中各区间时长直接相加当作整轮时间。应追到下一消费者开始前，最后一个尚未满足的依赖：它可能是远端输入、专家结果、回传尾部或缓冲复用。正式采集也要避免随手打印 Device Tensor，防止加入新的 Host 回读。
 
-本章没有目标环境的 MegaMoE Trace 或性能复现。前面的字节数能由给定路由复算，选择表来自已核查源码，泳道用于解释依赖；实际结论仍需由这份同条件账本给出。第四章的专家放置改变了哪段计算分布，本章的交换与融合又改变了哪段等待，应在同一轮里接起来看。
+下面把这份账本放到 A5 上运行。前面的字节数仍是给定路由下的教学计算，第 7 节仍解释自定义 W8A8 内核的依赖；实测单独记录对应的硬件、量化与算子入口。
+
+## 11. A5 实操：MC2 拆分链与 CANN MegaMoE
+
+### 11.1 先让同一份权重和路由算出相同结果
+
+本次使用 Ascend950DT 的两张空闲卡，EP=2、TP=1，八个专家，每 rank 四个，top-k=2，隐藏维度与 FFN 中间维度均为 1024。输入为 BF16，权重与激活采用 W4A8MXFP 路径，激活函数为 SiLU，执行模式为 eager。每 rank 分别输入 8、32 行；不加载模型 checkpoint，也不包含 Attention、Router 网络或在线调度。[固定源码、环境与结果](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/results/a5-moe.json)
+
+脚本使用目标实现的权重处理函数，从同一份量化权重分别生成普通 GMM 与 MegaMoE 所需布局。两条链共享输入、top-k 专家 ID 和概率；融合侧直接调用生产 `_apply_cann_mega_moe()` 入口，普通侧按当前测试拆开 Dispatch、GMM1、SwiGLU/量化、GMM2、Combine。权重转换、通信组和对称缓冲初始化放在测量外。本次验证了这些算子的执行，没有覆盖整个配置选择函数。[可复现脚本与来源](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/a5-moe.py)
+
+四组 rank／形状结果逐元素一致，最大绝对误差和相对 RMSE 均为 0。独立计数 oracle 先统计各源 rank 的专家 ID，再跨 rank 求和、取本 rank 的专家区间：8 行时两 rank 分别承担 12、20 次任务，总计 `2×8×2=32`；32 行时为 71、57 次，总计 `2×32×2=128`。这也说明同一次对照可以固定不均衡路由，先把算子差异与布局变化分开。
+
+### 11.2 真实 trace 里减少了哪些外部任务？
+
+两种形状、两个 rank 的 active iteration 都观察到下列设备任务。这里的五段来自本次 W4A8MXFP 拆分链；第 6.1 节的 W8A8 默认局部融合仍是另一组条件。
+
+目标源码的 W4A8MXFP+SiLU 生产 MLP 同样先执行 GMM1，再执行 SwiGLU/量化和 GMM2；其中 GMM1 与激活、量化的单算子分支要求 SiTU 等额外条件，本次 SiLU 不触发。这里仍使用直接拆分参考链，没有覆盖生产 prepare／finalize、完整 wrapper 或其他分支。[固定量化实现与来源](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/README.md#源码归属)
+
+| 本次 MC2 拆分参考链 | 本次 CANN MegaMoE |
+| --- | --- |
+| `MoeDistributeDispatchV3` | `MegaMoe` |
+| `aclnnGroupedMatmulWeightNz_GroupedMatmul_GroupedMatmul` | 同一个融合任务内，外部 trace 不展开内部阶段 |
+| `SwigluGroupQuant` | 同上 |
+| 第二个 GroupedMatmul | 同上 |
+| `MoeDistributeCombineV3` | 同上 |
+
+名称还需按层对齐：Python 调用的是 `npu_moe_distribute_dispatch_v2/combine_v2`，Host trace 记录 `aclnnMoeDistributeDispatchV4/CombineV4`，设备任务名则带 V3。它们属于不同接口层，不能仅凭设备矩形的名字反推 Python 配置。
+
+![A5 实测快照：同一 rank 的普通 MC2 五个设备任务与单个 CANN MegaMoE，按各自首任务归零并使用相同微秒刻度](../dist/assets/a5-mc2-megamoe-measured.svg)
+
+图选取每 rank 32 行、rank 0 的第二个 active iteration，保留实际 stream 61 与设备时间，两个实现各自以首任务为零。普通链的首尾跨度为 449.64 µs，五个任务的时长和为 42.87 µs；融合任务为 32.52 µs。留白只表示这条流没有记录到所选专家链的设备任务，尚未逐段归因，不能全部标成网络等待。这是一对带 profiling 的执行快照，不是延迟中位数或跨 rank 同步时间线。[可复算的泳道数据](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/results/a5-moe-swimlane.json)
+
+另在采集外预热，按 MC2→MegaMoE→MegaMoE→MC2 顺序取样，每种方式各 20 个 NPU event 区间，得到以下中位数：
+
+| 每 rank 输入行数 | rank | MC2 区间 / µs | MegaMoE 区间 / µs |
+| --- | --- | --- | --- |
+| 8 | 0 | 702.99 | 169.75 |
+| 8 | 1 | 708.32 | 178.91 |
+| 32 | 0 | 770.40 | 160.30 |
+| 32 | 1 | 776.58 | 170.31 |
+
+event 包围的是 Python 函数提交的整条链，可能包含设备等待 Host 后续提交及通信伙伴的空隙。它反映这组固定小输入的 eager 执行区间，不是纯 kernel 时长；独占的是这两张设备，同机其他卡仍有服务。大矩阵、graph replay、其他量化或完整模型都需要重新对照。外部只有一个 `MegaMoe` 矩形，也不足以证明第 7 节自定义内核的每个 flag 在 A5 CANN 中怎样发生。
+
+### 11.3 在 Linux 解析，再用浏览器看泳道
+
+本次已在服务器的 Linux aarch64 上运行 Perfetto Trace Processor，读取真实 `trace_view.json` 并执行 SQL；随后通过 SSH 转发，把服务器本地解析器接到浏览器 Perfetto UI，实际展开了 Host 线程和 Ascend Hardware 的 stream 泳道。Linux 无桌面也能完成解析，不要求先安装 GUI。官方工具提供 Linux arm64 预编译版本；本次服务器直连二进制下载失败，采用本地下载、核对 SHA256 后传入的方式。[官方下载脚本](https://raw.githubusercontent.com/google/perfetto/main/tools/trace_processor) · [命令行接口](https://perfetto.dev/docs/reference/trace-processor-cli)
+
+把 `TRACE_FILE` 换成自己的文件，已验证的解析与服务命令为：
+
+```sh
+TRACE_FILE=/path/to/ASCEND_PROFILER_OUTPUT/trace_view.json
+./trace_processor_shell_linux_arm64 query "$TRACE_FILE" \
+  'SELECT count(*) AS slice_count FROM slice'
+./trace_processor_shell_linux_arm64 server http \
+  --ip-address 127.0.0.1 --port 9001 "$TRACE_FILE"
+```
+
+本地另开终端运行 `ssh -N -L 9001:127.0.0.1:9001 <SSH别名>`，打开 Perfetto UI，选择匹配版本及“YES, use loaded trace”，即可使用远端解析结果。服务只监听 loopback。小 trace 也可以直接在浏览器打开本地文件；Perfetto 本地查看默认不上传 trace。[远端解析与大 trace](https://perfetto.dev/docs/visualization/large-traces) · [本地数据处理说明](https://perfetto.dev/docs/getting-started/system-tracing)
+
+查看时先定位实验的 `record_function` 范围，再沿原始 flow ID 关联外部调用与设备任务，检查 active iteration 与预热是否混入。本次八份 MoE trace 都能导入 Perfetto，但均出现 flow 的 enclosing-slice 告警；原始导出中也存在 Host→Device 终点早于起点数微秒的情况。因此保留原始 JSON 关联，细粒度派发延迟暂不从这组时间差计算。设备内部阶段或跨 rank 等待，还需要更细的采样及独立时钟校验。
+
+需要 Ascend 专项分析时，MindStudio Insight 提供 Linux x86_64、aarch64 GUI 包；无桌面服务器需配合桌面转发或 VNC。保留完整 `*_ascend_pt` 目录，既可看 Timeline，也保留算子和通信分析所需的 CSV／JSON；只拿走一张截图会丢掉这些证据。[Linux 安装条件](https://msinsight.readthedocs.io/zh-cn/26.1.0/zh/install_guide/mindstudio_insight_install_guide.html) · [采集目录导入](https://www.hiascend.com/doc_center/source/en/mindstudio/830/GUI_baseddevelopmenttool/MindStudioInsight/Insight_userguide_0032.html)

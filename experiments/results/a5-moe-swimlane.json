@@ -1,0 +1,136 @@
+{
+  "schema": "wiki-measured-moe-swimlane/1",
+  "evidence": "target-device profiling snapshot",
+  "capture_date": "2026-11-04",
+  "conditions": {
+    "hardware_generation": "Ascend A5",
+    "vllm_ascend_revision": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+    "torch_npu_version": "2.10.0.post7",
+    "cann_version": "9.2.1",
+    "profiler_level": "Level0",
+    "execution": "eager isolated MoE layer; no pretrained checkpoint",
+    "ep_world_size": 2,
+    "tensor_parallel_size": 1,
+    "experts": 8,
+    "local_experts": 4,
+    "tokens_per_rank": 32,
+    "topk": 2,
+    "hidden_size": 1024,
+    "intermediate_size": 1024,
+    "quantization": "W4A8MXFP",
+    "activation": "SiLU",
+    "selected_rank": 0,
+    "selected_iteration": 2
+  },
+  "axis": {
+    "unit": "us",
+    "start": "0",
+    "end": "500",
+    "normalization": "each implementation independently starts at its first attributed device task",
+    "cross_rank_alignment": false
+  },
+  "attribution": "Exact torch_to_npu flow ID links CPU source operator to device task. CPU same-thread scope ancestry selects the iteration; no Host-time containment assigns device tasks.",
+  "limits": [
+    "Instrumented single-iteration snapshot; not steady-state latency or a speedup measurement.",
+    "Blank intervals mean no captured task on this physical stream; their causes are unassigned.",
+    "No cross-rank or Host-device fine-grained time alignment is asserted.",
+    "MegaMoe is one externally visible device task; its internal AIC/AIV execution is opaque in this capture.",
+    "Full-range captures may include warmup carryover; this extract includes only flow-attributed active iteration2 tasks."
+  ],
+  "scopes": [
+    {
+      "implementation": "MC2",
+      "trace_sha256": "d7a007adc24dddfd9389ec66426363b68753b7ac55e4fb4217557353bced748d",
+      "trace_size_bytes": 41537,
+      "scope": "wiki/MC2/tokens32/iteration2",
+      "origin": "first flow-attributed device task of this implementation on rank 0",
+      "physical_stream_id": 61,
+      "device_span_us": "449.6409375",
+      "tasks": [
+        {
+          "id": "1",
+          "label": "Dispatch",
+          "category": "dispatch",
+          "kernel": "MoeDistributeDispatchV3",
+          "host_operator": "aclnnMoeDistributeDispatchV4",
+          "physical_stream_id": 61,
+          "task_type": "KERNEL_MIX_AIV",
+          "start_us": "0.000",
+          "end_us": "11.999875",
+          "duration_us": "11.999875"
+        },
+        {
+          "id": "2",
+          "label": "GMM1",
+          "category": "compute",
+          "kernel": "aclnnGroupedMatmulWeightNz_GroupedMatmul_GroupedMatmul",
+          "host_operator": "aclnnGroupedMatmulWeightNz",
+          "physical_stream_id": 61,
+          "task_type": "KERNEL_MIX_AIC",
+          "start_us": "75.204",
+          "end_us": "83.604",
+          "duration_us": "8.4"
+        },
+        {
+          "id": "3",
+          "label": "SwiGLU + quant",
+          "category": "activation_quant",
+          "kernel": "SwigluGroupQuant",
+          "host_operator": "aclnnSwigluGroupQuant",
+          "physical_stream_id": 61,
+          "task_type": "KERNEL_AIVEC",
+          "start_us": "134.796",
+          "end_us": "139.8679375",
+          "duration_us": "5.0719375"
+        },
+        {
+          "id": "4",
+          "label": "GMM2",
+          "category": "compute",
+          "kernel": "aclnnGroupedMatmulWeightNz_GroupedMatmul_GroupedMatmul",
+          "host_operator": "aclnnGroupedMatmulWeightNz",
+          "physical_stream_id": 61,
+          "task_type": "KERNEL_MIX_AIC",
+          "start_us": "183.372",
+          "end_us": "192.4349375",
+          "duration_us": "9.0629375"
+        },
+        {
+          "id": "5",
+          "label": "Combine",
+          "category": "combine",
+          "kernel": "MoeDistributeCombineV3",
+          "host_operator": "aclnnMoeDistributeCombineV4",
+          "physical_stream_id": 61,
+          "task_type": "KERNEL_MIX_AIV",
+          "start_us": "441.305",
+          "end_us": "449.6409375",
+          "duration_us": "8.3359375"
+        }
+      ]
+    },
+    {
+      "implementation": "MegaMoe",
+      "trace_sha256": "2dd1b073a8470ca0e2456f210f4dd804a18b7cafd2f1d0644c6b6a323a7cfba0",
+      "trace_size_bytes": 15332,
+      "scope": "wiki/MegaMoe/tokens32/iteration2",
+      "origin": "first flow-attributed device task of this implementation on rank 0",
+      "physical_stream_id": 61,
+      "device_span_us": "32.5188125",
+      "tasks": [
+        {
+          "id": "M",
+          "label": "MegaMoe",
+          "category": "fused_opaque",
+          "kernel": "MegaMoe",
+          "host_operator": "aclnnMegaMoe",
+          "physical_stream_id": 61,
+          "task_type": "KERNEL_MIX_AIC",
+          "start_us": "0.000",
+          "end_us": "32.5188125",
+          "duration_us": "32.5188125"
+        }
+      ]
+    }
+  ]
+}

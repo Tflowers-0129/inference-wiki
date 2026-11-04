@@ -1,0 +1,69 @@
+{
+  "trace_sha256": "294a490076dbfba36a9191fac440eb9dd6b1baec1caec796bf12302b2aa2a3bb",
+  "trace_bytes": 67096,
+  "events": 387,
+  "method": "Match async_npu torch_to_npu s/f by exact flow id. Match host CPU op at exact source pid/tid/ts; find its record_function CPU ancestor on same thread. Match device task at exact destination pid/tid/ts. Never use host interval containment to assign device kernels.",
+  "clock_caveat": "Exporter syscnt_enable=true; cross-domain/cross-rank precision not independently validated. Some flow f timestamps precede s, so endpoints are association evidence, not proven latency.",
+  "scope_counts": {
+    "padded_torch_rep0": 9,
+    "padded_triton_rep0": 1,
+    "padded_triton_rep1": 1,
+    "padded_torch_rep1": 9
+  },
+  "per_scope": {
+    "padded_torch_rep0": {
+      "host_duration_us": "638.8",
+      "device_task_count": 9,
+      "device_kernel_counts": {
+        "aclnnSub_SubAiCore_Sub": 3,
+        "aclnnCat_ConcatD_ConcatD": 1,
+        "aclnnGtScalar_GreaterAiCore_Greater": 1,
+        "aclnnAdds_AddAiCore_Add": 1,
+        "aclnnInplaceZero_ZerosLikeAiCore_ZerosLike": 1,
+        "aclnnSWhere_SelectV2AiCore_SelectV2": 1,
+        "aclnnSubs_SubAiCore_Sub": 1
+      },
+      "device_duration_sum_us": "10.2448125"
+    },
+    "padded_triton_rep0": {
+      "host_duration_us": "202.42",
+      "device_task_count": 1,
+      "device_kernel_counts": {
+        "prepare_inputs_padded_kernel": 1
+      },
+      "device_duration_sum_us": "12.9159375"
+    },
+    "padded_triton_rep1": {
+      "host_duration_us": "129.91",
+      "device_task_count": 1,
+      "device_kernel_counts": {
+        "prepare_inputs_padded_kernel": 1
+      },
+      "device_duration_sum_us": "12.469875"
+    },
+    "padded_torch_rep1": {
+      "host_duration_us": "249.27",
+      "device_task_count": 9,
+      "device_kernel_counts": {
+        "aclnnSub_SubAiCore_Sub": 3,
+        "aclnnCat_ConcatD_ConcatD": 1,
+        "aclnnGtScalar_GreaterAiCore_Greater": 1,
+        "aclnnAdds_AddAiCore_Add": 1,
+        "aclnnInplaceZero_ZerosLikeAiCore_ZerosLike": 1,
+        "aclnnSWhere_SelectV2AiCore_SelectV2": 1,
+        "aclnnSubs_SubAiCore_Sub": 1
+      },
+      "device_duration_sum_us": "10.6528125"
+    }
+  },
+  "async_npu_flow_check": {
+    "pairs": 20,
+    "negative_endpoint_deltas": 10,
+    "min_endpoint_delta_us": "-5.423"
+  },
+  "HostToDevice_flow_check": {
+    "pairs": 20,
+    "negative_endpoint_deltas": 19,
+    "min_endpoint_delta_us": "-11.224"
+  }
+}

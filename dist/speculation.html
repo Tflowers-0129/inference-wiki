@@ -109,6 +109,7 @@ index_to_sample = query_end - 1 - rejected</code></pre>
 <p>异步调度允许 Host 在上一轮结果尚未完整回传时安排下一轮。Host 可以按候选全接受估计容量和批形状；Device 执行前，R 的起点必须从上界 12 纠正为有效 KV 长度 11，才能输入 x@11。</p>
 <p>batch 行号也可能变化。假设上一轮顺序是 <code>[R,S]</code>，下一轮是 <code>[S,T,R]</code>，当前请求到上一轮的映射就是 <code>[1,−1,0]</code>。T 是新请求，使用 Host 提供的初始进度；R 则通过映射取回自己的接受结果。</p>
 <p><code>update_num_computed_tokens_for_batch_change</code> 按映射读取上一轮 Device 进度、有效采样数和候选数。对参加过投机的旧请求，它用 <code>prev_gpu + valid_count</code> 修正进度。本例为 <code>8+3=11</code>：输出侧的三个 Token 是 d1、d2、x，建立有效 KV 的三个输入却是 t0、d1、d2。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/spec_decode_utils.py" target="_blank" rel="noopener">请求映射与进度修正</a></p>
+<p>在 Ascend950DT 上直接调用这个已安装函数，固定上一轮 <code>[R,S]</code>、下一轮 <code>[S,T,R]</code>，映射为 <code>[1,−1,0]</code>，两次运行都得到新进度 <code>[21,5,11]</code>：未带候选的 S 使用 Host 给定的 21，新请求 T 使用 5，R 使用旧进度 8 加有效数 3。另行构造下一轮 K=0、1、3，R 的 query 行数分别为 1、2、4；K_next 不属于这个修正函数的输入。此实测只覆盖进度与接受数辅助函数，没有运行完整模型、后续地址计算或动态预算策略。<a class="inline-source" href="https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/results/batch-change.json" target="_blank" rel="noopener">辅助函数实测与脚本</a></p>
 <p>若后续 builder 需要精确的 Python 长度，Host 还需等待 D2H 完成，再修正自己的长度镜像。Device 上的消费者可以沿流依赖使用已修正的 Tensor。执行章第 5 节分别说明了缓冲区复用、计数回传和 Device 流之间的等待。<a class="inline-source" href="execution.html">Host / Device 输入准备</a></p>
 <h3>5.2 下一轮 K 从 3 改为 1，会改哪些字段？</h3>
 <p>上一轮仍按 <code>K_prev=3</code> 计算拒绝数：<code>3+1−valid_count=1</code>，先把有效 KV 长度纠正到 11。下一轮若实际只带一个候选，即 <code>K_next=1</code>：</p>
@@ -171,6 +172,14 @@ seq_lens        = [13]</code></pre>
 <p>第三行内部仍按第一行逐 Token 生成，只是代理攒批后发送。相同的 <code>[1,3,3]</code> 分组既可能来自验证结果，也可能来自缓冲；仅凭客户端块大小不能证明启用了投机。</p>
 <p>同一块里 Token 的生成先后不可观测，不能把它们都贴上同一个到达时间，补几个零以后称作设备 ITL。若第一块包含多个 Token，首块内部的间隔也丢失了。极端情况下，所有输出一块到达，按上式 TPOT 为 0、事件间隔样本为空；O≤1 时分母没有意义，应单独标记，不拿它冒充正常请求的 TPOT。</p>
 <p>汇总时还有权重问题：一条请求有 1 个 100 ms 间隔，另一条有 10 个 10 ms 间隔。逐请求 TPOT 均值是 55 ms，合并 11 个间隔的均值约 18.18 ms。先核对请求集与权重，再比较两个均值。</p>
+<p>上面的缓冲机制也做了真实 socket 验证：在 Linux loopback 上运行 HTTP/SSE 服务、独立缓冲代理和客户端，以七个已知输出标签计数，生产线程按名义 30 ms 周期生成，所有时刻用同一进程的单调时钟实际打点。两轮交叉顺序均保持内容与输出数一致；角色、usage 和 <code>[DONE]</code> 单独记录。<a class="inline-source" href="https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments" target="_blank" rel="noopener">SSE 实操脚本与原始打点</a></p>
+<div class="comparison-table"><table><thead><tr><th>实测发送方式</th><th>两轮客户端内容事件间隔</th><th>两轮 TPOT / ms 每输出</th></tr></thead><tbody>
+<tr><td>七次逐项发送</td><td>各 6 个间隔，范围 29.99～30.05 ms</td><td>30.004、30.002</td></tr>
+<tr><td>代理缓冲 [1,3,3]</td><td>分别 [89.967,90.035]、[89.977,90.048] ms</td><td>30.000、30.004</td></tr>
+<tr><td>七项全部放一块</td><td>无相邻内容事件样本</td><td>两轮均为 0</td></tr>
+<tr><td>只有一个输出</td><td>无相邻内容事件样本</td><td>分母为 0，记录为未定义</td></tr>
+</tbody></table></div>
+<p>这里的 TPOT 都按末内容事件为结束边界。单块七项的结果为 0，仅说明首、末内容接收时刻相同，不能描述内部生成速度。本实验没有模型或投机执行，用于确认缓冲和指标口径；名义周期不替代实际生成、发送和接收记录。<a class="inline-source" href="https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/results/sse-buffering.json" target="_blank" rel="noopener">实测结果</a></p>
 </section>
 <section class="lesson observed" id="speculation-8" data-title="8. 沿同一个输出定位客户端停顿"><h2>8. 沿同一个输出定位客户端停顿</h2>
 <p>从 R 的一次验证建账，别只在压测末尾保留均值。设备侧按 request_id、验证轮号记录提议／验证起止、实际 query 行数及 padding、接受数和提交数；服务端输出边界接着记单调时间、输出序号、本次确认的 Token ID 数和累计数。代理与客户端沿用请求和输出关联信息，各记自己的接收、发送事件。</p>

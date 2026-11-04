@@ -139,6 +139,10 @@ slot_mapping    = [36,37,38,39, 25, 34,35,12]</code></pre>
 <p>多 KV 组融合要求有效的非 Mamba 组数大于 1、各组 DCP world size 为 1，调用时也没有单独的 compressed positions/request indices；不满足时走相应逐组路径。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/block_table.py" target="_blank" rel="noopener">块表调用条件</a>、<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/v1/compute_slot_mapping.py" target="_blank" rel="noopener">写入槽 Triton 实现</a></p>
 <p>图回放减少重复提交；融合减少选定计算链的提交与中间读写。它们都要满足第 5.3 节的缓冲复用与数据就绪依赖。<a class="inline-source" href="https://docs.vllm.ai/en/latest/design/cuda_graphs/" target="_blank" rel="noopener">图执行设计</a></p>
 </details>
+<h3>5.6 把索引算例放到真实 NPU 上</h3>
+<p>在一次 Ascend950DT 实验中，直接调用目标环境安装的 <code>prepare_inputs_padded_kernel</code>，并用 Torch 表达式和独立整数计算核对两个输出。七组输入各运行两次：K=3 的四种接受长度、K=[3,1,0]、全 K=0，以及固定种子的 127 请求混合批次，全部逐项一致。混合例的有效采样数为 [3,1,1]，得到拒绝数 [1,1,0]、接续行 [2,4,6]。<a class="inline-source" href="https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments" target="_blank" rel="noopener">脚本、输入与结果</a></p>
+<p>编译与预热后，在同一份 127 请求输入上按 Torch→Triton→Triton→Torch 采集。按原始 trace 的 flow ID 关联 Host 调用与 NPU 任务，两次 Torch 各产生 9 个设备任务，两次 Triton 各产生 1 个 <code>prepare_inputs_padded_kernel</code>。Torch 链包括三次减法，以及拼接、比较、加法、清零、选择和标量减法；这份轨迹支持“减少这一段设备提交”的解释。</p>
+<p>任务数不能直接换成加速比。本次两条 Triton kernel 的时长约为 12.92、12.47 µs，Torch 每条链的 kernel 时长和约为 10.24、10.65 µs；后者还存在任务之间的空隙。kernel 时间和、从首任务到末任务的跨度、Host 提交区间是三个口径。这里没有运行完整 Runner，也没有测出模型吞吐收益。<a class="inline-source" href="https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/results/padded-profile.json" target="_blank" rel="noopener">实测归属与时钟限制</a></p>
 </section>
 <section class="lesson observed" id="execution-6" data-title="6. 异步调度怎样连接两轮？"><h2>6. 异步调度怎样连接两轮？</h2>
 <h3>6.1 EngineCore 不必每轮立刻回收结果</h3>

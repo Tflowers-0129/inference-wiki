@@ -1,0 +1,259 @@
+{
+  "correctness": "passed",
+  "repetitions": 2,
+  "cases_per_repetition": 7,
+  "profile_input": {
+    "requests": 127,
+    "dtype": "int32",
+    "graph": "eager",
+    "order": [
+      "Torch",
+      "Triton",
+      "Triton",
+      "Torch"
+    ]
+  },
+  "scope": "kernel/formula equivalence, not full Runner performance",
+  "results": [
+    {
+      "repetition": 0,
+      "num_requests": 1,
+      "K": [
+        3
+      ],
+      "valid_count": [
+        1
+      ],
+      "indices": [
+        0
+      ],
+      "rejected": [
+        3
+      ]
+    },
+    {
+      "repetition": 0,
+      "num_requests": 1,
+      "K": [
+        3
+      ],
+      "valid_count": [
+        2
+      ],
+      "indices": [
+        1
+      ],
+      "rejected": [
+        2
+      ]
+    },
+    {
+      "repetition": 0,
+      "num_requests": 1,
+      "K": [
+        3
+      ],
+      "valid_count": [
+        3
+      ],
+      "indices": [
+        2
+      ],
+      "rejected": [
+        1
+      ]
+    },
+    {
+      "repetition": 0,
+      "num_requests": 1,
+      "K": [
+        3
+      ],
+      "valid_count": [
+        4
+      ],
+      "indices": [
+        3
+      ],
+      "rejected": [
+        0
+      ]
+    },
+    {
+      "repetition": 0,
+      "num_requests": 3,
+      "K": [
+        3,
+        1,
+        0
+      ],
+      "valid_count": [
+        3,
+        1,
+        1
+      ],
+      "indices": [
+        2,
+        4,
+        6
+      ],
+      "rejected": [
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "repetition": 0,
+      "num_requests": 3,
+      "K": [
+        0,
+        0,
+        0
+      ],
+      "valid_count": [
+        1,
+        1,
+        1
+      ],
+      "indices": [
+        0,
+        1,
+        2
+      ],
+      "rejected": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "repetition": 0,
+      "num_requests": 127,
+      "K": "seeded 0..5",
+      "valid_count": "seeded 1..K+1",
+      "indices": "oracle matched",
+      "rejected": "oracle matched"
+    },
+    {
+      "repetition": 1,
+      "num_requests": 1,
+      "K": [
+        3
+      ],
+      "valid_count": [
+        1
+      ],
+      "indices": [
+        0
+      ],
+      "rejected": [
+        3
+      ]
+    },
+    {
+      "repetition": 1,
+      "num_requests": 1,
+      "K": [
+        3
+      ],
+      "valid_count": [
+        2
+      ],
+      "indices": [
+        1
+      ],
+      "rejected": [
+        2
+      ]
+    },
+    {
+      "repetition": 1,
+      "num_requests": 1,
+      "K": [
+        3
+      ],
+      "valid_count": [
+        3
+      ],
+      "indices": [
+        2
+      ],
+      "rejected": [
+        1
+      ]
+    },
+    {
+      "repetition": 1,
+      "num_requests": 1,
+      "K": [
+        3
+      ],
+      "valid_count": [
+        4
+      ],
+      "indices": [
+        3
+      ],
+      "rejected": [
+        0
+      ]
+    },
+    {
+      "repetition": 1,
+      "num_requests": 3,
+      "K": [
+        3,
+        1,
+        0
+      ],
+      "valid_count": [
+        3,
+        1,
+        1
+      ],
+      "indices": [
+        2,
+        4,
+        6
+      ],
+      "rejected": [
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "repetition": 1,
+      "num_requests": 3,
+      "K": [
+        0,
+        0,
+        0
+      ],
+      "valid_count": [
+        1,
+        1,
+        1
+      ],
+      "indices": [
+        0,
+        1,
+        2
+      ],
+      "rejected": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "repetition": 1,
+      "num_requests": 127,
+      "K": "seeded 0..5",
+      "valid_count": "seeded 1..K+1",
+      "indices": "oracle matched",
+      "rejected": "oracle matched"
+    }
+  ]
+}

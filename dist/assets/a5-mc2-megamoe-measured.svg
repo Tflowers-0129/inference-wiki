@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="640" viewBox="0 0 1100 640" role="img" aria-labelledby="title desc">
+<title id="title">A5 实测：MC2 与 CANN MegaMoe 的外部设备轨迹</title>
+<desc id="desc">真实 profiling 的单次执行快照。条件为 EP2、每 rank 32 tokens、8 专家、top-k 2、hidden 和 intermediate 均为 1024、W4A8MXFP、SiLU、eager。选取 rank 0 的 iteration 2，两种实现各自以第一个设备任务归零，统一按 0 到 500 微秒绘制。MC2 的 stream 61 依次有 dispatch、GMM1、SwiGLU 量化、GMM2、combine 五个任务；CANN MegaMoe 的 stream 61 有一个外部融合任务。所有条宽严格按设备时间比例绘制。空白区间的原因未归因。没有跨 rank 对齐，也没有展开融合 kernel 内部阶段；该快照不能用于计算稳态加速比。精确数据与源 trace 校验值见 a5-moe-swimlane.json。</desc>
+<defs><style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif}</style></defs>
+<rect width="1100" height="640" fill="#f8fafc"/>
+<text x="32" y="44" font-size="28" fill="#172b4d" font-weight="700" text-anchor="start">A5 实测：MC2 与 CANN MegaMoe 的外部设备轨迹</text>
+<text x="32" y="78" font-size="19" fill="#475569" font-weight="400" text-anchor="start">实测快照 · tokens/rank 32 · EP2 · W4A8MXFP · eager · rank 0 / iteration 2</text>
+<text x="32" y="110" font-size="20" fill="#475569" font-weight="400" text-anchor="start">两种实现独立归零，共用 0～500 µs 刻度；条宽保持真实比例。</text>
+<rect x="32" y="132" width="1036" height="278" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+<text x="250" y="162" font-size="18" fill="#475569" font-weight="400" text-anchor="start">设备局部时间 / µs</text>
+<path d="M250 194V394" stroke="#cbd5e1" stroke-dasharray="3 5" fill="none"/>
+<text x="250" y="187" font-size="18" fill="#475569" font-weight="400" text-anchor="middle">0</text>
+<path d="M410 194V394" stroke="#cbd5e1" stroke-dasharray="3 5" fill="none"/>
+<text x="410" y="187" font-size="18" fill="#475569" font-weight="400" text-anchor="middle">100</text>
+<path d="M570 194V394" stroke="#cbd5e1" stroke-dasharray="3 5" fill="none"/>
+<text x="570" y="187" font-size="18" fill="#475569" font-weight="400" text-anchor="middle">200</text>
+<path d="M730 194V394" stroke="#cbd5e1" stroke-dasharray="3 5" fill="none"/>
+<text x="730" y="187" font-size="18" fill="#475569" font-weight="400" text-anchor="middle">300</text>
+<path d="M890 194V394" stroke="#cbd5e1" stroke-dasharray="3 5" fill="none"/>
+<text x="890" y="187" font-size="18" fill="#475569" font-weight="400" text-anchor="middle">400</text>
+<path d="M1050 194V394" stroke="#cbd5e1" stroke-dasharray="3 5" fill="none"/>
+<text x="1050" y="187" font-size="18" fill="#475569" font-weight="400" text-anchor="middle">500</text>
+<text x="52" y="246" font-size="22" fill="#172b4d" font-weight="700" text-anchor="start">MC2</text>
+<text x="52" y="274" font-size="18" fill="#475569" font-weight="400" text-anchor="start">rank 0 · stream 61</text>
+<rect id="MC2-1" x="250" y="222" width="19.1998" height="36" fill="#0f766e" data-start-us="0.000" data-duration-us="11.999875"><title>1 MoeDistributeDispatchV3; physical stream 61; 0.000 to 11.999875 us; duration 11.999875 us</title></rect>
+<text x="259.5999" y="212" font-size="20" fill="#0f766e" font-weight="700" text-anchor="middle">1</text>
+<rect id="MC2-2" x="370.3264" y="222" width="13.44" height="36" fill="#1d4ed8" data-start-us="75.204" data-duration-us="8.4"><title>2 aclnnGroupedMatmulWeightNz_GroupedMatmul_GroupedMatmul; physical stream 61; 75.204 to 83.604 us; duration 8.4 us</title></rect>
+<text x="377.0464" y="212" font-size="20" fill="#1d4ed8" font-weight="700" text-anchor="middle">2</text>
+<rect id="MC2-3" x="465.6736" y="222" width="8.1151" height="36" fill="#b45309" data-start-us="134.796" data-duration-us="5.0719375"><title>3 SwigluGroupQuant; physical stream 61; 134.796 to 139.8679375 us; duration 5.0719375 us</title></rect>
+<text x="469.73115" y="212" font-size="20" fill="#b45309" font-weight="700" text-anchor="middle">3</text>
+<rect id="MC2-4" x="543.3952" y="222" width="14.5007" height="36" fill="#1d4ed8" data-start-us="183.372" data-duration-us="9.0629375"><title>4 aclnnGroupedMatmulWeightNz_GroupedMatmul_GroupedMatmul; physical stream 61; 183.372 to 192.4349375 us; duration 9.0629375 us</title></rect>
+<text x="550.64555" y="212" font-size="20" fill="#1d4ed8" font-weight="700" text-anchor="middle">4</text>
+<rect id="MC2-5" x="956.088" y="222" width="13.3375" height="36" fill="#0f766e" data-start-us="441.305" data-duration-us="8.3359375"><title>5 MoeDistributeCombineV3; physical stream 61; 441.305 to 449.6409375 us; duration 8.3359375 us</title></rect>
+<text x="962.75675" y="212" font-size="20" fill="#0f766e" font-weight="700" text-anchor="middle">5</text>
+<text x="1048" y="280" font-size="18" fill="#475569" font-weight="400" text-anchor="end">末任务结束 449.64 µs</text>
+<text x="52" y="356" font-size="22" fill="#172b4d" font-weight="700" text-anchor="start">CANN MegaMoe</text>
+<text x="52" y="384" font-size="18" fill="#475569" font-weight="400" text-anchor="start">rank 0 · stream 61</text>
+<rect id="MegaMoe-M" x="250" y="332" width="52.0301" height="36" fill="#475569" data-start-us="0.000" data-duration-us="32.5188125"><title>M MegaMoe; physical stream 61; 0.000 to 32.5188125 us; duration 32.5188125 us</title></rect>
+<text x="276.01505" y="322" font-size="20" fill="#475569" font-weight="700" text-anchor="middle">M</text>
+<text x="1048" y="390" font-size="18" fill="#475569" font-weight="400" text-anchor="end">末任务结束 32.52 µs</text>
+<text x="326" y="356" font-size="20" fill="#475569" font-weight="400" text-anchor="start">一个外部设备任务，内部未展开</text>
+<rect x="52" y="419" width="25" height="25" rx="3" fill="#0f766e"/>
+<text x="64.5" y="438" font-size="18" fill="#ffffff" font-weight="700" text-anchor="middle">1</text>
+<text x="89" y="438" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">Dispatch</text>
+<rect x="350" y="419" width="25" height="25" rx="3" fill="#1d4ed8"/>
+<text x="362.5" y="438" font-size="18" fill="#ffffff" font-weight="700" text-anchor="middle">2</text>
+<text x="387" y="438" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">GMM1</text>
+<rect x="640" y="419" width="25" height="25" rx="3" fill="#b45309"/>
+<text x="652.5" y="438" font-size="18" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
+<text x="677" y="438" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">SwiGLU + 量化</text>
+<rect x="52" y="459" width="25" height="25" rx="3" fill="#1d4ed8"/>
+<text x="64.5" y="478" font-size="18" fill="#ffffff" font-weight="700" text-anchor="middle">4</text>
+<text x="89" y="478" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">GMM2</text>
+<rect x="350" y="459" width="25" height="25" rx="3" fill="#0f766e"/>
+<text x="362.5" y="478" font-size="18" fill="#ffffff" font-weight="700" text-anchor="middle">5</text>
+<text x="387" y="478" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">Combine</text>
+<rect x="640" y="459" width="25" height="25" rx="3" fill="#475569"/>
+<text x="652.5" y="478" font-size="18" fill="#ffffff" font-weight="700" text-anchor="middle">M</text>
+<text x="677" y="478" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">MegaMoe（融合任务）</text>
+<text x="32" y="528" font-size="19" fill="#475569" font-weight="400" text-anchor="start">空白表示此 stream 无已采集任务，原因未归因。</text>
+<text x="32" y="558" font-size="19" fill="#475569" font-weight="400" text-anchor="start">各实现独立归零；未对齐其他 rank，也未绘制 Host→NPU 微秒延迟。</text>
+<text x="32" y="588" font-size="19" fill="#475569" font-weight="400" text-anchor="start">本图含采集扰动，不用于计算稳态加速比；融合算子的内部流水未展开。</text>
+<text x="32" y="620" font-size="16" fill="#475569" font-weight="400" text-anchor="start">采集：2026-11-04 · 可复算数据：experiments/results/a5-moe-swimlane.json</text>
+</svg>

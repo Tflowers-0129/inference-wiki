@@ -1,0 +1,1900 @@
+{
+  "scope": "Actual loopback HTTP/SSE protocol and metric validation; no model or NPU performance claim",
+  "created_at_utc": "2026-11-04T13:24:07.275816+00:00",
+  "clock_domain": "One Linux/macOS host process, time.monotonic_ns; all observed times share that clock",
+  "nominal_generation_period_ms": 30,
+  "time_caveat": "Actual generation and arrival intervals are measured; no equal-spacing assertion",
+  "send_caveat": "send_begin/end bracket write+flush, not peer acknowledgement",
+  "count_caveat": "Known mock labels supply output counts; no chunk-by-chunk tokenization",
+  "excluded_from_content_events": [
+    "role",
+    "usage",
+    "[DONE]"
+  ],
+  "correctness": "passed",
+  "repetitions": 2,
+  "cases": [
+    {
+      "run_id": "rep0-direct",
+      "scenario": "direct",
+      "repetition": 0,
+      "path": "client -> upstream",
+      "output_count_oracle": 7,
+      "labels": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6"
+      ],
+      "observed_event_sizes": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "correctness": "passed",
+      "upstream": {
+        "generated": [
+          {
+            "label": "T0",
+            "generated_ns": 359591097532590
+          },
+          {
+            "label": "T1",
+            "generated_ns": 359591127530050
+          },
+          {
+            "label": "T2",
+            "generated_ns": 359591157528580
+          },
+          {
+            "label": "T3",
+            "generated_ns": 359591187527780
+          },
+          {
+            "label": "T4",
+            "generated_ns": 359591217528510
+          },
+          {
+            "label": "T5",
+            "generated_ns": 359591247528560
+          },
+          {
+            "label": "T6",
+            "generated_ns": 359591277529470
+          }
+        ],
+        "sent": [
+          {
+            "kind": "role",
+            "labels": [],
+            "send_begin_ns": 359591067205940,
+            "send_end_ns": 359591067218000
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "send_begin_ns": 359591097569770,
+            "send_end_ns": 359591097587060
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1"
+            ],
+            "send_begin_ns": 359591127564120,
+            "send_end_ns": 359591127576650
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T2"
+            ],
+            "send_begin_ns": 359591157558190,
+            "send_end_ns": 359591157570590
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T3"
+            ],
+            "send_begin_ns": 359591187558570,
+            "send_end_ns": 359591187568050
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4"
+            ],
+            "send_begin_ns": 359591217555000,
+            "send_end_ns": 359591217563700
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T5"
+            ],
+            "send_begin_ns": 359591247555770,
+            "send_end_ns": 359591247567290
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T6"
+            ],
+            "send_begin_ns": 359591277581140,
+            "send_end_ns": 359591277592260
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "send_begin_ns": 359591277616520,
+            "send_end_ns": 359591277652220
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "send_begin_ns": 359591277653260,
+            "send_end_ns": 359591277659410
+          }
+        ],
+        "request_received_ns": 359591067057640,
+        "producer_start_ns": 359591067472950,
+        "handler_end_ns": 359591277659980
+      },
+      "proxy": null,
+      "client": {
+        "request_start_ns": 359591066427240,
+        "content_events": [
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "receive_ns": 359591097601810
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1"
+            ],
+            "receive_ns": 359591127590310
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T2"
+            ],
+            "receive_ns": 359591157587450
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T3"
+            ],
+            "receive_ns": 359591187579470
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4"
+            ],
+            "receive_ns": 359591217571000
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T5"
+            ],
+            "receive_ns": 359591247576690
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T6"
+            ],
+            "receive_ns": 359591277625320
+          }
+        ],
+        "control_events": [
+          {
+            "kind": "role",
+            "labels": [],
+            "receive_ns": 359591067493230
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "receive_ns": 359591277640250
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "receive_ns": 359591277696190
+          }
+        ],
+        "headers_received_ns": 359591067421800,
+        "receive_end_ns": 359591277699910
+      },
+      "metrics": {
+        "generation_intervals_ms": [
+          29.99746,
+          29.99853,
+          29.9992,
+          30.00073,
+          30.00005,
+          30.00091
+        ],
+        "client_content_event_itl_ms": [
+          29.9885,
+          29.99714,
+          29.99202,
+          29.99153,
+          30.00569,
+          30.04863
+        ],
+        "client_ttft_ms": 31.17457,
+        "client_e2el_to_last_content_ms": 211.19808,
+        "client_elapsed_including_control_ms": 211.27267,
+        "client_tpot_to_last_content_ms_per_output": 30.00391833333333,
+        "tpot_definition": "(last content receive - first content receive)/(known output count - 1)",
+        "tpot_undefined_reason": null
+      }
+    },
+    {
+      "run_id": "rep0-buffer_1_3_3",
+      "scenario": "buffer_1_3_3",
+      "repetition": 0,
+      "path": "client -> proxy -> upstream",
+      "output_count_oracle": 7,
+      "labels": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6"
+      ],
+      "observed_event_sizes": [
+        1,
+        3,
+        3
+      ],
+      "correctness": "passed",
+      "upstream": {
+        "generated": [
+          {
+            "label": "T0",
+            "generated_ns": 359591309430420
+          },
+          {
+            "label": "T1",
+            "generated_ns": 359591339429870
+          },
+          {
+            "label": "T2",
+            "generated_ns": 359591369431460
+          },
+          {
+            "label": "T3",
+            "generated_ns": 359591399429570
+          },
+          {
+            "label": "T4",
+            "generated_ns": 359591429434150
+          },
+          {
+            "label": "T5",
+            "generated_ns": 359591459430550
+          },
+          {
+            "label": "T6",
+            "generated_ns": 359591489431490
+          }
+        ],
+        "sent": [
+          {
+            "kind": "role",
+            "labels": [],
+            "send_begin_ns": 359591279152170,
+            "send_end_ns": 359591279163560
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "send_begin_ns": 359591309461520,
+            "send_end_ns": 359591309478610
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1"
+            ],
+            "send_begin_ns": 359591339455330,
+            "send_end_ns": 359591339467510
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T2"
+            ],
+            "send_begin_ns": 359591369456200,
+            "send_end_ns": 359591369466370
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T3"
+            ],
+            "send_begin_ns": 359591399452900,
+            "send_end_ns": 359591399464230
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4"
+            ],
+            "send_begin_ns": 359591429460630,
+            "send_end_ns": 359591429469110
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T5"
+            ],
+            "send_begin_ns": 359591459451860,
+            "send_end_ns": 359591459460000
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T6"
+            ],
+            "send_begin_ns": 359591489463030,
+            "send_end_ns": 359591489471530
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "send_begin_ns": 359591489485440,
+            "send_end_ns": 359591489512920
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "send_begin_ns": 359591489513830,
+            "send_end_ns": 359591489575860
+          }
+        ],
+        "request_received_ns": 359591279013180,
+        "producer_start_ns": 359591279373940,
+        "handler_end_ns": 359591489576320
+      },
+      "proxy": {
+        "received": [
+          {
+            "kind": "role",
+            "labels": [],
+            "receive_ns": 359591279392400
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "receive_ns": 359591309491830
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1"
+            ],
+            "receive_ns": 359591339475210
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T2"
+            ],
+            "receive_ns": 359591369472660
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T3"
+            ],
+            "receive_ns": 359591399471400
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4"
+            ],
+            "receive_ns": 359591429476650
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T5"
+            ],
+            "receive_ns": 359591459467300
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T6"
+            ],
+            "receive_ns": 359591489493430
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "receive_ns": 359591489521480
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "receive_ns": 359591489569730
+          }
+        ],
+        "sent": [
+          {
+            "kind": "role",
+            "labels": [],
+            "send_begin_ns": 359591279418980,
+            "send_end_ns": 359591279446890
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "send_begin_ns": 359591309512550,
+            "send_end_ns": 359591309526960
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1",
+              "T2",
+              "T3"
+            ],
+            "send_begin_ns": 359591399485460,
+            "send_end_ns": 359591399496610
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4",
+              "T5",
+              "T6"
+            ],
+            "send_begin_ns": 359591489506800,
+            "send_end_ns": 359591489518360
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "send_begin_ns": 359591489531400,
+            "send_end_ns": 359591489562900
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "send_begin_ns": 359591489571110,
+            "send_end_ns": 359591489601890
+          }
+        ],
+        "request_received_ns": 359591278312000,
+        "upstream_request_start_ns": 359591278399990,
+        "handler_end_ns": 359591489606390
+      },
+      "client": {
+        "request_start_ns": 359591277795450,
+        "content_events": [
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "receive_ns": 359591309542650
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1",
+              "T2",
+              "T3"
+            ],
+            "receive_ns": 359591399509240
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4",
+              "T5",
+              "T6"
+            ],
+            "receive_ns": 359591489543880
+          }
+        ],
+        "control_events": [
+          {
+            "kind": "role",
+            "labels": [],
+            "receive_ns": 359591279470660
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "receive_ns": 359591489552050
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "receive_ns": 359591489628520
+          }
+        ],
+        "headers_received_ns": 359591278584440,
+        "receive_end_ns": 359591489631920
+      },
+      "metrics": {
+        "generation_intervals_ms": [
+          29.99945,
+          30.00159,
+          29.99811,
+          30.00458,
+          29.9964,
+          30.00094
+        ],
+        "client_content_event_itl_ms": [
+          89.96659,
+          90.03464
+        ],
+        "client_ttft_ms": 31.7472,
+        "client_e2el_to_last_content_ms": 211.74843,
+        "client_elapsed_including_control_ms": 211.83647,
+        "client_tpot_to_last_content_ms_per_output": 30.000205,
+        "tpot_definition": "(last content receive - first content receive)/(known output count - 1)",
+        "tpot_undefined_reason": null
+      }
+    },
+    {
+      "run_id": "rep0-single_block",
+      "scenario": "single_block",
+      "repetition": 0,
+      "path": "client -> proxy -> upstream",
+      "output_count_oracle": 7,
+      "labels": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6"
+      ],
+      "observed_event_sizes": [
+        7
+      ],
+      "correctness": "passed",
+      "upstream": {
+        "generated": [
+          {
+            "label": "T0",
+            "generated_ns": 359591521194350
+          },
+          {
+            "label": "T1",
+            "generated_ns": 359591551194430
+          },
+          {
+            "label": "T2",
+            "generated_ns": 359591581195590
+          },
+          {
+            "label": "T3",
+            "generated_ns": 359591611195970
+          },
+          {
+            "label": "T4",
+            "generated_ns": 359591641195600
+          },
+          {
+            "label": "T5",
+            "generated_ns": 359591671192160
+          },
+          {
+            "label": "T6",
+            "generated_ns": 359591701196210
+          }
+        ],
+        "sent": [
+          {
+            "kind": "role",
+            "labels": [],
+            "send_begin_ns": 359591490937060,
+            "send_end_ns": 359591490947790
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "send_begin_ns": 359591521224020,
+            "send_end_ns": 359591521244150
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1"
+            ],
+            "send_begin_ns": 359591551218250,
+            "send_end_ns": 359591551228890
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T2"
+            ],
+            "send_begin_ns": 359591581217490,
+            "send_end_ns": 359591581226780
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T3"
+            ],
+            "send_begin_ns": 359591611215900,
+            "send_end_ns": 359591611224440
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4"
+            ],
+            "send_begin_ns": 359591641217070,
+            "send_end_ns": 359591641225490
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T5"
+            ],
+            "send_begin_ns": 359591671210470,
+            "send_end_ns": 359591671218340
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T6"
+            ],
+            "send_begin_ns": 359591701230280,
+            "send_end_ns": 359591701238720
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "send_begin_ns": 359591701253320,
+            "send_end_ns": 359591701285400
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "send_begin_ns": 359591701286280,
+            "send_end_ns": 359591701291500
+          }
+        ],
+        "request_received_ns": 359591490823280,
+        "producer_start_ns": 359591491137240,
+        "handler_end_ns": 359591701291900
+      },
+      "proxy": {
+        "received": [
+          {
+            "kind": "role",
+            "labels": [],
+            "receive_ns": 359591491154710
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "receive_ns": 359591521258040
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1"
+            ],
+            "receive_ns": 359591551239700
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T2"
+            ],
+            "receive_ns": 359591581233850
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T3"
+            ],
+            "receive_ns": 359591611232270
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4"
+            ],
+            "receive_ns": 359591641233080
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T5"
+            ],
+            "receive_ns": 359591671226760
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T6"
+            ],
+            "receive_ns": 359591701261410
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "receive_ns": 359591701321350
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "receive_ns": 359591701404630
+          }
+        ],
+        "sent": [
+          {
+            "kind": "role",
+            "labels": [],
+            "send_begin_ns": 359591491180170,
+            "send_end_ns": 359591491206400
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0",
+              "T1",
+              "T2",
+              "T3",
+              "T4",
+              "T5",
+              "T6"
+            ],
+            "send_begin_ns": 359591701278350,
+            "send_end_ns": 359591701317600
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "send_begin_ns": 359591701333250,
+            "send_end_ns": 359591701375850
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "send_begin_ns": 359591701406120,
+            "send_end_ns": 359591701413390
+          }
+        ],
+        "request_received_ns": 359591490207710,
+        "upstream_request_start_ns": 359591490282770,
+        "handler_end_ns": 359591701416730
+      },
+      "client": {
+        "request_start_ns": 359591489736590,
+        "content_events": [
+          {
+            "kind": "content",
+            "labels": [
+              "T0",
+              "T1",
+              "T2",
+              "T3",
+              "T4",
+              "T5",
+              "T6"
+            ],
+            "receive_ns": 359591701347660
+          }
+        ],
+        "control_events": [
+          {
+            "kind": "role",
+            "labels": [],
+            "receive_ns": 359591491232030
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "receive_ns": 359591701359060
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "receive_ns": 359591701439630
+          }
+        ],
+        "headers_received_ns": 359591490455010,
+        "receive_end_ns": 359591701443000
+      },
+      "metrics": {
+        "generation_intervals_ms": [
+          30.00008,
+          30.00116,
+          30.00038,
+          29.99963,
+          29.99656,
+          30.00405
+        ],
+        "client_content_event_itl_ms": [],
+        "client_ttft_ms": 211.61107,
+        "client_e2el_to_last_content_ms": 211.61107,
+        "client_elapsed_including_control_ms": 211.70641,
+        "client_tpot_to_last_content_ms_per_output": 0.0,
+        "tpot_definition": "(last content receive - first content receive)/(known output count - 1)",
+        "tpot_undefined_reason": null
+      }
+    },
+    {
+      "run_id": "rep0-one_output",
+      "scenario": "one_output",
+      "repetition": 0,
+      "path": "client -> upstream",
+      "output_count_oracle": 1,
+      "labels": [
+        "T0"
+      ],
+      "observed_event_sizes": [
+        1
+      ],
+      "correctness": "passed",
+      "upstream": {
+        "generated": [
+          {
+            "label": "T0",
+            "generated_ns": 359591732362240
+          }
+        ],
+        "sent": [
+          {
+            "kind": "role",
+            "labels": [],
+            "send_begin_ns": 359591702109120,
+            "send_end_ns": 359591702119820
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "send_begin_ns": 359591732405360,
+            "send_end_ns": 359591732421050
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "send_begin_ns": 359591732437900,
+            "send_end_ns": 359591732468640
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "send_begin_ns": 359591732469390,
+            "send_end_ns": 359591732476200
+          }
+        ],
+        "request_received_ns": 359591701985520,
+        "producer_start_ns": 359591702304010,
+        "handler_end_ns": 359591732476640
+      },
+      "proxy": null,
+      "client": {
+        "request_start_ns": 359591701528240,
+        "content_events": [
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "receive_ns": 359591732449250
+          }
+        ],
+        "control_events": [
+          {
+            "kind": "role",
+            "labels": [],
+            "receive_ns": 359591702320030
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "receive_ns": 359591732457640
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "receive_ns": 359591732505500
+          }
+        ],
+        "headers_received_ns": 359591702266940,
+        "receive_end_ns": 359591732508820
+      },
+      "metrics": {
+        "generation_intervals_ms": [],
+        "client_content_event_itl_ms": [],
+        "client_ttft_ms": 30.92101,
+        "client_e2el_to_last_content_ms": 30.92101,
+        "client_elapsed_including_control_ms": 30.98058,
+        "client_tpot_to_last_content_ms_per_output": null,
+        "tpot_definition": "(last content receive - first content receive)/(known output count - 1)",
+        "tpot_undefined_reason": "O <= 1"
+      }
+    },
+    {
+      "run_id": "rep1-buffer_1_3_3",
+      "scenario": "buffer_1_3_3",
+      "repetition": 1,
+      "path": "client -> proxy -> upstream",
+      "output_count_oracle": 7,
+      "labels": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6"
+      ],
+      "observed_event_sizes": [
+        1,
+        3,
+        3
+      ],
+      "correctness": "passed",
+      "upstream": {
+        "generated": [
+          {
+            "label": "T0",
+            "generated_ns": 359591763999600
+          },
+          {
+            "label": "T1",
+            "generated_ns": 359591793999540
+          },
+          {
+            "label": "T2",
+            "generated_ns": 359591823999390
+          },
+          {
+            "label": "T3",
+            "generated_ns": 359591853999650
+          },
+          {
+            "label": "T4",
+            "generated_ns": 359591883999140
+          },
+          {
+            "label": "T5",
+            "generated_ns": 359591913999030
+          },
+          {
+            "label": "T6",
+            "generated_ns": 359591943999730
+          }
+        ],
+        "sent": [
+          {
+            "kind": "role",
+            "labels": [],
+            "send_begin_ns": 359591733724230,
+            "send_end_ns": 359591733831520
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "send_begin_ns": 359591764032070,
+            "send_end_ns": 359591764043200
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1"
+            ],
+            "send_begin_ns": 359591794019660,
+            "send_end_ns": 359591794028180
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T2"
+            ],
+            "send_begin_ns": 359591824029130,
+            "send_end_ns": 359591824036600
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T3"
+            ],
+            "send_begin_ns": 359591854018350,
+            "send_end_ns": 359591854027330
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4"
+            ],
+            "send_begin_ns": 359591884025100,
+            "send_end_ns": 359591884032320
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T5"
+            ],
+            "send_begin_ns": 359591914018610,
+            "send_end_ns": 359591914025640
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T6"
+            ],
+            "send_begin_ns": 359591944037060,
+            "send_end_ns": 359591944044780
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "send_begin_ns": 359591944057900,
+            "send_end_ns": 359591944081090
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "send_begin_ns": 359591944081850,
+            "send_end_ns": 359591944137400
+          }
+        ],
+        "request_received_ns": 359591733625470,
+        "producer_start_ns": 359591733944250,
+        "handler_end_ns": 359591944137960
+      },
+      "proxy": {
+        "received": [
+          {
+            "kind": "role",
+            "labels": [],
+            "receive_ns": 359591733808990
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "receive_ns": 359591764053170
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1"
+            ],
+            "receive_ns": 359591794034620
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T2"
+            ],
+            "receive_ns": 359591824043540
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T3"
+            ],
+            "receive_ns": 359591854034740
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4"
+            ],
+            "receive_ns": 359591884039990
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T5"
+            ],
+            "receive_ns": 359591914032600
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T6"
+            ],
+            "receive_ns": 359591944065650
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "receive_ns": 359591944087740
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "receive_ns": 359591944131470
+          }
+        ],
+        "sent": [
+          {
+            "kind": "role",
+            "labels": [],
+            "send_begin_ns": 359591733823180,
+            "send_end_ns": 359591733887680
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "send_begin_ns": 359591764065500,
+            "send_end_ns": 359591764074850
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1",
+              "T2",
+              "T3"
+            ],
+            "send_begin_ns": 359591854044970,
+            "send_end_ns": 359591854052720
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4",
+              "T5",
+              "T6"
+            ],
+            "send_begin_ns": 359591944074960,
+            "send_end_ns": 359591944085390
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "send_begin_ns": 359591944095890,
+            "send_end_ns": 359591944103270
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "send_begin_ns": 359591944132760,
+            "send_end_ns": 359591944159500
+          }
+        ],
+        "request_received_ns": 359591733023710,
+        "upstream_request_start_ns": 359591733101550,
+        "handler_end_ns": 359591944162520
+      },
+      "client": {
+        "request_start_ns": 359591732597910,
+        "content_events": [
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "receive_ns": 359591764086540
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1",
+              "T2",
+              "T3"
+            ],
+            "receive_ns": 359591854063890
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4",
+              "T5",
+              "T6"
+            ],
+            "receive_ns": 359591944112320
+          }
+        ],
+        "control_events": [
+          {
+            "kind": "role",
+            "labels": [],
+            "receive_ns": 359591733906300
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "receive_ns": 359591944120330
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "receive_ns": 359591944181060
+          }
+        ],
+        "headers_received_ns": 359591733272450,
+        "receive_end_ns": 359591944183960
+      },
+      "metrics": {
+        "generation_intervals_ms": [
+          29.99994,
+          29.99985,
+          30.00026,
+          29.99949,
+          29.99989,
+          30.0007
+        ],
+        "client_content_event_itl_ms": [
+          89.97735,
+          90.04843
+        ],
+        "client_ttft_ms": 31.48863,
+        "client_e2el_to_last_content_ms": 211.51441,
+        "client_elapsed_including_control_ms": 211.58605,
+        "client_tpot_to_last_content_ms_per_output": 30.00429666666667,
+        "tpot_definition": "(last content receive - first content receive)/(known output count - 1)",
+        "tpot_undefined_reason": null
+      }
+    },
+    {
+      "run_id": "rep1-direct",
+      "scenario": "direct",
+      "repetition": 1,
+      "path": "client -> upstream",
+      "output_count_oracle": 7,
+      "labels": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6"
+      ],
+      "observed_event_sizes": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "correctness": "passed",
+      "upstream": {
+        "generated": [
+          {
+            "label": "T0",
+            "generated_ns": 359591975056590
+          },
+          {
+            "label": "T1",
+            "generated_ns": 359592005057210
+          },
+          {
+            "label": "T2",
+            "generated_ns": 359592035055430
+          },
+          {
+            "label": "T3",
+            "generated_ns": 359592065054730
+          },
+          {
+            "label": "T4",
+            "generated_ns": 359592095054860
+          },
+          {
+            "label": "T5",
+            "generated_ns": 359592125054790
+          },
+          {
+            "label": "T6",
+            "generated_ns": 359592155054560
+          }
+        ],
+        "sent": [
+          {
+            "kind": "role",
+            "labels": [],
+            "send_begin_ns": 359591944781070,
+            "send_end_ns": 359591944791490
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "send_begin_ns": 359591975086010,
+            "send_end_ns": 359591975100540
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1"
+            ],
+            "send_begin_ns": 359592005083570,
+            "send_end_ns": 359592005095500
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T2"
+            ],
+            "send_begin_ns": 359592035074830,
+            "send_end_ns": 359592035084430
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T3"
+            ],
+            "send_begin_ns": 359592065077530,
+            "send_end_ns": 359592065088820
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4"
+            ],
+            "send_begin_ns": 359592095078050,
+            "send_end_ns": 359592095086200
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T5"
+            ],
+            "send_begin_ns": 359592125075980,
+            "send_end_ns": 359592125083810
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T6"
+            ],
+            "send_begin_ns": 359592155091050,
+            "send_end_ns": 359592155103540
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "send_begin_ns": 359592155117490,
+            "send_end_ns": 359592155142980
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "send_begin_ns": 359592155143700,
+            "send_end_ns": 359592155150100
+          }
+        ],
+        "request_received_ns": 359591944674930,
+        "producer_start_ns": 359591944996580,
+        "handler_end_ns": 359592155150590
+      },
+      "proxy": null,
+      "client": {
+        "request_start_ns": 359591944281070,
+        "content_events": [
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "receive_ns": 359591975113450
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1"
+            ],
+            "receive_ns": 359592005103740
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T2"
+            ],
+            "receive_ns": 359592035091670
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T3"
+            ],
+            "receive_ns": 359592065095220
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4"
+            ],
+            "receive_ns": 359592095093310
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T5"
+            ],
+            "receive_ns": 359592125090800
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T6"
+            ],
+            "receive_ns": 359592155127320
+          }
+        ],
+        "control_events": [
+          {
+            "kind": "role",
+            "labels": [],
+            "receive_ns": 359591945014120
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "receive_ns": 359592155133160
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "receive_ns": 359592155176070
+          }
+        ],
+        "headers_received_ns": 359591944944150,
+        "receive_end_ns": 359592155179540
+      },
+      "metrics": {
+        "generation_intervals_ms": [
+          30.00062,
+          29.99822,
+          29.9993,
+          30.00013,
+          29.99993,
+          29.99977
+        ],
+        "client_content_event_itl_ms": [
+          29.99029,
+          29.98793,
+          30.00355,
+          29.99809,
+          29.99749,
+          30.03652
+        ],
+        "client_ttft_ms": 30.83238,
+        "client_e2el_to_last_content_ms": 210.84625,
+        "client_elapsed_including_control_ms": 210.89847,
+        "client_tpot_to_last_content_ms_per_output": 30.002311666666667,
+        "tpot_definition": "(last content receive - first content receive)/(known output count - 1)",
+        "tpot_undefined_reason": null
+      }
+    },
+    {
+      "run_id": "rep1-single_block",
+      "scenario": "single_block",
+      "repetition": 1,
+      "path": "client -> proxy -> upstream",
+      "output_count_oracle": 7,
+      "labels": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6"
+      ],
+      "observed_event_sizes": [
+        7
+      ],
+      "correctness": "passed",
+      "upstream": {
+        "generated": [
+          {
+            "label": "T0",
+            "generated_ns": 359592186644920
+          },
+          {
+            "label": "T1",
+            "generated_ns": 359592216642850
+          },
+          {
+            "label": "T2",
+            "generated_ns": 359592246643340
+          },
+          {
+            "label": "T3",
+            "generated_ns": 359592276644960
+          },
+          {
+            "label": "T4",
+            "generated_ns": 359592306644750
+          },
+          {
+            "label": "T5",
+            "generated_ns": 359592336645920
+          },
+          {
+            "label": "T6",
+            "generated_ns": 359592366644610
+          }
+        ],
+        "sent": [
+          {
+            "kind": "role",
+            "labels": [],
+            "send_begin_ns": 359592156309650,
+            "send_end_ns": 359592156448520
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "send_begin_ns": 359592186675060,
+            "send_end_ns": 359592186688550
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1"
+            ],
+            "send_begin_ns": 359592216667990,
+            "send_end_ns": 359592216677400
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T2"
+            ],
+            "send_begin_ns": 359592246666170,
+            "send_end_ns": 359592246676530
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T3"
+            ],
+            "send_begin_ns": 359592276666840,
+            "send_end_ns": 359592276675090
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4"
+            ],
+            "send_begin_ns": 359592306669570,
+            "send_end_ns": 359592306677830
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T5"
+            ],
+            "send_begin_ns": 359592336667950,
+            "send_end_ns": 359592336675540
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T6"
+            ],
+            "send_begin_ns": 359592366675650,
+            "send_end_ns": 359592366685170
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "send_begin_ns": 359592366698640,
+            "send_end_ns": 359592366734280
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "send_begin_ns": 359592366735060,
+            "send_end_ns": 359592366740250
+          }
+        ],
+        "request_received_ns": 359592156141320,
+        "producer_start_ns": 359592156586610,
+        "handler_end_ns": 359592366740720
+      },
+      "proxy": {
+        "received": [
+          {
+            "kind": "role",
+            "labels": [],
+            "receive_ns": 359592156415280
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "receive_ns": 359592186701600
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T1"
+            ],
+            "receive_ns": 359592216686100
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T2"
+            ],
+            "receive_ns": 359592246683730
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T3"
+            ],
+            "receive_ns": 359592276682050
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T4"
+            ],
+            "receive_ns": 359592306684650
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T5"
+            ],
+            "receive_ns": 359592336683930
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T6"
+            ],
+            "receive_ns": 359592366706850
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "receive_ns": 359592366768630
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "receive_ns": 359592366830850
+          }
+        ],
+        "sent": [
+          {
+            "kind": "role",
+            "labels": [],
+            "send_begin_ns": 359592156438660,
+            "send_end_ns": 359592156503520
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0",
+              "T1",
+              "T2",
+              "T3",
+              "T4",
+              "T5",
+              "T6"
+            ],
+            "send_begin_ns": 359592366727110,
+            "send_end_ns": 359592366764980
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "send_begin_ns": 359592366780550,
+            "send_end_ns": 359592366796670
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "send_begin_ns": 359592366832370,
+            "send_end_ns": 359592366856060
+          }
+        ],
+        "request_received_ns": 359592155625990,
+        "upstream_request_start_ns": 359592155680900,
+        "handler_end_ns": 359592366859310
+      },
+      "client": {
+        "request_start_ns": 359592155269540,
+        "content_events": [
+          {
+            "kind": "content",
+            "labels": [
+              "T0",
+              "T1",
+              "T2",
+              "T3",
+              "T4",
+              "T5",
+              "T6"
+            ],
+            "receive_ns": 359592366807710
+          }
+        ],
+        "control_events": [
+          {
+            "kind": "role",
+            "labels": [],
+            "receive_ns": 359592156533890
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "receive_ns": 359592366818250
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "receive_ns": 359592366879020
+          }
+        ],
+        "headers_received_ns": 359592155799730,
+        "receive_end_ns": 359592366882380
+      },
+      "metrics": {
+        "generation_intervals_ms": [
+          29.99793,
+          30.00049,
+          30.00162,
+          29.99979,
+          30.00117,
+          29.99869
+        ],
+        "client_content_event_itl_ms": [],
+        "client_ttft_ms": 211.53817,
+        "client_e2el_to_last_content_ms": 211.53817,
+        "client_elapsed_including_control_ms": 211.61284,
+        "client_tpot_to_last_content_ms_per_output": 0.0,
+        "tpot_definition": "(last content receive - first content receive)/(known output count - 1)",
+        "tpot_undefined_reason": null
+      }
+    },
+    {
+      "run_id": "rep1-one_output",
+      "scenario": "one_output",
+      "repetition": 1,
+      "path": "client -> upstream",
+      "output_count_oracle": 1,
+      "labels": [
+        "T0"
+      ],
+      "observed_event_sizes": [
+        1
+      ],
+      "correctness": "passed",
+      "upstream": {
+        "generated": [
+          {
+            "label": "T0",
+            "generated_ns": 359592397724130
+          }
+        ],
+        "sent": [
+          {
+            "kind": "role",
+            "labels": [],
+            "send_begin_ns": 359592367486360,
+            "send_end_ns": 359592367495450
+          },
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "send_begin_ns": 359592397760550,
+            "send_end_ns": 359592397773950
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "send_begin_ns": 359592397793100,
+            "send_end_ns": 359592397818130
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "send_begin_ns": 359592397818840,
+            "send_end_ns": 359592397825020
+          }
+        ],
+        "request_received_ns": 359592367392290,
+        "producer_start_ns": 359592367665210,
+        "handler_end_ns": 359592397825390
+      },
+      "proxy": null,
+      "client": {
+        "request_start_ns": 359592366959960,
+        "content_events": [
+          {
+            "kind": "content",
+            "labels": [
+              "T0"
+            ],
+            "receive_ns": 359592397802300
+          }
+        ],
+        "control_events": [
+          {
+            "kind": "role",
+            "labels": [],
+            "receive_ns": 359592367627810
+          },
+          {
+            "kind": "usage",
+            "labels": [],
+            "receive_ns": 359592397808390
+          },
+          {
+            "kind": "done",
+            "labels": [],
+            "receive_ns": 359592397852680
+          }
+        ],
+        "headers_received_ns": 359592367616320,
+        "receive_end_ns": 359592397855460
+      },
+      "metrics": {
+        "generation_intervals_ms": [],
+        "client_content_event_itl_ms": [],
+        "client_ttft_ms": 30.84234,
+        "client_e2el_to_last_content_ms": 30.84234,
+        "client_elapsed_including_control_ms": 30.8955,
+        "client_tpot_to_last_content_ms_per_output": null,
+        "tpot_definition": "(last content receive - first content receive)/(known output count - 1)",
+        "tpot_undefined_reason": "O <= 1"
+      }
+    }
+  ]
+}
