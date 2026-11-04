@@ -83,7 +83,7 @@
   loadModel();
 
   const sections=Array.from(document.querySelectorAll('.observed'));
-  const navLinks=Array.from(document.querySelectorAll('.main-nav a,.page-toc a'));
+  const navLinks=Array.from(document.querySelectorAll('.chapter-nav a,.page-toc a'));
   let scrollQueued=false;
   function updateScroll(){
     const denom=document.documentElement.scrollHeight-window.innerHeight;

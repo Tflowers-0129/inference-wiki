@@ -20,10 +20,15 @@ class Page(HTMLParser):
     def __init__(self, path):
         super().__init__()
         self.ids, self.references, self.scripts = [], [], []
+        self.chapter_order, self.expanded_chapters = [], []
         self.feed(path.read_text(encoding='utf-8'))
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
+        if chapter := attrs.get('data-nav-chapter'):
+            self.chapter_order.append(chapter)
+            if tag == 'details' and 'open' in attrs:
+                self.expanded_chapters.append(chapter)
         if attrs.get('id'):
             self.ids.append(attrs['id'])
         for attribute in ('src', 'href', 'poster'):
@@ -54,6 +59,11 @@ def main():
             errors.append(f'缺少锚点：{target.name}#{parsed.fragment}')
 
     for path, page in pages.items():
+        expected_order = ['index', 'execution', 'speculation', 'load-balancing', 'ep-communication', 'sparse-offload']
+        if page.chapter_order != expected_order:
+            errors.append(f'{path.name} 学习篇章顺序不一致，EP 应为第五章、稀疏 KV 为第六章')
+        if page.expanded_chapters != [path.stem]:
+            errors.append(f'{path.name} 应默认只展开当前章的目录')
         for identifier, count in Counter(page.ids).items():
             if count > 1:
                 errors.append(f'{path.name} 重复 id：{identifier}')

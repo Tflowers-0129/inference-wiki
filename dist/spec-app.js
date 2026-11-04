@@ -61,7 +61,7 @@
   function renderScene() {
     if (!scene) return;
     const host = byId('spec-scene');
-    const useFull = fullScene || host.clientWidth >= 1050;
+    const useFull = fullScene;
     const draw = !useFull && scene.renderCompact ? scene.renderCompact : scene.render;
     host.innerHTML = draw(events[index], Number(byId('spec-next-k').value));
     host.dataset.layout = useFull ? 'full' : 'compact';

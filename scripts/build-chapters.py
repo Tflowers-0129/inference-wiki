@@ -17,8 +17,8 @@ CHAPTERS = [
     ('execution', '从一轮调度到一次前向.md', '从一轮调度到一次前向', '从一轮调度<br><span>到一次前向</span>'),
     ('speculation', '投机解码与流式指标.md', '投机解码：调度、元数据与流式时延', '投机解码<br><span>与流式指标</span>'),
     ('load-balancing', '负载均衡与专家并行.md', '负载均衡：DPLB 与 EPLB', '负载均衡<br><span>DPLB 与 EPLB</span>'),
-    ('sparse-offload', '稀疏KV卸载与HiSparse.md', '稀疏 KV：Decode Offload 与 HiSparse', '稀疏 KV 卸载<br><span>走向 HiSparse</span>'),
     ('ep-communication', 'EP通信与通算融合.md', 'EP 通信与计算重叠：算子选择与融合执行', 'EP 通信与计算重叠<br><span>算子选择与融合执行</span>'),
+    ('sparse-offload', '稀疏KV卸载与HiSparse.md', '稀疏 KV：Decode Offload 与 HiSparse', '稀疏 KV 卸载<br><span>走向 HiSparse</span>'),
 ]
 LINKS = {name: key + '.html' for key, name, *_ in CHAPTERS}
 LINKS['LLM推理调度与执行.md'] = 'index.html'
@@ -28,6 +28,18 @@ TOKEN = re.compile(r'(`[^`]+`|\[[^\]]+\]\([^)]+\)|\*\*.+?\*\*)')
 def asset_url(name):
     digest = hashlib.sha256((DIST / name).read_bytes()).hexdigest()[:8]
     return name + '?rev=' + digest
+
+
+def chapter_navigation(current, local_links):
+    chapters = [('index', '调度、PD 与 KV')] + [(slug, title) for slug, _, title, _ in CHAPTERS]
+    items = []
+    for number, (slug, title) in enumerate(chapters, 1):
+        label = f'<span class="wiki-chapter-number">{number:02d}</span><span>{html.escape(title)}</span>'
+        if slug == current:
+            items.append(f'<details class="wiki-chapter-current" data-nav-chapter="{slug}" open><summary aria-current="page">{label}</summary><nav class="main-nav chapter-nav" aria-label="本章目录">{local_links}</nav></details>')
+        else:
+            items.append(f'<a class="wiki-chapter-link" data-nav-chapter="{slug}" href="{slug}.html">{label}</a>')
+    return '<nav class="main-nav wiki-chapters" aria-label="学习篇章">' + ''.join(items) + '</nav>'
 
 
 def inline(source):
@@ -172,7 +184,6 @@ def build_chapters():
         source = (ROOT / 'content' / name).read_text(encoding='utf-8')
         body, headings = render_markdown(source, key)
         local_nav = ''.join(f'<a href="#{identifier}">{html.escape(label)}</a>' for identifier, label in headings)
-        chapter_nav = '<a href="index.html">01　调度、PD 与 KV</a>' + ''.join(f'<a href="{slug}.html"' + (' class="active" aria-current="page"' if slug == key else '') + f'>{number:02d}　{html.escape(label)}</a>' for number, (slug, _, label, _) in enumerate(CHAPTERS, 2))
         if key == 'speculation':
             player_links = '<a href="#spec-player">投机验证播放器</a><a href="#spec-stream">流式指标实验室</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("spec.css")}"><link rel="stylesheet" href="{asset_url("spec-scene.css")}"><script defer src="{asset_url("spec-model.js")}"></script><script defer src="{asset_url("spec-scene.js")}"></script><script defer src="{asset_url("spec-app.js")}"></script>'
@@ -191,19 +202,20 @@ def build_chapters():
         elif key == 'sparse-offload':
             player_links = '<a href="#offload-lab">TopK 缓存与地址实验室</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("offload.css")}"><script defer src="{asset_url("offload-model.js")}"></script><script defer src="{asset_url("offload-app.js")}"></script>'
-            next_link = '<a href="ep-communication.html">继续：EP 通信与计算重叠 →</a>'
+            next_link = '<a href="ep-communication.html">← 回看 EP 通信与计算重叠</a>'
             action = '<a class="primary-button" href="#offload-lab">解析一次 TopK →</a><a class="text-button" href="#sparse-offload-8">看 HiSparse 依赖泳道 ↓</a>'
         elif key == 'ep-communication':
             player_links = '<a href="#ep-lab">专家任务与激活副本实验室</a><a href="#ep-timeline">MC2 / Fused-MC2 模拟 profiling</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("ep.css")}"><link rel="stylesheet" href="{asset_url("ep-timeline.css")}"><script defer src="{asset_url("ep-model.js")}"></script><script defer src="{asset_url("ep-app.js")}"></script><script defer src="{asset_url("ep-timeline-model.js")}"></script><script defer src="{asset_url("ep-timeline-app.js")}"></script>'
-            next_link = '<a href="load-balancing.html">← 回看 DPLB 与 EPLB</a>'
+            next_link = '<a href="sparse-offload.html">继续：稀疏 KV 卸载与 HiSparse →</a>'
             action = '<a class="primary-button" href="#ep-communication-1">沿 EP 数据路径开始 →</a><a class="text-button" href="#ep-timeline">对照 MC2 与 Fused-MC2 泳道 ↓</a>'
         else:
             raise ValueError(f'Unknown chapter: {key}')
+        chapter_nav = chapter_navigation(key, player_links + local_nav)
         page = f'''<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="{html.escape(title)}：沿输入字段、状态记账和源码调用定位推理性能问题。"><title>{html.escape(title)} · Inference Wiki</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="reading.css"><link rel="stylesheet" href="chapters.css"><script defer src="chapter.js"></script>{extra}</head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="{html.escape(title)}：沿输入字段、状态记账和源码调用定位推理性能问题。"><title>{html.escape(title)} · Inference Wiki</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="reading.css"><link rel="stylesheet" href="{asset_url("chapters.css")}"><script defer src="{asset_url("chapter.js")}"></script>{extra}</head>
 <body><div class="reading-progress" id="readingProgress"></div>
-<aside class="sidebar" id="sidebar"><a class="brand" href="index.html"><span class="brand-mark"><i></i><i></i><i></i></span><span>Inference<span class="brand-sub">图解推理系统</span></span><b>WIKI</b></a><button class="search-trigger" data-search>搜索本章 <kbd>⌘ K</kbd></button><div class="nav-group-label">学习篇章</div><nav class="main-nav" aria-label="学习篇章">{chapter_nav}</nav><div class="nav-group-label resources-label">本章目录</div><nav class="main-nav chapter-nav" aria-label="本章目录">{player_links}{local_nav}</nav><div class="sidebar-bottom">字段、调用链与 Trace 排查</div></aside>
+<aside class="sidebar" id="sidebar"><a class="brand" href="index.html"><span class="brand-mark"><i></i><i></i><i></i></span><span>Inference<span class="brand-sub">图解推理系统</span></span><b>WIKI</b></a><button class="search-trigger" data-search>搜索本章 <kbd>⌘ K</kbd></button><div class="nav-group-label">学习篇章</div>{chapter_nav}<div class="sidebar-bottom">字段、调用链与 Trace 排查</div></aside>
 <div class="page-shell"><header class="topbar"><button class="mobile-menu" id="menuToggle" aria-label="展开目录" aria-expanded="false">☰</button><div class="breadcrumb"><a href="index.html">推理系统</a><span>/</span><strong>{html.escape(title)}</strong></div><a class="source-link" href="{key}.md" download>下载本章 Markdown ↗</a></header>
 <main><header class="chapter-hero"><div class="eyebrow">INFERENCE SYSTEMS / 源码与排查</div><h1>{display_title}</h1><div class="hero-actions">{action}</div></header><div class="article-layout"><article class="chapter-article">{body}<nav class="chapter-next" aria-label="继续阅读"><a href="index.html">← 调度与 PD 总览</a>{next_link}</nav><a class="download-source" href="technical-wiki-source.zip" download>下载全部 Markdown 与图源（SVG / PNG） ↓</a></article><aside class="page-toc"><span>本章导读</span>{player_links}{local_nav}</aside></div></main></div>
 <dialog id="searchDialog"><div class="search-dialog-input"><input id="searchInput" type="search" aria-label="搜索本章知识点" placeholder="搜索本章内容"><button id="closeSearch" aria-label="关闭搜索">Esc</button></div><div id="searchResults" class="search-results"></div></dialog></body></html>'''

@@ -16,8 +16,8 @@ CHAPTER_DOWNLOADS = {
     '从一轮调度到一次前向.md': 'execution.md',
     '投机解码与流式指标.md': 'speculation.md',
     '负载均衡与专家并行.md': 'load-balancing.md',
-    '稀疏KV卸载与HiSparse.md': 'sparse-offload.md',
     'EP通信与通算融合.md': 'ep-communication.md',
+    '稀疏KV卸载与HiSparse.md': 'sparse-offload.md',
 }
 
 
@@ -51,8 +51,8 @@ def sync_content(manuscript=DEFAULT_MANUSCRIPT):
         bundle_chapters[name] = bundle_markdown
     bundle_readme = '''# LLM 推理调度与执行：图文源文件
 
-依次阅读 `LLM推理调度与执行.md`、`从一轮调度到一次前向.md`、`投机解码与流式指标.md`、`负载均衡与专家并行.md`、`稀疏KV卸载与HiSparse.md`、`EP通信与通算融合.md`。
-从第四章继续分布式执行主线时，可直接阅读第六章；第五章展开 KV 容量与搬运。
+依次阅读 `LLM推理调度与执行.md`、`从一轮调度到一次前向.md`、`投机解码与流式指标.md`、`负载均衡与专家并行.md`、`EP通信与通算融合.md`、`稀疏KV卸载与HiSparse.md`。
+第五章承接第四章的分布式专家执行；第六章展开 KV 容量与搬运。
 解压时保留 `figures/` 目录。
 `figures/*.svg` 是自包含的矢量图源，中文采用系统字体。
 `figures/*.png` 是随正文收录的原图；图源、上下文与解释范围见对应正文。

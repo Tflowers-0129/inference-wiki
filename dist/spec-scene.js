@@ -192,6 +192,7 @@
     return parts.join('');
   }
 
+  /* Web layout: text and tokens reflow at the reading width, independently of the panorama. */
   function renderCompact(frame, nextK = 1) {
     const phase = STEPS.indexOf(frame && frame.key);
     const accepted = frame && frame.result && frame.result.accepted;
@@ -213,91 +214,61 @@
     const nextQuery = ['x', ...Array.from({length: nextK}, (_, i) => `e${i + 1}`)];
     const output = [...['d1', 'd2', 'd3'].slice(0, accepted), 'x'];
     const parts = [];
-    const description = `单链投机的紧凑纵向图，当前为${STEP_LABELS[phase]}。起点Target KV为位置0至7，t0位于8且尚无自身KV。`
-      + `已提出${proposed}个候选，Target一次处理4行输入。连续接受${accepted}个后，有效KV长度为${validKvLength}，新输出是${output.join('、')}。`
-      + `x位于${validKvLength}，尚无自己的Target KV；下一轮带${nextK}个新候选，Query尚未执行Target。下方角色泳道与前后依赖均为教学步骤，不代表物理stream、独立设备或实测时间。`;
-    parts.push('<svg class="spec-scene-svg spec-scene-compact-svg" xmlns="http://www.w3.org/2000/svg" width="480" height="1050" viewBox="0 0 480 1050" role="img" aria-labelledby="spec-scene-compact-title spec-scene-compact-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, \'PingFang SC\', \'Microsoft YaHei\', sans-serif">'
-      + `<title id="spec-scene-compact-title">单链投机：${escape(STEP_LABELS[phase])}，紧凑视图</title>`
-      + `<desc id="spec-scene-compact-desc">${escape(description)}</desc>`);
-    parts.push(box(1, 1, 478, 1048, '#ffffff', '#d4dfeb', 12));
-    parts.push(text(16, 29, '单链投机 · 请求 R', 20, '#203b58', 750));
-    parts.push(text(464, 29, `a = ${accepted}　新 K = ${nextK}`, 13, '#2859a2', 650, 'end'));
-    parts.push(box(16, 43, 448, 60, '#edf3ff', '#c9d9f1'));
-    parts.push(text(28, 67, '起点：Target KV 已覆盖 0–7，共 8 个位置', 14, '#28518f', 600));
-    parts.push(text(28, 89, 't0@8 已确认输出，尚无自己的 Target KV。', 13, '#28518f'));
-
-    const progressLabels = ['起点', 'd1', 'd2', 'd3', '组输入', '验证', '提交', '下一轮'];
-    progressLabels.forEach((name, i) => {
-      const x = 16 + i * 56;
-      const active = i === phase;
-      parts.push(`<g opacity="${i > phase ? 0.38 : 1}">`
-        + box(x, 117, 42, 27, active ? '#dfeaff' : i < phase ? '#edf6f2' : '#f4f7fa', active ? '#537fca' : '#cbd7e3', 5, `stroke-width="${active ? 2 : 1}"`)
-        + text(x + 21, 136, i + 1, 14, active ? '#214b96' : '#597186', 700, 'middle')
-        + text(x + 21, 161, name, 12, active ? '#214b96' : '#6c8094', active ? 700 : 400, 'middle') + '</g>');
-    });
-    parts.push(box(16, 173, 448, 39, '#edf3ff', '#c9d9f1'));
-    parts.push(text(28, 198, `${phase + 1}/8 · ${STEP_LABELS[phase]}`, 16, '#28518f', 700));
-
-    function compactToken(x, y, label, detail, tone, opacity = 1, active = false) {
-      const [fill, stroke, ink] = COLORS[tone];
-      parts.push(`<g class="spec-scene-token${active ? ' is-current' : ''}" opacity="${opacity}">`
-        + box(x, y, 104, 54, fill, stroke, 7, `stroke-width="${active ? 2.2 : 1.2}"`)
-        + text(x + 52, y + 23, label, 16, ink, 700, 'middle')
-        + text(x + 52, y + 44, detail, 12, ink, 400, 'middle') + '</g>');
+    function chip(label, position, detail, tone, current = false) {
+      return `<span class="spec-web-token spec-web-${tone}${current ? ' is-current' : ''}"><strong>${escape(label)}<small>@${position}</small></strong><span>${escape(detail)}</span></span>`;
     }
-    parts.push(text(16, 237, 'Draft 逐个提议', 16, '#233c57', 700));
-    parts.push(text(464, 237, `已提议 ${proposed}/3`, 13, '#80652f', 600, 'end'));
-    compactToken(16, 249, 't0@8', '起始 anchor', 'anchor', 1, phase === 0);
+    function heading(title, state, active = false) {
+      return `<div class="spec-web-card-head${active ? ' is-active' : ''}"><h5>${escape(title)}</h5><span>${escape(state)}</span></div>`;
+    }
+    parts.push(`<div class="spec-scene-adaptive" data-phase="${escape(frame.key)}" aria-label="单链投机：${escape(STEP_LABELS[phase])}，网页自适应图示">`);
+    parts.push('<section class="spec-web-chain" aria-label="起点与逐个扩展的候选链">');
+    parts.push(heading('沿 t0 逐个提出候选', `已提议 ${proposed} / 3`, phase <= 3));
+    parts.push('<p class="spec-web-start"><span>进入本轮</span><strong>Target KV：0–7，共 8 位</strong><span>t0@8 已确认输出，尚无自己的 Target KV。</span></p>');
+    parts.push('<div class="spec-web-token-chain">');
+    parts.push(chip('t0', 8, '起始 anchor', 'anchor', phase === 0));
     for (let i = 1; i <= 3; i++) {
-      compactToken(16 + i * 112, 249, i <= proposed ? `d${i}@${8 + i}` : '·',
+      parts.push(chip(i <= proposed ? `d${i}` : '·', 8 + i,
         i <= proposed ? verified ? '曾作为候选' : '候选 · 待验证' : '尚未提出',
-        i <= proposed ? 'draft' : 'future', i <= proposed ? 1 : 0.32, phase === i);
+        i <= proposed ? 'draft' : 'future', phase === i));
     }
-
-    parts.push(text(16, 331, 'Target：四行输入，一次前向', 16, '#233c57', 700));
-    parts.push(text(16, 351, '每行只读取历史与截至自身的候选前缀。', 12, '#60758a'));
-    parts.push(box(16, 362, 448, 154, '#fbfcfe', '#d7e2ed'));
-    parts.push(text(28, 383, '输入行', 12, '#60758a', 600));
-    parts.push(text(148, 383, '本行 Target KV', 12, '#60758a', 600));
-    parts.push(text(292, 383, '预测下一个 Token', 12, '#60758a', 600));
+    parts.push('</div></section>');
+    parts.push('<div class="spec-web-comparison">');
+    parts.push('<section class="spec-web-target" aria-label="Target 四行输入及其 KV 与预测">');
+    parts.push(heading('Target：四行，一次前向', hasMetadata ? verified ? '验证已完成' : '输入已组装' : '输入待组装', phase === 4 || phase === 5));
+    parts.push('<p class="spec-web-card-note">每行预测下一个 token；只读取截至自身的候选前缀。</p>');
+    parts.push('<table class="spec-web-query"><thead><tr><th scope="col">输入行</th><th scope="col">Target KV</th><th scope="col">预测结果</th></tr></thead><tbody>');
     ['t0', 'd1', 'd2', 'd3'].forEach((value, i) => {
-      const y = 391 + i * 30;
       const valid = i <= accepted;
-      let prediction = hasMetadata ? '等待验证' : '尚未组装';
+      let prediction = hasMetadata ? '待验证' : '待组装';
       if (verified) prediction = i < accepted ? `→ d${i + 1} 接受`
         : i === accepted ? i === 3 ? '→ x（bonus）' : `→ x，拒 d${i + 1}` : '不用于提交';
-      const kv = committed ? valid ? '有效 KV' : '候选 KV 作废' : verified ? '临时 KV 已计算' : '尚未计算';
-      const ink = committed ? valid ? '#195f49' : '#9c4136' : '#385774';
-      parts.push(`<g opacity="${hasMetadata ? 1 : 0.38}">`
-        + `<path d="M16 ${y - 3}H464" stroke="#e3eaf2"/>`
-        + text(28, y + 17, i <= proposed ? `${value}@${8 + i}` : '·', 15, '#263b51', 650)
-        + text(148, y + 17, kv, 12.5, ink, committed ? 650 : 400)
-        + text(292, y + 17, prediction, 12.5, verified && i <= accepted ? '#195f49' : '#657b90', verified ? 600 : 400) + '</g>');
+      const kv = committed ? valid ? '有效 KV' : '候选 KV 作废' : verified ? '临时已计算' : '尚未计算';
+      const tone = committed ? valid ? 'valid' : 'invalid' : hasMetadata ? 'computed' : 'future';
+      parts.push(`<tr class="spec-web-row-${tone}"><th scope="row">${i <= proposed ? `${value}<small>@${8 + i}</small>` : `<span class="spec-web-unproposed">待提议<small>@${8 + i}</small></span>`}</th><td>${escape(kv)}</td><td>${escape(prediction)}</td></tr>`);
     });
-
-    parts.push(box(16, 530, 448, 80, committed ? '#eaf6f0' : '#f3f7fb', committed ? '#b8d9ca' : '#d4e0ec'));
-    parts.push(text(28, 554, committed
-      ? `有效 Target KV：0–${validKvLength - 1}，长度 ${validKvLength}；回退 ${3 - accepted} 位`
-      : '有效 Target KV：0–7，长度 8', 14.5, '#255c48', 700));
-    parts.push(text(28, 578, committed ? `本轮新输出：[${output.join(', ')}]` : '本轮新输出：尚未提交', 15, '#28518f', 650));
-    parts.push(text(28, 599, committed ? `x@${validKvLength} 已确认，但尚无自己的 Target KV。`
-      : verified ? '四行已计算，提交时再确定有效 KV 边界。' : '候选已提出，不代表 Target 已计算这些位置。', 12.5, '#536c82'));
-
-    parts.push(text(16, 636, `下一轮 Query · 新 K = ${nextK}`, 16, '#233c57', 700));
-    parts.push(text(464, 636, '尚未执行 Target', 12, '#60758a', 600, 'end'));
+    parts.push('</tbody></table>');
+    parts.push(`<p class="spec-web-query-meta">${hasMetadata ? '临时长度 12 = 历史 8 + 本轮 4 行。' : '候选收齐后，再打包 t0、d1、d2、d3。'}</p>`);
+    parts.push('</section>');
+    parts.push('<div class="spec-web-results">');
+    parts.push('<section class="spec-web-commit" aria-label="提交输出与保留的有效 KV">');
+    parts.push(heading('提交输出，保留正确 KV', committed ? `新输出 ${accepted + 1} 个` : '尚未提交', phase === 6));
+    parts.push(`<p class="spec-web-kv"><span>有效 Target KV</span><strong>${committed ? `0–${validKvLength - 1} · 长度 ${validKvLength}` : '0–7 · 长度 8'}</strong></p>`);
     if (committed) {
-      nextQuery.forEach((value, i) => compactToken(16 + i * 112, 648, `${value}@${validKvLength + i}`,
-        i ? '新候选 · 待验证' : 'anchor · 无 KV', isNext ? i ? 'draft' : 'anchor' : 'future', isNext ? 1 : 0.38, isNext && i === 0));
-      parts.push(text(16, 723, `query_start_loc = [0, ${nextK + 1}]；seq_len = ${validKvLength + nextK + 1}`, 13, '#536c82'));
+      parts.push(`<div class="spec-web-output">${output.map((label, i) => chip(label, 9 + i, label === 'x' ? accepted === 3 ? 'bonus · 无 KV' : '纠正 · 无 KV' : '确认 · 有 KV', label === 'x' ? 'anchor' : 'valid')).join('')}</div>`);
+      parts.push(`<p class="spec-web-card-note">不重复提交 t0；${3 - accepted ? `回退 ${3 - accepted} 个候选位置。` : '没有无效候选尾部。'}<strong>x@${validKvLength} 尚无自己的 Target KV。</strong></p>`);
     } else {
-      parts.push(box(16, 648, 448, 54, '#f8fafc', '#e1e9f1'));
-      parts.push(text(28, 680, '提交后，才从 x 接续下一轮输入。', 14, '#8193a4'));
-      parts.push(text(16, 723, '新 K 决定新 Query 行数；不会改变上一轮的拒绝数。', 12.5, '#60758a'));
+      parts.push(`<p class="spec-web-pending">${verified ? '四行已计算；提交时再确定有效 KV 边界。' : '候选已提出，不代表 Target 已计算，也不能直接提交。'}</p>`);
     }
-
-    parts.push('<path d="M16 741H464" stroke="#d7e2ed"/>');
-    parts.push(text(16, 766, '当前步骤由谁执行？', 16, '#203b58', 700));
-    parts.push(text(464, 766, '教学相对时序，非实测', 12, '#8a5d1e', 700, 'end'));
+    parts.push('</section>');
+    parts.push('<section class="spec-web-next" aria-label="下一轮从 x 接续">');
+    parts.push(heading('下一轮从 x 接续', `新 K = ${nextK}`, isNext));
+    if (committed) {
+      parts.push(`<div class="spec-web-next-tokens">${nextQuery.map((value, i) => chip(value, validKvLength + i, i ? '新候选' : 'anchor · 无 KV', isNext ? i ? 'draft' : 'anchor' : 'future', isNext && i === 0)).join('')}</div>`);
+      parts.push(`<p class="spec-web-card-note"><code>query_start_loc = [0, ${nextK + 1}]</code> · <code>seq_len = ${validKvLength + nextK + 1}</code><br>新 Query 尚未执行 Target。</p>`);
+    } else {
+      parts.push('<p class="spec-web-pending">先提交并纠正有效边界，再让 x 进入下一轮输入。新 Query 尚未执行。</p>');
+    }
+    parts.push('</section></div></div>');
     const activeLane = [0, 1, 1, 1, 0, 2, 0, 0][phase];
     const currentTasks = [
       ['t0 已确认', 'Target KV 仍只覆盖 0–7'],
@@ -309,50 +280,27 @@
       [`提交 ${accepted + 1} 个新输出`, `有效 Target KV 长度 ${validKvLength}`],
       ['准备下一轮 Query', `x + ${nextK} 个候选；Target 尚未执行`]
     ];
-    const laneNames = ['Host', 'Device / Draft', 'Device / Target'];
-    const laneTones = ['computed', 'draft', 'anchor'];
-    laneNames.forEach((name, lane) => {
-      const y = 783 + lane * 53;
-      const active = lane === activeLane;
-      const [fill, stroke, ink] = COLORS[laneTones[lane]];
-      parts.push(box(16, y, 448, 46, active ? fill : '#f6f9fc', active ? stroke : '#e1e9f1', 6, active ? 'stroke-width="2"' : ''));
-      parts.push(text(28, y + 19, name, 12.5, ink, 700));
-      parts.push(text(28, y + 36, '角色（示意）', 11, '#657b90'));
-      if (active) {
-        parts.push(text(164, y + 19, currentTasks[phase][0], 13.5, ink, 700));
-        parts.push(text(164, y + 36, currentTasks[phase][1], 12, ink));
-      } else {
-        const inactive = lane === 0 ? '此步的 Host 细节未展开'
-          : lane === 1 ? proposed === 3 ? '本轮的三个候选已提出' : '当前步骤未展示 Draft 任务'
-            : verified ? '本轮验证已完成' : '等待本轮四行输入准备好';
-        parts.push(text(164, y + 28, inactive, 12, '#8495a6'));
-      }
-    });
     const before = [
-      '前轮已确认 t0；Target KV 仍止于 7。',
-      't0 已确认，Draft 才能从它继续。',
-      '先有 d1，再把它作为 Draft 输入。',
-      '先有 d2，再继续扩展候选链。',
-      'd1、d2、d3 都已由 Draft 提出。',
-      '四行输入、位置与因果边界已准备。',
-      'Target 已给出连续接受长度 a。',
-      `有效 KV 边界已纠正到 ${validKvLength}。`
+      '前轮已确认 t0；Target KV 仍止于 7。', 't0 已确认，Draft 才能从它继续。',
+      '先有 d1，再把它作为 Draft 输入。', '先有 d2，再继续扩展候选链。',
+      'd1、d2、d3 都已由 Draft 提出。', '四行输入、位置与因果边界已准备。',
+      'Target 已给出连续接受长度 a。', `有效 KV 边界已纠正到 ${validKvLength}。`
     ];
     const after = [
-      '沿 t0 逐个提议 d1、d2、d3。',
-      'd1 确定后，才用它提议 d2。',
-      'd2 确定后，才用它提议 d3。',
-      '收齐候选，再组装四行 Target 输入。',
-      'Target 将四行作为一批处理。',
-      '提交接受前缀与 x，回退无效候选 KV。',
-      'x 进入下一轮，仍须计算自身 KV。',
-      '新 Query 准备好后，还需执行 Target。'
+      '沿 t0 逐个提议 d1、d2、d3。', 'd1 确定后，才用它提议 d2。',
+      'd2 确定后，才用它提议 d3。', '收齐候选，再组装四行 Target 输入。',
+      'Target 将四行作为一批处理。', '提交接受前缀与 x，回退无效候选 KV。',
+      'x 进入下一轮，仍须计算自身 KV。', '新 Query 准备好后，还需执行 Target。'
     ];
-    parts.push(text(16, 964, `前置：${before[phase]}`, 12.5, '#536c82'));
-    parts.push(text(16, 987, `随后：${after[phase]}`, 12.5, '#536c82'));
-    parts.push(text(16, 1015, '角色行不对应物理 stream、rank 或独立设备。', 12, '#718497'));
-    parts.push(text(16, 1035, 'Draft 与 Target 可由同一 Device 执行；块宽不表示耗时。', 12, '#718497'));
-    parts.push('</svg>');
+    parts.push('<section class="spec-web-roles" aria-label="当前步骤的执行角色与前后依赖">');
+    parts.push('<div class="spec-web-role-labels">');
+    ['Host', 'Device / Draft', 'Device / Target'].forEach((label, i) => {
+      parts.push(`<span class="${i === activeLane ? 'is-active' : ''}">${i === activeLane ? '<strong>当前角色</strong>' : ''}${escape(label)}</span>`);
+    });
+    parts.push(`</div><p class="spec-web-task"><strong>${escape(currentTasks[phase][0])}</strong><span>${escape(currentTasks[phase][1])}</span></p>`);
+    parts.push(`<div class="spec-web-dependencies"><p><span>前置</span>${escape(before[phase])}</p><p><span>随后</span>${escape(after[phase])}</p></div>`);
+    parts.push('<p class="spec-web-role-note">角色示意；Draft 与 Target 可在同一 Device 执行，不对应独立 stream、rank 或实测耗时。</p></section>');
+    parts.push('</div>');
     return parts.join('');
   }
 
