@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1020" viewBox="0 0 1120 1020" role="img" aria-labelledby="title desc">
+<title id="title">一次 top-2：发出去什么，又怎样回到原行？</title><desc id="desc">教学示意，非实测。原rank的第7行激活x由Router选择逻辑专家E2和E5，两个专家在不同远端rank计算，各自的FFN输出返回并按权重合并为原行y。token ID、激活向量和专家任务是不同对象。图示不是80次任务均为远端传输的证明。</desc>
+<defs><style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif} .t{fill:#172b4d} .muted{fill:#475569}</style><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M1 1L8 4.5L1 8" fill="none" stroke="#475569" stroke-width="1.5"/></marker></defs>
+<rect width="1120" height="1020" fill="#f8fafc"/>
+<text x="32" y="47" font-size="28" fill="#172b4d" font-weight="700">一次 top-2：发出去什么，又怎样回到原行？</text>
+<text x="32" y="80" font-size="18" fill="#475569" font-weight="400">教学示意，非实测 · 只追一层 MoE 的一条输入行；此例恰好选中两个远端专家。</text>
+<rect x="32" y="112" width="1056" height="210" rx="10" fill="#fff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="52" y="148" font-size="22" fill="#172b4d" font-weight="700">原 rank 0：输入行与 Router</text>
+<rect x="52" y="174" width="290" height="116" rx="10" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.6"/>
+<text x="72" y="207" font-size="21" fill="#1d4ed8" font-weight="600">row 7 的隐藏状态 x</text>
+<text x="72" y="240" font-size="19" fill="#172b4d" font-weight="400">x 是连续数值向量</text>
+<text x="72" y="272" font-size="18" fill="#475569" font-weight="400">token ID 只是词表整数</text>
+<path d="M352 232L404 232" fill="none" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="416" y="174" width="294" height="116" rx="10" fill="#fff7ed" stroke="#b45309" stroke-width="1.6"/>
+<text x="436" y="207" font-size="21" fill="#b45309" font-weight="600">Router 选择逻辑专家</text>
+<text x="436" y="242" font-size="19" fill="#172b4d" font-weight="400">E2，权重 w₂</text>
+<text x="436" y="274" font-size="19" fill="#172b4d" font-weight="400">E5，权重 w₅</text>
+<text x="744" y="204" font-size="20" fill="#172b4d" font-weight="600">dispatch 需要携带：</text>
+<text x="744" y="240" font-size="19" fill="#172b4d" font-weight="400">激活 x + 专家 / 原行元数据</text>
+<text x="744" y="276" font-size="18" fill="#475569" font-weight="400">不是把 token ID 发去做 FFN</text>
+<path d="M514 322L514 355L280 355L280 402" fill="none" stroke="#6d28d9" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M614 322L614 355L840 355L840 402" fill="none" stroke="#6d28d9" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="304" y="383" font-size="19" fill="#6d28d9" font-weight="600">任务 ①：x → E2</text>
+<text x="816" y="383" font-size="19" fill="#6d28d9" font-weight="600" text-anchor="end">任务 ②：x → E5</text>
+<rect x="48" y="410" width="480" height="184" rx="10" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.6"/>
+<text x="70" y="448" font-size="22" fill="#1d4ed8" font-weight="700">专家所在 rank 1</text>
+<text x="70" y="486" font-size="19" fill="#172b4d" font-weight="400">本 rank 的逻辑专家 E2 权重</text>
+<text x="70" y="524" font-size="20" fill="#172b4d" font-weight="600">GMM1 → 激活函数 → GMM2</text>
+<text x="70" y="565" font-size="21" fill="#1d4ed8" font-weight="600">z₂ = FFN_E2(x)</text>
+<rect x="592" y="410" width="480" height="184" rx="10" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.6"/>
+<text x="614" y="448" font-size="22" fill="#1d4ed8" font-weight="700">专家所在 rank 2</text>
+<text x="614" y="486" font-size="19" fill="#172b4d" font-weight="400">本 rank 的逻辑专家 E5 权重</text>
+<text x="614" y="524" font-size="20" fill="#172b4d" font-weight="600">GMM1 → 激活函数 → GMM2</text>
+<text x="614" y="565" font-size="21" fill="#1d4ed8" font-weight="600">z₅ = FFN_E5(x)</text>
+<path d="M280 604L280 648L396 648L396 700" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M840 604L840 648L724 648L724 700" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="304" y="635" font-size="18" fill="#0f766e" font-weight="600">返回 z₂</text>
+<text x="816" y="635" font-size="18" fill="#0f766e" font-weight="600" text-anchor="end">返回 z₅</text>
+<rect x="224" y="706" width="672" height="138" rx="10" fill="#e6f4f1" stroke="#0f766e" stroke-width="1.6"/>
+<text x="248" y="744" font-size="23" fill="#0f766e" font-weight="700">combine：回到原 rank 0 的 row 7</text>
+<text x="248" y="783" font-size="22" fill="#172b4d" font-weight="600">y = w₂ × z₂ + w₅ × z₅</text>
+<text x="248" y="820" font-size="18" fill="#475569" font-weight="400">合并保持原行身份；权重应用位置随后端实现而异。</text>
+<rect x="32" y="876" width="1056" height="108" rx="10" fill="#fff7ed" stroke="#b45309" stroke-width="1.6"/>
+<text x="52" y="912" font-size="23" fill="#b45309" font-weight="700">40 个真实 token × top-2 = 80 次专家任务</text>
+<text x="52" y="948" font-size="19" fill="#172b4d" font-weight="400">80 是 assignments；本地专家无需远端发送，同目的 rank 的载荷组织也取决于后端。</text>
+<text x="52" y="975" font-size="18" fill="#475569" font-weight="400">不能把专家任务数直接当作网络消息数、远端副本数或传输字节数。</text>
+</svg>

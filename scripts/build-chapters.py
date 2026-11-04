@@ -18,6 +18,7 @@ CHAPTERS = [
     ('speculation', '投机解码与流式指标.md', '投机解码：调度、元数据与流式时延', '投机解码<br><span>与流式指标</span>'),
     ('load-balancing', '负载均衡与专家并行.md', '负载均衡：DPLB 与 EPLB', '负载均衡<br><span>DPLB 与 EPLB</span>'),
     ('sparse-offload', '稀疏KV卸载与HiSparse.md', '稀疏 KV：Decode Offload 与 HiSparse', '稀疏 KV 卸载<br><span>走向 HiSparse</span>'),
+    ('ep-communication', 'EP通信与通算融合.md', 'EP 通信与计算重叠：算子选择与融合执行', 'EP 通信与计算重叠<br><span>算子选择与融合执行</span>'),
 ]
 LINKS = {name: key + '.html' for key, name, *_ in CHAPTERS}
 LINKS['LLM推理调度与执行.md'] = 'index.html'
@@ -70,6 +71,8 @@ def render_markdown(source, key):
     execution_lab = (ROOT / 'scripts' / 'execution-lab.html').read_text(encoding='utf-8') if key == 'execution' else ''
     lb_panels = {kind: (ROOT / 'scripts' / f'{kind}-lab.html').read_text(encoding='utf-8') for kind in ('dplb', 'eplb')} if key == 'load-balancing' else {}
     offload_lab = (ROOT / 'scripts' / 'offload-lab.html').read_text(encoding='utf-8') if key == 'sparse-offload' else ''
+    ep_lab = (ROOT / 'scripts' / 'ep-lab.html').read_text(encoding='utf-8') if key == 'ep-communication' else ''
+    ep_timeline = (ROOT / 'scripts' / 'ep-timeline.html').read_text(encoding='utf-8') if key == 'ep-communication' else ''
     figure_summary = None
     if key == 'speculation':
         fragment = (ROOT / 'scripts' / 'spec-player.html').read_text(encoding='utf-8')
@@ -93,6 +96,10 @@ def render_markdown(source, key):
             flush(); parts.append(execution_lab); i += 1; continue
         if line == '<!-- OFFLOAD_LAB -->':
             flush(); parts.append(offload_lab); i += 1; continue
+        if line == '<!-- EP_LAB -->':
+            flush(); parts.append(ep_lab); i += 1; continue
+        if line == '<!-- EP_TIMELINE -->':
+            flush(); parts.append(ep_timeline); i += 1; continue
         if line in ('<!-- DPLB_LAB -->', '<!-- EPLB_LAB -->'):
             flush(); parts.append(lb_panels.get('dplb' if 'DPLB' in line else 'eplb', '')); i += 1; continue
         if match := re.fullmatch(r'<!-- DETAILS: (.+) -->', line):
@@ -179,13 +186,18 @@ def build_chapters():
         elif key == 'load-balancing':
             player_links = '<a href="#dplb-lab">DPLB 请求分发</a><a href="#eplb-lab">EPLB rank 泳道</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("lb.css")}"><script defer src="{asset_url("lb-model.js")}"></script><script defer src="{asset_url("lb-app.js")}"></script>'
-            next_link = '<a href="sparse-offload.html">继续：稀疏 KV 卸载与 HiSparse →</a>'
+            next_link = '<a href="ep-communication.html">继续：EP 通信与计算重叠 →</a>'
             action = '<a class="primary-button" href="#dplb-lab">分发一批新请求 →</a><a class="text-button" href="#eplb-lab">对照专家放置与 rank 泳道 ↓</a>'
         elif key == 'sparse-offload':
             player_links = '<a href="#offload-lab">TopK 缓存与地址实验室</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("offload.css")}"><script defer src="{asset_url("offload-model.js")}"></script><script defer src="{asset_url("offload-app.js")}"></script>'
-            next_link = '<a href="load-balancing.html">← 回看 DPLB 与 EPLB</a>'
+            next_link = '<a href="ep-communication.html">继续：EP 通信与计算重叠 →</a>'
             action = '<a class="primary-button" href="#offload-lab">解析一次 TopK →</a><a class="text-button" href="#sparse-offload-8">看 HiSparse 依赖泳道 ↓</a>'
+        elif key == 'ep-communication':
+            player_links = '<a href="#ep-lab">专家任务与激活副本实验室</a><a href="#ep-timeline">MC2 / Fused-MC2 模拟 profiling</a>'
+            extra = f'<link rel="stylesheet" href="{asset_url("ep.css")}"><link rel="stylesheet" href="{asset_url("ep-timeline.css")}"><script defer src="{asset_url("ep-model.js")}"></script><script defer src="{asset_url("ep-app.js")}"></script><script defer src="{asset_url("ep-timeline-model.js")}"></script><script defer src="{asset_url("ep-timeline-app.js")}"></script>'
+            next_link = '<a href="load-balancing.html">← 回看 DPLB 与 EPLB</a>'
+            action = '<a class="primary-button" href="#ep-communication-1">沿 EP 数据路径开始 →</a><a class="text-button" href="#ep-timeline">对照 MC2 与 Fused-MC2 泳道 ↓</a>'
         else:
             raise ValueError(f'Unknown chapter: {key}')
         page = f'''<!doctype html>

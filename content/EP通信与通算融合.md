@@ -1,0 +1,231 @@
+# EP 通信与计算重叠：算子选择与融合执行
+
+第四章把同一层的专家任务摊到了多个 rank。现在先固定放置和路由，假设四个 rank 各承担二十次任务：工作量已经接近，为什么一次 MoE 前向仍可能慢？
+
+还缺一段执行过程。专家权重在目标 rank 上，输入激活要送过去，计算结果还要回到原 token 所在的行。下面先追这次往返，再看 AllGather、AllToAll、MC2 和 MegaMoE 分别改变哪一段。Prefill 与 Decode 的区别也放回这条数据路径里解释。
+
+> 本章以 Ascend 的 EP 实现为主。算例固定四个 rank、TP=1、无 PCP、八个逻辑专家且没有冗余副本，每 rank 两个专家；四十个 token 使用 top-2，产生八十次专家任务。数字和泳道均为教学构造，不是设备实测。源码选择条件对应本章核查的实现，不是硬件的通用最优策略。
+
+## 1. Router 选出两个专家以后，究竟要发什么？
+
+先看 rank 0 上的一行隐藏状态 `x_i`。它对应一条请求的某个位置，形状可记为 `[H]`。Router 为它选出逻辑专家 E2、E5，并给出权重 `w2、w5`。按当前放置，E2 在 rank 1，E5 在 rank 2。
+
+目标专家需要 `x_i` 的数值，才能执行自己的 FFN。单独发送 token ID 并不能替代这一层的输入：此前各层已经把它变成了当前隐藏状态。通信还需要足够的路由与还原信息，例如目标专家、原行关联、计数和权重；各实现放在哪个张量、在哪一步应用权重，要沿调用方核对。
+
+```text
+原行 i 的 x_i
+  ├─ E2 / rank 1 → f_E2(x_i)
+  └─ E5 / rank 2 → f_E5(x_i)
+原行 i 的结果：y_i = w2 × f_E2(x_i) + w5 × f_E5(x_i)
+```
+
+![一行隐藏状态按 top-2 路由到专家，计算结果按原行关联归还并加权](../dist/assets/ep-token-roundtrip.svg)
+
+图中的两条专家路径不会产生两个新的输出 token。它们是同一行在一个 MoE 层里的两次专家计算。Combine 后仍要恢复这行的结果，后续层才能继续；新输出 token 则还要经过后面的模型层、输出头和采样。
+
+第四章讨论的逻辑专家到物理副本映射，在这里确定目标。放置变化会改变数据去向，但不能丢掉原行身份。输入重排后，结果若回到了另一行，即使形状和地址都合法，计算也已经错了。[通信与专家计算的调用边界](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/fused_moe/moe_comm_method.py) · [路由、计数与结果还原](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/fused_moe/token_dispatcher.py)
+
+## 2. AllGather 与 AllToAll：数据怎样找到持有专家的 rank？
+
+先取本章 TP=1 的四 rank 布局，每个 rank 初始持有十行输入。AllGather 路线让各 rank 获得全部四十行，再由各 rank 只计算自己持有的专家。某行没有选中本 rank 的专家时，本地对应贡献为零；收尾通过求和与分片，把各处的专家贡献合并并返回原行归属。
+
+在这里，AllGather 与 ReduceScatter 要连起来读。前者收集输入，后者合并并归还输出；只画“所有 token 都送到所有卡”，会漏掉计算怎样被限制在本地专家，以及结果怎样回去。
+
+```text
+AllGather 输入与路由信息
+  → 按本地专家筛选、排序和分组计算
+  → 还原 token 行并形成各 rank 的贡献
+  → ReduceScatter 合并结果，返回本地原行
+```
+
+Ascend 的 `PrepareAndFinalizeWithAllGather` 把跨 rank 的收集和收尾放在 prepare / finalize。普通 DP 路径先按各 DP 最大行数补齐，再收集 hidden states、router logits，最后 ReduceScatter 并裁掉 padding；`TokenDispatcherWithAllGather` 内部主要做本地专家路由与还原。启用序列并行、TP 或 PCP 时，通信组与行布局还会变化，不能把这张四 rank 示意直接当成所有拓扑的调用链。[prepare / finalize 与并行组](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/fused_moe/prepare_finalize.py)
+
+另一条思路是先按目标专家所在的 rank 组织输入，只把相应激活送往需要它的目的地。AllToAll 类路径完成这种定向交换，专家计算后再按反向关联返回结果。不同源、目的之间的行数可以不同，因此实现还要维护计数、偏移、分片长度和逆重排。
+
+![全量聚合后本地筛选，与按目标 rank 组织输入及回传结果的两条数据路径](../dist/assets/ep-exchange-paths.svg)
+
+少发不需要的副本，是定向交换值得比较的原因；代价则包括路由排序、消息大小管理和结果还原。当前 Ascend 的 `TokenDispatcherWithAll2AllV` 会组织专家计数、交换计数、取得 CPU 侧 split 数组，再完成输入重排、通信和逆重排。某些分支的控制与同步成本，也要计入这条路径。[AllToAllV 的预处理与回传](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/fused_moe/token_dispatcher.py)
+
+因此，两条路线要同时比较数据量和组织这些数据的成本。AllGather 的集合操作规整，但会让没有选中本地专家的行也到达本 rank；定向交换减少这类副本，却需要处理不规则路由。哪条更快，不能只凭通信名称下结论。
+
+## 3. 同样八十次专家任务，为什么通信量还会变？
+
+把八个专家固定为 `rank 0: E0/E1`、`rank 1: E2/E3`，依次类推。每个源 rank 有十个 token。下面三组构造始终有四十个 token、八十次专家任务，而且每个 rank 都承担二十次任务：
+
+| 构造路由 | 每个 token 选择什么 | 定向教学模型的远端激活副本 |
+| --- | --- | --- |
+| 同一目标 rank 的双专家 | 选下一个 rank 的两位专家 | 40 份 |
+| 两个目标 rank | 分别选后续两个 rank 的一位专家 | 80 份 |
+| 混合本地与远端 | 每个源前五个 token 选本地双专家，后五个各选后续两个 rank | 40 份 |
+
+这里给定“每个 token 对每个目标 rank 只发一份”的教学规则。同一目标 rank 收到一份激活后，可供该 rank 的两次专家计算使用；本地专家不需要跨 rank 传入。真实后端是否这样去重、在什么阶段展开专家行，应另查实现。
+
+AllGather 对照让每个 token 到达另外三个 rank，远端副本总数固定为 `40×3=120`。选 `H=4096`、BF16，每份激活为 `4096×2=8192 B=8 KiB`，则输入侧远端逻辑 payload 为：
+
+```text
+AllGather 对照：       120 × 8 KiB = 960 KiB
+同一远端 rank 双专家：  40 × 8 KiB = 320 KiB
+两个远端 rank：         80 × 8 KiB = 640 KiB
+混合本地与远端：        40 × 8 KiB = 320 KiB
+```
+
+<!-- EP_LAB -->
+
+这本账只数输入激活送达远端目的地的逻辑副本。不含路由元数据、量化尺度、padding、协议、ReduceScatter、Combine 或链路跳数；集合通信的中转也可能使实际链路字节不同。本地使用同样需要设备访存。因此 `960/320=3` 只能比较这个给定口径的数据量，不能写成三倍加速。
+
+专家任务数相同，目的 rank 的分布仍可能不同。回到第四章，EPLB 解决的计算分布，与这里要比较的源到目的通信分布，已经是两张需要对齐的账。
+
+## 4. Prefill 与 Decode，为什么经常落到不同路径？
+
+普通单 token Decode 中，一条请求通常只增加一行 query；Prefill 的一个 chunk 可以带来很多行。这会改变本轮输入量，以及分给每个专家的矩阵行数。投机验证又可能让 Decode 请求一次带来多行，所以选择算子时仍要看实际 batch。
+
+对一个专家，设收到 `n_e` 次有效专家任务，FFN 的矩阵乘可以按这个行数组织。较大的 `n_e` 有机会摊薄权重读取和提交成本；很小的 `n_e` 则更容易暴露启动、路由和通信延迟。这是分析形状的起点，实际效率还受量化、分组 GEMM、对齐和设备实现影响。
+
+这也解释了为什么 Decode 值得比较更大的融合边界：一轮里多次较短调用的提交、就绪通知与中间处理，可以成为显著开销。Prefill 同样可能从融合和分块流水获益，但大输入还要检查传输吞吐、接收缓冲与大矩阵计算是否匹配。最终需要比较的是同一形状下的完整执行路径。
+
+AllGather 和定向交换也会随形状改变成本。输入多时，要检查全量聚合带来的副本和缓冲压力；输入少时，要检查计数交换、重排、小消息与同步是否占据主要时间。EP 规模和 top-k 又决定一行可能需要到达多少个 rank，节点内与跨节点链路也不能混作同一带宽。
+
+所以“Prefill 使用 AllGather 居多”需要限定到具体后端与策略。有些 Ascend 路径确实会在较大 batch 回到 AllGather，另一些则回到 AllToAll；支持的全链融合路径也可能用于 Prefill。P/D 标签帮助理解负载，真正的选择还要继续追到 token 计数、容量与硬件分支。[运行时通信选择](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ascend_forward_context.py)
+
+## 5. 沿选择函数看：这轮为什么用了这个算子？
+
+先从 `select_moe_comm_method()` 的共同入口读。非 MoE 不需要选择这条专家通信路径；没有启用 EP，或 EP 组只有一个成员时，会进入 AllGather 类实现，这个类名不表示单成员组还要发生跨卡交换。LoRA 与 EP 的组合则先选择 AllToAll，随后才轮到硬件策略。
+
+下面概括本章核查实现的主要分支，省略模型维度校验等前置条件：
+
+| 硬件策略 | 主要选择条件 | 超出普通 MC2 容量后的路径 |
+| --- | --- | --- |
+| A2 | 每设备专家数不超过 24、计算出的 EP 规模至少 16，且本轮计数在 MC2 容量内，才走 MC2；否则 AllGather | AllGather |
+| A3 | 先检查可用的 CANN MegaMoE；再检查已启用的旧融合路径及 EP≤32 条件；未选融合时，容量内走 MC2 | AllToAll |
+| A5 | 可用融合路径优先，MTP drafter 还受量化布局限制；未选融合时，容量内且跨 DP 并行规模大于 1，走 MC2 | 源码的 `world_size_across_dp`≤top-k 时 AllGather，否则 AllToAll |
+
+表中是框架采用的策略，不能据此证明 A2 的 AllGather 在任意大输入上最优，也不能把 A3 的容量分支当成所有硬件的行为。底层算子支持某种产品，也不保证当前框架已把它接进该产品的选择路径。[硬件策略注册](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/device/hardware_profile.py) · [三个选择函数](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ascend_forward_context.py)
+
+这里的“本轮计数”还需要对账。Runner 会传入本轮 batch 的 token 计数，并在相关路径取跨 DP 最大值；图 padding、TP 切分和每请求 query 长度又影响后续形状。它不是八十次专家任务，也不能不经核对就当成所有算子实际消费的有效行数。
+
+<!-- DETAILS: 源码对照：用户配置值与运行时融合分支 -->
+
+本章核查的 `enable_fused_mc2` 用户配置有三个取值：0 关闭融合，1 请求旧融合路径，2 请求 CANN MegaMoE。配置初始化会把 2 归一化成内部值 1，再由运行时算子包可用标志区分两条路线。因此后续看到 `enable_fused_mc2 == 1`，还要一起看该标志和 `use_cann_megamoe()`，不能直接认定它只会调用旧算子。
+
+可用性还包括硬件能力、模型、EP 规模和量化等检查。配置值表示请求采用某条路径，不替代实际调用验证；本章也没有在目标机器上执行这些启动组合。[配置校验与归一化](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ascend_config.py) · [融合路线的调用方](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/fused_moe/moe_comm_method.py)
+
+<!-- /DETAILS -->
+
+## 6. 从源码看 MC2 与 Fused-MC2 的关系
+
+`MC2CommImpl` 与 `FusedMC2CommImpl` 是 `MoECommMethod` 下的两条实现路线，复用 MC2 的输入准备和收尾布局。普通路线沿基类的 `fused_experts()` 分别调用 Dispatch、专家 MLP、Combine；Fused 路线覆盖这个方法，直接调用更大范围的融合算子。接口名里已经有 `fused`，并不能证明整个专家过程都在同一个 Kernel 里。[两条通信实现](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/fused_moe/moe_comm_method.py#L136-L196)
+
+### 6.1 普通 MC2，默认也有局部融合
+
+先固定 W8A8、SiLU、默认开启的 `fusion_ops_gmmswigluquant`。普通 MC2 的主要外部调用是：
+
+```text
+npu_moe_distribute_dispatch_v2
+  → grouped_matmul_swiglu_quant_weight_nz 〔GMM1 + SwiGLU + Quant〕
+  → npu_grouped_matmul                  〔GMM2〕
+  → npu_moe_distribute_combine_v2
+```
+
+专家权重以列表存放时还可能走对应的 tensor-list 接口。只有关闭上述局部融合，才会把中间部分展开为 GMM1、`npu_dequant_swiglu_quant`、GMM2 三个调用。因此普通 MC2 的默认泳道不能直接画成五个完全分离的 Kernel。[W8A8 的局部融合与非融合分支](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/quantization/methods/w8a8/w8a8_dynamic.py#L415-L552) · [Dispatch / Combine 调用](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/fused_moe/token_dispatcher.py#L242-L275)
+
+这块局部融合也有不同内部调度：其普通 tiling 先完成主要 GMM 再做向量计算；split-workspace tiling 则通过两份工作区允许下一片矩阵计算与上一片激活、量化交叠。选择受形状和工作区限制影响。下面的默认模拟把它保留成不透明的整体，不借用 Fused-MC2 的 flag 来补画内部时序。[局部融合的两个内核分支](https://github.com/vllm-project/vllm-ascend/blob/main/csrc/gmm/grouped_matmul_swiglu_quant/op_kernel/grouped_matmul_swiglu_quant.cpp#L73-L90) · [tiling 选择](https://github.com/vllm-project/vllm-ascend/blob/main/csrc/gmm/grouped_matmul_swiglu_quant/op_host/grouped_matmul_swiglu_quant_tiling.cpp#L219-L246)
+
+Python 中这几个调用顺序提交，后一个设备消费者要等前一个结果。当前普通 routed-expert 主线没有在 Python 里把 Dispatch、MLP、Combine 分别切到三条流；Host 也不必每次等 Device 算完再提交下一项。共享专家的可选多流事件属于另一条协作路径，应与本节分开。[提交与事件位置](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/fused_moe/moe_comm_method.py#L154-L184)
+
+### 6.2 Fused-MC2，还有自定义与 CANN 两个落点
+
+结合第 5 节的配置归一化，再追 `FusedMC2CommImpl.fused_experts()`，可以区分：
+
+| 路线 | 主要入口 | 执行边界 |
+| --- | --- | --- |
+| 普通 MC2 | `TokenDispatcherWithMC2`、`apply_moe_mlp()` | Dispatch、MLP、Combine 是不同外部调用；MLP 内可局部融合 |
+| 自定义 Fused-MC2 | `torch.ops._C_ascend.dispatch_ffn_combine` | 输入路由、专家 FFN、回传与还原收进一个自定义算子 |
+| CANN MegaMoE | `_apply_cann_mega_moe()` 调用算子包接口 | 另一条全链融合实现，使用对应对称通信缓冲与接口契约 |
+
+Fused 的两条路线都获得权重、路由、概率和通信上下文，但不能把它们的内部调度直接等同。下节能逐行展开的，是仓库内 W8A8 自定义 `dispatch_ffn_combine`；CANN MegaMoE 的内部实现不由这段 C++ 代码证明。[Fused 的两条调用分支](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/fused_moe/moe_comm_method.py#L563-L615) · [CANN MegaMoE 算子说明](https://gitcode.com/cann/ops-transformer/tree/master/mc2/mega_moe)
+
+![分离的语义阶段、普通 MC2 局部边界与 Fused-MC2 全链边界；具体局部融合随实现变化](../dist/assets/ep-fusion-boundaries.svg)
+
+图中的五段是语义工作，不用于数 Kernel。全链融合扩大的是跨 Dispatch、专家计算、Combine 的协作范围；普通 MC2 已有的局部融合仍需保留在比较条件里。DeepGEMM 的同名 Mega MoE 则属于自己的实现，不能据名称互相证明硬件支持或性能。[DeepGEMM Mega MoE](https://github.com/deepseek-ai/DeepGEMM#mega-moe)
+
+## 7. 按实际 flag 关系模拟两种方式的 profiling
+
+这里沿作者自绘图中的“交换与计算能否接续”继续往下追，固定到自定义 W8A8 内核。入口声明 `KERNEL_TYPE_MIX_AIC_1_2`，AIC 分支执行矩阵计算，AIV 分支执行 `DispatchAndCombine()`；这不是 Python 新建一条通信流后，让两个普通算子自由并行。[混合核入口](https://github.com/vllm-project/vllm-ascend/blob/main/csrc/mc2/dispatch_ffn_combine/op_kernel/dispatch_ffn_combine.cpp#L22-L31)
+
+### 7.1 AIV 与 AIC，各自按什么顺序走？
+
+把同类核的工作聚合起来，可以先读成两行：
+
+```text
+AIC 每核：GMM1 的本地专家循环 → 等第一组激活结果 → GMM2 的本地专家循环
+AIV：路由/量化与计数交换 → 按专家 Dispatch → 两组 SwiGLU/再量化
+     → 跟随 GMM2 进度回传 → 跨 rank 同步 → unpermute / 加权归并
+```
+
+AIC 的顺序是每个核自身的控制流。源码没有在 GMM1 和 GMM2 之间插一个“全设备所有 Cube 都齐了”的屏障，因此聚合图不能用来断言所有 AIC 完成 GMM1 后，任何 AIC 才能开始 GMM2。[AIC / AIV 分支](https://github.com/vllm-project/vllm-ascend/blob/main/csrc/mc2/dispatch_ffn_combine/op_kernel/dispatch_ffn_combine_kernel.hpp#L216-L231)
+
+这条自定义路径用 HCCL 上下文取得本地及远端 window 地址。Dispatch 通过 AIV 的搬运路径，把 peer GM 的激活经 UB 搬到本地 GM；Combine 再把结果写回来源 rank 的窗口。不能据 HCCL 上下文的存在，额外画一条未经确认的独立 HCCL 通信 stream。[通信窗口](https://github.com/vllm-project/vllm-ascend/blob/main/csrc/mc2/dispatch_ffn_combine/op_kernel/utils/hccl_shmem.hpp#L84-L145) · [输入搬运与就绪通知](https://github.com/vllm-project/vllm-ascend/blob/main/csrc/mc2/dispatch_ffn_combine/op_kernel/dispatch_ffn_combine_kernel.hpp#L842-L867)
+
+### 7.2 四个本地专家，哪些位置真的允许交叠？
+
+为了把等待位置逐项标出来，下面另取两个逻辑 rank，每 rank 四个非空本地专家，TP=1、W8A8+SiLU、关闭共享专家多流，只看稳态；它与第 3 节四 rank 的副本计数实验是两个算例。本地专家记作 e0～e3，图中 G1、S、G2 分别表示第一段矩阵、SwiGLU/再量化、第二段矩阵。
+
+| 交接位置 | 源码中的等待条件 | 四专家示意中的表现 |
+| --- | --- | --- |
+| Dispatch → GMM1 | 每个本地专家输入完成后发布对应就绪 flag，GMM1 消费前等待 | G1(e0) 可以与 D(e1) 等后续输入搬运交叠 |
+| GMM1 → 第一组 S | AIV 先走完全部 Dispatch，再等第一组 GMM1 结果 | `epilogueGranularity=E-1=3`，S0 处理 e0～e2，可与 G1(e3) 交叠 |
+| 第一组 S → GMM2 | 当前 AIC 跑完自己的 GMM1，再等第一组向量结果 | G2(e0) 开始；AIV 继续处理第二组 S1(e3) |
+| 第二组 S → 后续 GMM2 | `groupIdx+1==epilogueGranularity` 时再次等 flag | 等待发生在 G2(e2) 前，不能擅自挪到 e3 前 |
+| GMM2 → Combine | AIV 处理完两组 S 后，再按 GMM2 专家进度等待与回传 | C(e0) 可以与 G2 的后续专家段交叠 |
+
+这里的分组、等待点来自这条 W8A8 内核，不是任意 token 小块的通用规则。[GMM1 等待与两次通知](https://github.com/vllm-project/vllm-ascend/blob/main/csrc/mc2/dispatch_ffn_combine/op_kernel/dispatch_ffn_combine_kernel.hpp#L450-L535) · [GMM2 的第二次等待](https://github.com/vllm-project/vllm-ascend/blob/main/csrc/mc2/dispatch_ffn_combine/op_kernel/dispatch_ffn_combine_kernel.hpp#L555-L591) · [激活分组与回传入口](https://github.com/vllm-project/vllm-ascend/blob/main/csrc/mc2/dispatch_ffn_combine/op_kernel/dispatch_ffn_combine_kernel.hpp#L920-L977)
+
+本 rank 的输入行数 M 与 top-k 的乘积 `M×topK≤4096` 时进入 CombineV2，超过时进入 CombineV1。下面模拟按小输入分支聚合专家进度；真实 CombineV2 继续按 AIC 的 tile 分工和更小的行切片搬运。模拟既没有逐核展开，也没有把四个专家段当成真实 tiling 数。[Combine 分支选择](https://github.com/vllm-project/vllm-ascend/blob/main/csrc/mc2/dispatch_ffn_combine/op_kernel/dispatch_ffn_combine_kernel.hpp#L254-L258) · [更细粒度回传](https://github.com/vllm-project/vllm-ascend/blob/main/csrc/mc2/dispatch_ffn_combine/op_kernel/dispatch_ffn_combine_kernel.hpp#L1025-L1089)
+
+<!-- EP_TIMELINE -->
+
+默认对照保留普通 MC2 的 GMM1+SwiGLU+Quant 局部融合，只把这个算子的总区间画出来。取消勾选后，才展示关闭局部融合的受控教学配置。两种情况都把 Host 提交与 Device 执行分开，不要求 Host 等每个算子完成才提交下一项。
+
+![MC2 与自定义 Fused-MC2 的源码依赖泳道，保留普通 MC2 默认局部融合，并展开自定义算子的 AIV / AIC 协作](../dist/assets/ep-overlap-swimlanes.svg)
+
+播放器和静态图使用相同教学时长假设，横轴为自定推进格。块宽、输入晚到和同角色串行都是模型条件，不是实测 Kernel 时长或 stream 编号；默认普通 MC2 局部融合的内部 tiling 未展开，所以也不能拿两图终点计算性能收益。可点击事件，核对其源码位置、直接前驱和下游消费者。
+
+结果回传后还要满足原行输出条件。这条自定义内核明确在 Combine 后进行 `CrossRankSync()`，然后 unpermute 并按概率合并；普通 MC2 的输出则在自身 Combine 接口结果可读后交给下游，不能凭空为它补上同名的显式屏障。融合扩大了协作边界，也保留了这些依赖。[同步与加权还原](https://github.com/vllm-project/vllm-ascend/blob/main/csrc/mc2/dispatch_ffn_combine/op_kernel/dispatch_ffn_combine_kernel.hpp#L957-L977)
+
+## 8. 算子内流水、共享专家多流与 DBO，重叠的是同一件事吗？
+
+上一图按专家和激活分组展开了同一专家路径内部的依赖。另一类机会来自独立工作：例如满足模型与实现条件的共享专家计算，可以与 routed experts 的部分通信交错。分析时要先找出两边什么时候产生输入、什么时候需要合并结果，再看能否在各自的流上执行。
+
+DBO 则把 batch 拆为两个 microbatch，用一份的计算覆盖另一份的通信。每份仍要保留自己的输入边界、KV 地址和执行状态；它与第二章讲的 Host 提前安排后续批次，也不是同一个控制位置。vLLM 的 DBO 设计围绕 MoE 通信设置交接点，让两个 microbatch 在通信与计算之间切换。[DBO 设计](https://docs.vllm.ai/en/latest/design/dbo/)
+
+因此可以分别记录三种粒度：算子内部的数据块、同一前向的独立分支、两份 microbatch。把时间线上的通信和计算放在不同的行，只说明它们被分开记录；要声称发生重叠，还应看到输入已就绪、执行区间实际交叠，并且没有在消费点把全部等待重新暴露出来。
+
+支持范围也要一起核对。本章所查 Ascend 配置在启用融合 MC2 路线时会关闭共享专家多流选项，不能把二者分别报告的收益直接相加。拆 microbatch 还可能改变每专家的 GEMM 行数和 padding，前后对照需要记录这些变化。[融合与共享专家多流配置](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ascend_config.py)
+
+## 9. 选中了融合路径，还需要满足哪些条件？
+
+先查量化和布局。通信可以携带量化后的激活及尺度，FFN 又要消费对应的权重格式、尺度与激活函数。CANN MegaMoE 对不同产品支持的组合并不相同；框架还需准备匹配的权重列表、通信缓冲和接口参数。某个 BF16 示例能跑，不能证明同模型的另一量化格式也会走相同内核。[CANN 算子契约](https://gitcode.com/cann/ops-transformer/tree/master/mc2/mega_moe) · [量化与接口适配](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/fused_moe/moe_utils.py)
+
+再把两种容量分开：每 rank 原始输入行数，和 Dispatch 后该 rank 收到的行数。后者受所有源 rank 的路由影响，可能远大于本地输入量；第四章的热点专家即使不会改变全局任务总数，也会改变接收端压力。
+
+当前 CANN 路径的对称缓冲按一致的输入容量建立，另有接收容量设置。`mega_moe_max_tokens` 属于接收侧口径，不能拿它当作本地原始输入上限。输入超过已分配容量时，调用方会报错；选择函数优先选中融合分支，也不保证超量后自动切回 AllToAll。[对称缓冲与输入容量检查](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/fused_moe/moe_comm_method.py)
+
+最后查通信拓扑与实际瓶颈。节点内链路、跨节点 RoCE、通信域规模，以及通信任务与矩阵计算竞争的设备资源，都会影响可以覆盖多少时间。若链路持续是最长的一段，提升计算吞吐甚至可能让通信尾部更明显。融合能否缩短整轮，需要在相同模型、精度、路由和拓扑下对照，不能从算子名字推断。
+
+## 10. 怎样用 Trace 解释一次选择和一次收益？
+
+沿同一轮、同一层同时保存“选择依据”和“执行证据”。先记录每 rank 的真实输入行数、padding 后行数、query 长度、top-k、专家任务数，以及本轮选中的通信类和实际算子。P/D 标签可以保留，但它不足以恢复这些字段。
+
+| 要解释的问题 | 需要对齐的证据 | 能排除的误判 |
+| --- | --- | --- |
+| 为什么这轮走 AllGather / AllToAll / MC2 / 融合路线 | 选择函数输入、硬件策略、容量、量化和有效配置 | 仅凭请求处于 Decode，就认定一定用了 MegaMoE |
+| 通信是否真的变少 | 源到目的行数、去重与本地聚合规则、传输格式和链路字节 | 把八十次专家任务直接换成八十份网络载荷 |
+| 长通信区间在做什么 | 发送前输入就绪、对端到达、通信事件与消费者等待 | 把等对端生产数据的时间全记成链路慢 |
+| 是否形成通算流水 | 相关 rank 的通信与计算区间、分块就绪、消费事件 | 把异步 API 返回或两条 stream 当成重叠收益 |
+| 融合后服务是否更快 | 同条件的 MoE 层时间、整轮时间、吞吐和 TTFT / ITL / TPOT | 只凭 Kernel 数减少，就认定端到端时延下降 |
+
+对比 AllGather 与定向交换时，固定逻辑路由、专家放置和有效工作量；对比普通 MC2 与全链融合时，还要固定量化、拓扑与可比较的输入形状。若拆批、padding 或专家副本同时改变，就把这些变化单独列出来，否则无法归因。
+
+通信与计算重叠以后，不能再把 Trace 中各区间时长直接相加当作整轮时间。应追到下一消费者开始前，最后一个尚未满足的依赖：它可能是远端输入、专家结果、回传尾部或缓冲复用。正式采集也要避免随手打印 Device Tensor，防止加入新的 Host 回读。
+
+本章没有目标环境的 MegaMoE Trace 或性能复现。前面的字节数能由给定路由复算，选择表来自已核查源码，泳道用于解释依赖；实际结论仍需由这份同条件账本给出。第四章的专家放置改变了哪段计算分布，本章的交换与融合又改变了哪段等待，应在同一轮里接起来看。

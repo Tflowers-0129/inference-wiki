@@ -28,3 +28,4 @@ node_modules/
 /dist/load-balancing.md
 /dist/technical-wiki-source.zip
 /dist/sparse-offload.md
+/dist/ep-communication.md

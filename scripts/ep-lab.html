@@ -1,0 +1,11 @@
+<section class="ep-lab" id="ep-lab" aria-labelledby="ep-heading">
+  <header><span class="ep-eyebrow">教学构造 / 只计 Dispatch 逻辑数据量</span><h4 id="ep-heading">80 次专家任务，需要发出多少份激活？</h4><p>固定四个 rank，每个 rank 十个 token；每 token 选两位不同专家。E0/E1 在 rank 0，E2/E3 在 rank 1，依次类推。切换目标专家的分布，观察任务数与跨 rank 副本数为什么不同。</p></header>
+  <div class="ep-controls"><label for="ep-locality">专家位置关系<select id="ep-locality"><option value="paired">同 rank 双专家</option><option value="split">两个目标 rank</option><option value="mixed">混合</option></select></label><p id="ep-scenario"></p></div>
+  <div class="ep-metrics" id="ep-metrics" aria-live="polite"></div>
+  <div class="ep-matrices" id="ep-matrices"></div>
+  <p class="ep-ledger" id="ep-ledger"></p>
+  <details class="ep-token-detail"><summary>逐 token 核对专家与目标 rank</summary><label for="ep-source">源 rank<select id="ep-source"><option value="0">rank 0 · E0 / E1</option><option value="1">rank 1 · E2 / E3</option><option value="2">rank 2 · E4 / E5</option><option value="3">rank 3 · E6 / E7</option></select></label><div class="ep-table-scroll" id="ep-token-table"></div></details>
+  <p class="ep-note">矩阵每格统计一个源 rank 送往一个目标 rank 的激活份数；对角线为本地使用，不计入远端 payload。AllGather 对照让每个目标看到全部输入；定向对照按 token＋目标 rank 去重，同卡两个专家共用一次跨卡传入。真实后端是否采用这种去重，需另查实现。</p>
+  <p class="ep-note">BF16、H=4096，每份激活为 4096×2=8192 B（8 KiB）。这里只计源到目标的逻辑 Dispatch payload，不含路由元数据、量化尺度、协议、padding、ReduceScatter、Combine、集合通信算法和链路跳数；本地使用也不代表零设备访存。这里不选择引擎算子，也不预测耗时。</p>
+  <noscript>启用 JavaScript 可切换路由。固定同一远端 rank 双专家时，40 个 token 产生 80 次专家任务，按目标 rank 去重需要 40 份远端激活；AllGather 对照需要 120 份。</noscript>
+</section>
