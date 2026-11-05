@@ -89,9 +89,13 @@ python3 compare_results.py --results ./results --output ./comparison-recomputed.
 
 ## 真实 profiling 的解释范围
 
-章节里的截图直接来自查看器。算子对照的active scope为 `wiki/TP2_DCP1/length4096/iteration1/2` 与DCP2对应名称；iteration0为预热。实际DCP2轨迹含Q AllGather、本地FIA、pack、AlltoAll、merge及布局转换，另有流事件；不能把RECORD/WAIT全部当作计算kernel计数。
+章节里的截图直接来自查看器，并对照同次运行的rank0、rank1。算子对照选中scope为 `wiki/TP2_DCP1/length4096/iteration2` 与DCP2对应名称；iteration0为预热。实际DCP2轨迹含Q AllGather、本地FIA、pack、AlltoAll、merge及布局转换，另有流事件；不能把RECORD/WAIT全部当作计算kernel计数。
 
-原始导出使用每rank独立时钟，Host/Device微秒级校准未独立确认；部分flow终点甚至早于起点。Perfetto能导入这些trace，但部分flow缺少enclosing slice，并有重叠slice告警。因此用原始flow ID做操作关联，不用两端微秒差计算派发延迟，也不直接拼接两rank截图。HCCL AICPU父区间与传输子任务可能嵌套，不能将各层区间直接相加。
+两rank采自同一host，独立保存导出与时钟转换记录；Host换算偏移很接近，但没有本实验确认的Host/device或跨设备对齐误差上界，部分flow终点甚至早于起点。Perfetto能导入这些trace，但部分flow缺少enclosing slice，并有重叠slice告警。因此用原始flow ID做本trace内操作关联，以同组操作序列配对两个rank，不用端点微秒差计算派发延迟，也不把各文件首事件分别归零当作同步开始。HCCL AICPU父区间与传输子任务可能嵌套，不能将各层区间直接相加。
+
+[rank-comparison.json](results/rank-comparison.json)保存两rank算子窗口、各自对应head范围的正确性结果，以及完整PCP捕获的24对Attention。PCP没有显式global-step/layer字段，配对由模型调用顺序重建，并用同一communicator、操作序号、dtype和count交叉核对。首个scope两卡的通信为`_752_2_1`/`_752_3_1`，第九个为`_752_34_1`/`_752_35_1`。这些序号用于本次配对，不是跨运行固定编号。
+
+第九个scope两rank都有CPU FIA调用，但rank1未观测到关联设备FIA。完整PCP捕获的CPU FIA均30次，设备FIA记录为30/22；这不能直接解释为空query、未执行或丢采样。若要确认原因，需补有效query/请求位置及明确step/layer标记。DCP2中rank1的collective导出区间更长、在导出轴上却更早进入，也不能因此把它判作slowest rank。当前结果用于机制和观测边界对照，不用于认定straggler或性能收益。
 
 [截图来源清单](results/profiling-screenshots.json)保存实际查看器、窗口、裁切与源文件校验值；[任务清单](results/profiling-events.json)保留截图对应算子窗口的完整任务名、stream/通信轨道及原始flow关联。图片中很短的kernel标签可能被截断，可对照这份清单。原始trace、随机权重及服务器环境日志不随公开目录发布。
 

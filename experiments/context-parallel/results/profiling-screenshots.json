@@ -79,15 +79,189 @@
       "published_format": "PNG",
       "conversion": "sips -s format png; no redraw, annotation, AI processing or event geometry change",
       "published_sha256": "d598b165a38334d76d0f36a061af1a1fe654b7cddc15c966af9aa4b6fffe96e9"
+    },
+    {
+      "asset": "dist/assets/profile-cp-dcp1-rank1.png",
+      "scene": "TP2_DCP1",
+      "rank": 1,
+      "source_trace": "trace_view.json",
+      "source_trace_sha256": "400a1dedb6eeacac68de92730d5255ce802c8063e5a7f8220b300134eebe38f5",
+      "source_trace_bytes": 16232,
+      "selected_host_scope": "wiki/TP2_DCP1/length4096/iteration2",
+      "selected_occurrence": 1,
+      "scope_absolute_timestamp_us": "1793841298075285.900",
+      "scope_duration_us": "190.44",
+      "clock": "Original per-rank export on same host; Host conversion metadata close, no validated device alignment error bound. Screenshots independently zoomed, not aligned at left edge.",
+      "capture": "actual Perfetto UI browser screenshot over SSH-forwarded localhost native RPC; existing trace, no new NPU run",
+      "crop_pixels": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 560
+      },
+      "original_screenshot_format": "JPEG",
+      "original_screenshot_sha256": "0a1f65c43dd409f4e08575e364c995c45f1f3ceb62b18b46cda0531f396a66c7",
+      "published_format": "PNG",
+      "conversion": "sips -s format png; no redraw, annotation, AI processing or event geometry change",
+      "published_sha256": "48f5a2b8f71b9ee0bc4aec01a1f0e56edcff7d82ee7f3f26f46ef0d4903b2d20"
+    },
+    {
+      "asset": "dist/assets/profile-cp-dcp2-rank1.png",
+      "scene": "TP2_DCP2",
+      "rank": 1,
+      "source_trace": "trace_view.json",
+      "source_trace_sha256": "89d4dbe993e953be5620d2df560ae3c445986ddf2a5f2607984df23efdd831cf",
+      "source_trace_bytes": 119856,
+      "selected_host_scope": "wiki/TP2_DCP2/length4096/iteration2",
+      "selected_occurrence": 1,
+      "scope_absolute_timestamp_us": "1793841302996497.570",
+      "scope_duration_us": "650.27",
+      "clock": "Original per-rank export on same host; Host conversion metadata close, no validated device alignment error bound. Screenshots independently zoomed, not aligned at left edge.",
+      "capture": "actual Perfetto UI browser screenshot over SSH-forwarded localhost native RPC; existing trace, no new NPU run",
+      "crop_pixels": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 760
+      },
+      "original_screenshot_format": "JPEG",
+      "original_screenshot_sha256": "b0f4c6eb968ddc5d1418f6bee97255cfe58beb555745257e4fd93eafe4f5fbb1",
+      "published_format": "PNG",
+      "conversion": "sips -s format png; no redraw, annotation, AI processing or event geometry change",
+      "published_sha256": "901cca78438c57c20125308fefa1643f925cac41eb1227d4d969c377df6053ed"
+    },
+    {
+      "asset": "dist/assets/profile-cp-pcp2-runner-rank1.png",
+      "scene": "TP1_PCP2_DCP1",
+      "rank": 1,
+      "source_trace": "trace_view.json",
+      "source_trace_sha256": "a9b7fb6376144698d94ff8a7fb318c125fe9c6032fdb6c7da7b87ebfbab51ea5",
+      "source_trace_bytes": 9751871,
+      "selected_host_scope": "vllm::unified_attention_with_output",
+      "selected_occurrence": 1,
+      "scope_absolute_timestamp_us": "1793841724632563.810",
+      "scope_duration_us": "935.03",
+      "clock": "Original per-rank export on same host; Host conversion metadata close, no validated device alignment error bound. Screenshots independently zoomed, not aligned at left edge.",
+      "capture": "actual Perfetto UI browser screenshot over SSH-forwarded localhost native RPC; existing trace, no new NPU run",
+      "crop_pixels": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 930
+      },
+      "original_screenshot_format": "JPEG",
+      "original_screenshot_sha256": "42aa278f54fc1c628e1a8bb12ccd5d335762e54241ad6700a4bb59100983ce68",
+      "published_format": "PNG",
+      "conversion": "sips -s format png; no redraw, annotation, AI processing or event geometry change",
+      "published_sha256": "eea81b99ae3e96e014a566a1e855134ca4509f33dea93714bf7ab66871ab170b"
+    },
+    {
+      "asset": "dist/assets/profile-cp-pcp2-runner-rank0-scope9.png",
+      "scene": "TP1_PCP2_DCP1",
+      "rank": 0,
+      "source_trace": "trace_view.json",
+      "source_trace_sha256": "ebc5f6f67d91ec8740fc6b6869dc203abd11222a66b04489d73feec96f311e68",
+      "source_trace_bytes": 9773917,
+      "selected_host_scope": "vllm::unified_attention_with_output",
+      "selected_occurrence": 9,
+      "scope_absolute_timestamp_us": "1793841724666651.340",
+      "scope_duration_us": "587.05",
+      "clock": "Original per-rank export on same host; Host conversion metadata close, no validated device alignment error bound. Screenshots independently zoomed, not aligned at left edge.",
+      "capture": "actual Perfetto UI browser screenshot over SSH-forwarded localhost native RPC; existing trace, no new NPU run",
+      "crop_pixels": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 930
+      },
+      "original_screenshot_format": "JPEG",
+      "original_screenshot_sha256": "5a30f991e3b83dc03ae277915d5a8014af72d3aa6c8f8b21d216c41e6c225506",
+      "published_format": "PNG",
+      "conversion": "sips -s format png; no redraw, annotation, AI processing or event geometry change",
+      "published_sha256": "d97e3b15ea25d2bf6efb72dc215ecf63824fc8a02fa0a40bb7a21d414ce1ed3a"
+    },
+    {
+      "asset": "dist/assets/profile-cp-pcp2-runner-rank1-scope9.png",
+      "scene": "TP1_PCP2_DCP1",
+      "rank": 1,
+      "source_trace": "trace_view.json",
+      "source_trace_sha256": "a9b7fb6376144698d94ff8a7fb318c125fe9c6032fdb6c7da7b87ebfbab51ea5",
+      "source_trace_bytes": 9751871,
+      "selected_host_scope": "vllm::unified_attention_with_output",
+      "selected_occurrence": 9,
+      "scope_absolute_timestamp_us": "1793841724666793.590",
+      "scope_duration_us": "457.17",
+      "clock": "Original per-rank export on same host; Host conversion metadata close, no validated device alignment error bound. Screenshots independently zoomed, not aligned at left edge.",
+      "capture": "actual Perfetto UI browser screenshot over SSH-forwarded localhost native RPC; existing trace, no new NPU run",
+      "crop_pixels": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 930
+      },
+      "original_screenshot_format": "JPEG",
+      "original_screenshot_sha256": "eabdf97656b0519f40c0cd3b6569bc5000728a67cae145b5e185608de05e6fdf",
+      "published_format": "PNG",
+      "conversion": "sips -s format png; no redraw, annotation, AI processing or event geometry change",
+      "published_sha256": "5e6614cc272547c7c3e382b6cecb8e3f4585a03130ae3ad3c44985dec60e70d3"
     }
   ],
   "limitations": [
     "Each screenshot is zoomed to its own selected Host scope; picture widths are not a speedup comparison.",
-    "Source file and acquisition timestamps are independent for each rank and run.",
     "Operator DCP1 trace has flow warnings; DCP2 trace has flow and slice-overlap warnings; some Host-to-device deltas are negative.",
     "Full PCP rank0 JSON import reports 1044 slice_spill_overlapping_complete_event: overlapping complete events rendered on overflow tracks; not treated as discarded compute.",
     "No calibrated cross-rank timeline, dispatch-latency measurement, NPU internal pipeline reconstruction or throughput conclusion.",
     "PCP screenshot is one actual Attention scope in a chunked/mixed model capture, not an entire 513-token request.",
-    "Raw traces and original environment logs are private; only selected viewer screenshots and sanitized results are published."
+    "Raw traces and original environment logs are private; only selected viewer screenshots and sanitized results are published.",
+    "Both ranks were captured in each corresponding original two-rank run. Per-rank export origins differ; first-event zero is not a shared iteration-start anchor.",
+    "Host conversion metadata on the same host is close, as retained in rank-comparison.json; this is not a measured Host/device or cross-device alignment error bound.",
+    "Rank1 DCP1 import: flow_no_enclosing_slice=2, overlapping_complete_event=1; DCP2: flow=50, overlap=14. Rank1 full PCP: overlap=916.",
+    "PCP scope9 has CPU FIA calls on both ranks. Rank1 lacks an associated Device FIA/flow observation; this does not identify empty queries, skipped execution, dropped samples or failure."
+  ],
+  "comparison_groups": [
+    {
+      "scene": "TP2_DCP1",
+      "scope": "wiki/TP2_DCP1/length4096/iteration2",
+      "selected_occurrence": 1,
+      "ranks": [
+        0,
+        1
+      ],
+      "matching_evidence": "rank-comparison.json",
+      "screen_left_edges_are_aligned": false
+    },
+    {
+      "scene": "TP2_DCP2",
+      "scope": "wiki/TP2_DCP2/length4096/iteration2",
+      "selected_occurrence": 1,
+      "ranks": [
+        0,
+        1
+      ],
+      "matching_evidence": "rank-comparison.json",
+      "screen_left_edges_are_aligned": false
+    },
+    {
+      "scene": "TP1_PCP2_DCP1",
+      "scope": "vllm::unified_attention_with_output",
+      "selected_occurrence": 1,
+      "ranks": [
+        0,
+        1
+      ],
+      "matching_evidence": "rank-comparison.json",
+      "screen_left_edges_are_aligned": false
+    },
+    {
+      "scene": "TP1_PCP2_DCP1",
+      "scope": "vllm::unified_attention_with_output",
+      "selected_occurrence": 9,
+      "ranks": [
+        0,
+        1
+      ],
+      "matching_evidence": "rank-comparison.json",
+      "screen_left_edges_are_aligned": false
+    }
   ]
 }

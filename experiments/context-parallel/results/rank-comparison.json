@@ -1,0 +1,4028 @@
+{
+  "schema": "wiki-cp-rank-comparison/1",
+  "capture_date": "2026-11-05",
+  "scope": "Already captured two-rank isolated Attention operators and a two-layer random Qwen2 Runner; diagnostic correctness and execution-path comparison only",
+  "association_method": "Join exact torch_to_npu flow IDs within each trace; assign source points to a same-thread CPU scope; match the destination to an exact device pid/tid/timestamp duration slice. Host time containment is not used to assign device tasks.",
+  "clock_and_interpretation_limits": [
+    "Ranks are independently exported. Absolute timestamps and flow endpoint differences are not a calibrated cross-rank time base.",
+    "Flow IDs connect Host and Device within one export. They do not connect peers across ranks.",
+    "HCCL task names, group-operation sequence and dtype/count cross-check semantic pairing; they do not calibrate clocks or identify which peer caused a wait.",
+    "Collective signature fields are raw exporter values. The isolated DCP capture exports rank_size=0 despite the known two-rank harness; use job topology for world size. Raw count is not a measured wire-byte total.",
+    "HCCL parent/AICPU durations include more than wire transfer and overlap transport subranges; do not sum nested ranges or infer link bandwidth.",
+    "EVENT RECORD/WAIT are stream synchronization controls, not extra Attention kernels. A Group Communication track is not a physical stream number.",
+    "A longer Host or HCCL slice does not establish the slowest rank, straggler, peer-wait root cause, throughput, or speedup.",
+    "PCP head-tail query placement and approximate causal work balance are source/layout properties; these captures do not expose query positions or prove per-rank runtime balance.",
+    "FIA CPU calls and flow-associated device tasks are recorded separately. A missing associated device task does not establish an empty query, skipped calculation, dropped sample, or failure.",
+    "FIA counts below mean tasks/calls observed inside the matched scope. They are not a direct measurement of valid queries or requests."
+  ],
+  "operator_dcp_pairs": [
+    {
+      "pair_id": "TP2_DCP1-length4096-profile-iteration2",
+      "scene": "TP2_DCP1",
+      "matching": {
+        "same_operator_job": true,
+        "explicit_scope_name_equal": true,
+        "profile_iteration": 2,
+        "profile_iteration_field_origin": "Explicit record_function scope name in the harness",
+        "warmup_iteration_excluded": 0,
+        "input_shape": "BF16 B4/Hq8/Hkv1/D128/L4096, interleave128",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "cross_rank_clock_alignment": false,
+        "note": "DCP1 contains no collective inside this isolated Attention scope, so its pairing uses the shared job, explicit scope/iteration and deterministic input case."
+      },
+      "ranks": [
+        {
+          "rank": 0,
+          "source_trace_sha256": "5e48c66817bc7539277ce95f155f11f644b2e0cd72bcd276843ecf3b57f50e10",
+          "source_trace_bytes": 17491,
+          "windows": [
+            {
+              "scope": "wiki/TP2_DCP1/length4096/iteration2",
+              "scope_ordinal_zero_based": 0,
+              "host_start_us_from_this_export": "1793841298040829.970",
+              "host_duration_us": "148.61",
+              "fia_device_tasks": [
+                {
+                  "name": "FusedInferAttentionScore",
+                  "duration_us": "12.2879375",
+                  "flow_id_within_this_trace": "1793841298040905415",
+                  "track_name": "Stream 61",
+                  "physical_stream_id": 61
+                }
+              ],
+              "fia_cpu_call_count": 1,
+              "fia_cpu_api_calls": [
+                {
+                  "name": "aclnnFusedInferAttentionScoreV5",
+                  "host_start_us_from_this_export": "1793841298040905.960",
+                  "host_duration_us": "5.23",
+                  "exact_source_flow_ids_within_this_trace": [
+                    "1793841298040905415"
+                  ]
+                }
+              ],
+              "fia_matched_device_flow_count": 1,
+              "collective_parent_tasks": [],
+              "attributed_device_event_count": 1,
+              "event_name_counts": {
+                "FusedInferAttentionScore": 1
+              },
+              "unmatched_duration_endpoint_count": 0
+            }
+          ],
+          "correctness_same_input_case_not_a_new_assertion_in_the_profiled_iteration": {
+            "case": "random",
+            "repetition": 1,
+            "rank": 0,
+            "sequence_length": 4096,
+            "local_kv_positions": 2048,
+            "heads_before_gather": 4,
+            "heads_after_gather": 8,
+            "output_heads_after_merge": 4,
+            "tp_full_kv_tensor_bytes": 8388608,
+            "dcp_local_kv_tensor_bytes": 4194304,
+            "tp_max_abs_error_vs_fp64": 0.0002689240900802664,
+            "dcp_max_abs_error_vs_fp64": 0.00040775895785485905,
+            "dcp_max_abs_error_vs_tp": 0.00048828125,
+            "merge_branch": "sfa_dcp_exchange",
+            "correctness": "passed",
+            "merged_lse_max_abs_error_vs_fp64": 7.502111252222221e-07
+          },
+          "original_tp_q_head_range_half_open": [
+            0,
+            4
+          ],
+          "dcp_comparison_kv_owner_rule": "(position // 128) % 2 == 0",
+          "output_head_comparison": "Each rank is checked against its own four-head slice of complete CPU FP64 Attention; the two rank outputs are distinct head ranges, not expected to be equal."
+        },
+        {
+          "rank": 1,
+          "source_trace_sha256": "400a1dedb6eeacac68de92730d5255ce802c8063e5a7f8220b300134eebe38f5",
+          "source_trace_bytes": 16232,
+          "windows": [
+            {
+              "scope": "wiki/TP2_DCP1/length4096/iteration2",
+              "scope_ordinal_zero_based": 0,
+              "host_start_us_from_this_export": "1793841298075285.900",
+              "host_duration_us": "190.44",
+              "fia_device_tasks": [
+                {
+                  "name": "FusedInferAttentionScore",
+                  "duration_us": "12.552",
+                  "flow_id_within_this_trace": "1793841298075394880",
+                  "track_name": "Stream 61",
+                  "physical_stream_id": 61
+                }
+              ],
+              "fia_cpu_call_count": 1,
+              "fia_cpu_api_calls": [
+                {
+                  "name": "aclnnFusedInferAttentionScoreV5",
+                  "host_start_us_from_this_export": "1793841298075364.220",
+                  "host_duration_us": "7.32",
+                  "exact_source_flow_ids_within_this_trace": [
+                    "1793841298075394880"
+                  ]
+                }
+              ],
+              "fia_matched_device_flow_count": 1,
+              "collective_parent_tasks": [],
+              "attributed_device_event_count": 1,
+              "event_name_counts": {
+                "FusedInferAttentionScore": 1
+              },
+              "unmatched_duration_endpoint_count": 0
+            }
+          ],
+          "correctness_same_input_case_not_a_new_assertion_in_the_profiled_iteration": {
+            "case": "random",
+            "repetition": 1,
+            "rank": 1,
+            "sequence_length": 4096,
+            "local_kv_positions": 2048,
+            "heads_before_gather": 4,
+            "heads_after_gather": 8,
+            "output_heads_after_merge": 4,
+            "tp_full_kv_tensor_bytes": 8388608,
+            "dcp_local_kv_tensor_bytes": 4194304,
+            "tp_max_abs_error_vs_fp64": 0.00023923069734016478,
+            "dcp_max_abs_error_vs_fp64": 0.00035261707473314974,
+            "dcp_max_abs_error_vs_tp": 0.00048828125,
+            "merge_branch": "sfa_dcp_exchange",
+            "correctness": "passed",
+            "merged_lse_max_abs_error_vs_fp64": 8.47031419226596e-07
+          },
+          "original_tp_q_head_range_half_open": [
+            4,
+            8
+          ],
+          "dcp_comparison_kv_owner_rule": "(position // 128) % 2 == 1",
+          "output_head_comparison": "Each rank is checked against its own four-head slice of complete CPU FP64 Attention; the two rank outputs are distinct head ranges, not expected to be equal."
+        }
+      ]
+    },
+    {
+      "pair_id": "TP2_DCP2-length4096-profile-iteration2",
+      "scene": "TP2_DCP2",
+      "matching": {
+        "same_operator_job": true,
+        "explicit_scope_name_equal": true,
+        "profile_iteration": 2,
+        "profile_iteration_field_origin": "Explicit record_function scope name in the harness",
+        "warmup_iteration_excluded": 0,
+        "input_shape": "BF16 B4/Hq8/Hkv1/D128/L4096, interleave128",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "cross_rank_clock_alignment": false,
+        "note": "DCP2 pairing uses the shared two-rank job, explicit wiki/TP2_DCP2/length4096/iteration2 scope and deterministic input case, plus matching HCCL operation names and sequence: hcom_allGather_AicpuKernel_503_2_1 (BFP16, count2048) and hcom_alltoall_AicpuKernel_503_3_1 (INT32, count1040) on Group group_name_3 Communication. This establishes the same collective instances, not cross-rank clock calibration."
+      },
+      "ranks": [
+        {
+          "rank": 0,
+          "source_trace_sha256": "c9e97356017ffafef3fb62c1826a781e656a05faecd956d1f0a1adbe12fe9e47",
+          "source_trace_bytes": 117109,
+          "windows": [
+            {
+              "scope": "wiki/TP2_DCP2/length4096/iteration2",
+              "scope_ordinal_zero_based": 0,
+              "host_start_us_from_this_export": "1793841302996571.210",
+              "host_duration_us": "676.27",
+              "fia_device_tasks": [
+                {
+                  "name": "FusedInferAttentionScore",
+                  "duration_us": "11.3679375",
+                  "flow_id_within_this_trace": "1793841302996839811",
+                  "track_name": "Stream 61",
+                  "physical_stream_id": 61
+                }
+              ],
+              "fia_cpu_call_count": 1,
+              "fia_cpu_api_calls": [
+                {
+                  "name": "aclnnFusedInferAttentionScoreV5",
+                  "host_start_us_from_this_export": "1793841302996832.880",
+                  "host_duration_us": "9.55",
+                  "exact_source_flow_ids_within_this_trace": [
+                    "1793841302996839811"
+                  ]
+                }
+              ],
+              "fia_matched_device_flow_count": 1,
+              "collective_parent_tasks": [
+                {
+                  "name": "hcom_allGather_AicpuKernel_503_2_1",
+                  "duration_us": "43.565",
+                  "flow_id_within_this_trace": "1793841302996685268",
+                  "track_name": "Group group_name_3 Communication",
+                  "physical_stream_id": null,
+                  "collective_signature": {
+                    "rank_size": 0,
+                    "data_type": "BFP16",
+                    "count": 2048
+                  }
+                },
+                {
+                  "name": "hcom_alltoall_AicpuKernel_503_3_1",
+                  "duration_us": "42.377",
+                  "flow_id_within_this_trace": "1793841302997048499",
+                  "track_name": "Group group_name_3 Communication",
+                  "physical_stream_id": null,
+                  "collective_signature": {
+                    "rank_size": 0,
+                    "data_type": "INT32",
+                    "count": 1040
+                  }
+                }
+              ],
+              "attributed_device_event_count": 17,
+              "event_name_counts": {
+                "EVENT RECORD": 6,
+                "EVENT WAIT": 4,
+                "hcom_allGather_AicpuKernel_503_2_1": 1,
+                "aclnnInplaceCopy_TransposeAiCore_Transpose": 1,
+                "FusedInferAttentionScore": 1,
+                "_pack_token_peer": 1,
+                "hcom_alltoall_AicpuKernel_503_3_1": 1,
+                "_fused_merge_kernel": 1,
+                "aclnnInplaceCopy_CastAiCore_Cast": 1
+              },
+              "unmatched_duration_endpoint_count": 2
+            }
+          ],
+          "correctness_same_input_case_not_a_new_assertion_in_the_profiled_iteration": {
+            "case": "random",
+            "repetition": 1,
+            "rank": 0,
+            "sequence_length": 4096,
+            "local_kv_positions": 2048,
+            "heads_before_gather": 4,
+            "heads_after_gather": 8,
+            "output_heads_after_merge": 4,
+            "tp_full_kv_tensor_bytes": 8388608,
+            "dcp_local_kv_tensor_bytes": 4194304,
+            "tp_max_abs_error_vs_fp64": 0.0002689240900802664,
+            "dcp_max_abs_error_vs_fp64": 0.00040775895785485905,
+            "dcp_max_abs_error_vs_tp": 0.00048828125,
+            "merge_branch": "sfa_dcp_exchange",
+            "correctness": "passed",
+            "merged_lse_max_abs_error_vs_fp64": 7.502111252222221e-07
+          },
+          "original_tp_q_head_range_half_open": [
+            0,
+            4
+          ],
+          "dcp_comparison_kv_owner_rule": "(position // 128) % 2 == 0",
+          "output_head_comparison": "Each rank is checked against its own four-head slice of complete CPU FP64 Attention; the two rank outputs are distinct head ranges, not expected to be equal."
+        },
+        {
+          "rank": 1,
+          "source_trace_sha256": "89d4dbe993e953be5620d2df560ae3c445986ddf2a5f2607984df23efdd831cf",
+          "source_trace_bytes": 119856,
+          "windows": [
+            {
+              "scope": "wiki/TP2_DCP2/length4096/iteration2",
+              "scope_ordinal_zero_based": 0,
+              "host_start_us_from_this_export": "1793841302996497.570",
+              "host_duration_us": "650.27",
+              "fia_device_tasks": [
+                {
+                  "name": "FusedInferAttentionScore",
+                  "duration_us": "11.197",
+                  "flow_id_within_this_trace": "1793841302996734289",
+                  "track_name": "Stream 61",
+                  "physical_stream_id": 61
+                }
+              ],
+              "fia_cpu_call_count": 1,
+              "fia_cpu_api_calls": [
+                {
+                  "name": "aclnnFusedInferAttentionScoreV5",
+                  "host_start_us_from_this_export": "1793841302996730.530",
+                  "host_duration_us": "3.85",
+                  "exact_source_flow_ids_within_this_trace": [
+                    "1793841302996734289"
+                  ]
+                }
+              ],
+              "fia_matched_device_flow_count": 1,
+              "collective_parent_tasks": [
+                {
+                  "name": "hcom_allGather_AicpuKernel_503_2_1",
+                  "duration_us": "123.603",
+                  "flow_id_within_this_trace": "1793841302996607065",
+                  "track_name": "Group group_name_3 Communication",
+                  "physical_stream_id": null,
+                  "collective_signature": {
+                    "rank_size": 0,
+                    "data_type": "BFP16",
+                    "count": 2048
+                  }
+                },
+                {
+                  "name": "hcom_alltoall_AicpuKernel_503_3_1",
+                  "duration_us": "145.99",
+                  "flow_id_within_this_trace": "1793841302996945975",
+                  "track_name": "Group group_name_3 Communication",
+                  "physical_stream_id": null,
+                  "collective_signature": {
+                    "rank_size": 0,
+                    "data_type": "INT32",
+                    "count": 1040
+                  }
+                }
+              ],
+              "attributed_device_event_count": 17,
+              "event_name_counts": {
+                "EVENT RECORD": 6,
+                "EVENT WAIT": 4,
+                "hcom_allGather_AicpuKernel_503_2_1": 1,
+                "aclnnInplaceCopy_TransposeAiCore_Transpose": 1,
+                "FusedInferAttentionScore": 1,
+                "_pack_token_peer": 1,
+                "hcom_alltoall_AicpuKernel_503_3_1": 1,
+                "_fused_merge_kernel": 1,
+                "aclnnInplaceCopy_CastAiCore_Cast": 1
+              },
+              "unmatched_duration_endpoint_count": 2
+            }
+          ],
+          "correctness_same_input_case_not_a_new_assertion_in_the_profiled_iteration": {
+            "case": "random",
+            "repetition": 1,
+            "rank": 1,
+            "sequence_length": 4096,
+            "local_kv_positions": 2048,
+            "heads_before_gather": 4,
+            "heads_after_gather": 8,
+            "output_heads_after_merge": 4,
+            "tp_full_kv_tensor_bytes": 8388608,
+            "dcp_local_kv_tensor_bytes": 4194304,
+            "tp_max_abs_error_vs_fp64": 0.00023923069734016478,
+            "dcp_max_abs_error_vs_fp64": 0.00035261707473314974,
+            "dcp_max_abs_error_vs_tp": 0.00048828125,
+            "merge_branch": "sfa_dcp_exchange",
+            "correctness": "passed",
+            "merged_lse_max_abs_error_vs_fp64": 8.47031419226596e-07
+          },
+          "original_tp_q_head_range_half_open": [
+            4,
+            8
+          ],
+          "dcp_comparison_kv_owner_rule": "(position // 128) % 2 == 1",
+          "output_head_comparison": "Each rank is checked against its own four-head slice of complete CPU FP64 Attention; the two rank outputs are distinct head ranges, not expected to be equal."
+        }
+      ]
+    }
+  ],
+  "runner_pcp": {
+    "scene": "TP1_PCP2_DCP1",
+    "sources": [
+      {
+        "rank": 0,
+        "source_trace_sha256": "ebc5f6f67d91ec8740fc6b6869dc203abd11222a66b04489d73feec96f311e68",
+        "source_trace_bytes": 9773917
+      },
+      {
+        "rank": 1,
+        "source_trace_sha256": "a9b7fb6376144698d94ff8a7fb318c125fe9c6032fdb6c7da7b87ebfbab51ea5",
+        "source_trace_bytes": 9751871
+      }
+    ],
+    "matching": {
+      "same_runner_job_and_model": true,
+      "attention_scope_count_per_rank": 24,
+      "explicit_global_step_or_layer_labels_present": false,
+      "matching_fields": [
+        "Ordered Attention scopes in each rank",
+        "Known two-layer eager model execution order",
+        "Identical ordered HCCL parent task names",
+        "Identical rank_size/dtype/count per collective"
+      ],
+      "all_24_pairs_collective_sequence_cross_checked": true,
+      "scheduler_request_ids_or_valid_query_positions_recorded": false,
+      "cross_rank_clock_alignment": false,
+      "limits": [
+        "An inferred forward ordinal is a position inside the captured interval, not a profiler-recorded scheduler global step.",
+        "The two generate repetitions are not explicitly marked in the trace. Do not infer a repetition boundary or request membership from a fixed split of the 24 scopes.",
+        "Do not match by proximity of absolute timestamps, screenshots, flow IDs across exports, or scope name alone."
+      ]
+    },
+    "selected_screenshot_pair": "PCP2-attention-ordinal-00",
+    "additional_diagnostic_screenshot_pair": "PCP2-attention-ordinal-08",
+    "observed_fia_asymmetry_attention_ordinals_zero_based": [
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      22,
+      23
+    ],
+    "observed_fia_asymmetry_note": "In these matched scopes both ranks have one FIA CPU call. Rank0 has one flow-associated FIA device task and rank1 has none, while both participate in two BF16 AllGather parents with count64. This observation does not establish an empty query, skipped calculation, dropped sample, failure, exact query ownership, or peer-wait cause.",
+    "correctness_scope": "The Runner records engine-level chosen tokens/logprobs, not independent per-rank intermediate Attention oracles. See tiny-comparison.json. The isolated operator experiment supplies the per-rank numeric Attention checks.",
+    "pairs": [
+      {
+        "pair_id": "PCP2-attention-ordinal-00",
+        "attention_ordinal_zero_based": 0,
+        "inferred_forward_ordinal_zero_based": 0,
+        "inferred_layer_ordinal_zero_based": 0,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 0,
+            "host_start_us_from_this_export": "1793841724632449.900",
+            "host_duration_us": "880.97",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "12.6569375",
+                "flow_id_within_this_trace": "1793841724633258068",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724633245.810",
+                "host_duration_us": "5.87",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724633258068"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_2_1",
+                "duration_us": "218.578",
+                "flow_id_within_this_trace": "1793841724632595376",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14464
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_3_1",
+                "duration_us": "149.022",
+                "flow_id_within_this_trace": "1793841724632817374",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14464
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_2_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_3_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 0,
+            "host_start_us_from_this_export": "1793841724632563.810",
+            "host_duration_us": "935.03",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "11.819",
+                "flow_id_within_this_trace": "1793841724633400218",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724633398.250",
+                "host_duration_us": "3.92",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724633400218"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_2_1",
+                "duration_us": "94.068",
+                "flow_id_within_this_trace": "1793841724632717329",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14464
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_3_1",
+                "duration_us": "55.104",
+                "flow_id_within_this_trace": "1793841724632908819",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14464
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_2_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_3_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-01",
+        "attention_ordinal_zero_based": 1,
+        "inferred_forward_ordinal_zero_based": 0,
+        "inferred_layer_ordinal_zero_based": 1,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 1,
+            "host_start_us_from_this_export": "1793841724634326.720",
+            "host_duration_us": "475.78",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "12.7769375",
+                "flow_id_within_this_trace": "1793841724634815810",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724634724.770",
+                "host_duration_us": "3.21",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724634815810"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_4_1",
+                "duration_us": "210.169",
+                "flow_id_within_this_trace": "1793841724634489719",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14464
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_5_1",
+                "duration_us": "105.65",
+                "flow_id_within_this_trace": "1793841724634703297",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14464
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_4_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_5_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 1,
+            "host_start_us_from_this_export": "1793841724634512.110",
+            "host_duration_us": "521.58",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "13.048",
+                "flow_id_within_this_trace": "1793841724634954241",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724634957.170",
+                "host_duration_us": "2.83",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724634954241"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_4_1",
+                "duration_us": "51.115",
+                "flow_id_within_this_trace": "1793841724634646209",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14464
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_5_1",
+                "duration_us": "43.026",
+                "flow_id_within_this_trace": "1793841724634763407",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14464
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_4_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_5_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-02",
+        "attention_ordinal_zero_based": 2,
+        "inferred_forward_ordinal_zero_based": 1,
+        "inferred_layer_ordinal_zero_based": 0,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 2,
+            "host_start_us_from_this_export": "1793841724641217.370",
+            "host_duration_us": "705.01",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.0689375",
+                "flow_id_within_this_trace": "1793841724641832215",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724641824.200",
+                "host_duration_us": "2.89",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724641832215"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_10_1",
+                "duration_us": "386.062",
+                "flow_id_within_this_trace": "1793841724641321358",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_11_1",
+                "duration_us": "117.894",
+                "flow_id_within_this_trace": "1793841724641710660",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_10_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_11_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 2,
+            "host_start_us_from_this_export": "1793841724641538.950",
+            "host_duration_us": "540.28",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "8.347",
+                "flow_id_within_this_trace": "1793841724641992927",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724641980.390",
+                "host_duration_us": "16.85",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724641992927"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_10_1",
+                "duration_us": "43.748",
+                "flow_id_within_this_trace": "1793841724641661189",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_11_1",
+                "duration_us": "40.296",
+                "flow_id_within_this_trace": "1793841724641785691",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_10_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_11_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-03",
+        "attention_ordinal_zero_based": 3,
+        "inferred_forward_ordinal_zero_based": 1,
+        "inferred_layer_ordinal_zero_based": 1,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 3,
+            "host_start_us_from_this_export": "1793841724642469.020",
+            "host_duration_us": "472.5",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.6549375",
+                "flow_id_within_this_trace": "1793841724642918623",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724642872.620",
+                "host_duration_us": "2.55",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724642918623"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_12_1",
+                "duration_us": "223.459",
+                "flow_id_within_this_trace": "1793841724642576556",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_13_1",
+                "duration_us": "111.589",
+                "flow_id_within_this_trace": "1793841724642803567",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_12_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_13_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 3,
+            "host_start_us_from_this_export": "1793841724642625.940",
+            "host_duration_us": "507.2",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "8.581",
+                "flow_id_within_this_trace": "1793841724643038793",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724643044.330",
+                "host_duration_us": "2.57",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724643038793"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_12_1",
+                "duration_us": "44.082",
+                "flow_id_within_this_trace": "1793841724642753345",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_13_1",
+                "duration_us": "37.966",
+                "flow_id_within_this_trace": "1793841724642874600",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_12_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_13_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-04",
+        "attention_ordinal_zero_based": 4,
+        "inferred_forward_ordinal_zero_based": 2,
+        "inferred_layer_ordinal_zero_based": 0,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 4,
+            "host_start_us_from_this_export": "1793841724649553.930",
+            "host_duration_us": "899.77",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "8.8379375",
+                "flow_id_within_this_trace": "1793841724650123017",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              },
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "12.7369375",
+                "flow_id_within_this_trace": "1793841724650356257",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 2,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724650117.820",
+                "host_duration_us": "3.94",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724650123017"
+                ]
+              },
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724650356.300",
+                "host_duration_us": "3.55",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724650356257"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 2,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_18_1",
+                "duration_us": "221.038",
+                "flow_id_within_this_trace": "1793841724649658670",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16448
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_19_1",
+                "duration_us": "135.898",
+                "flow_id_within_this_trace": "1793841724649883012",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16448
+                }
+              }
+            ],
+            "attributed_device_event_count": 20,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_18_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_19_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 2,
+              "MEMCPY_ASYNC": 2
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 4,
+            "host_start_us_from_this_export": "1793841724649693.100",
+            "host_duration_us": "827.53",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.166",
+                "flow_id_within_this_trace": "1793841724650163925",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              },
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "11.372",
+                "flow_id_within_this_trace": "1793841724650436949",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 2,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724650165.990",
+                "host_duration_us": "2.88",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724650163925"
+                ]
+              },
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724650439.670",
+                "host_duration_us": "3.11",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724650436949"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 2,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_18_1",
+                "duration_us": "42.25",
+                "flow_id_within_this_trace": "1793841724649835090",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16448
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_19_1",
+                "duration_us": "40.972",
+                "flow_id_within_this_trace": "1793841724649975627",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16448
+                }
+              }
+            ],
+            "attributed_device_event_count": 20,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_18_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_19_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 2,
+              "MEMCPY_ASYNC": 2
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-05",
+        "attention_ordinal_zero_based": 5,
+        "inferred_forward_ordinal_zero_based": 2,
+        "inferred_layer_ordinal_zero_based": 1,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 5,
+            "host_start_us_from_this_export": "1793841724650978.820",
+            "host_duration_us": "630.16",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.386",
+                "flow_id_within_this_trace": "1793841724651406335",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              },
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "13.1679375",
+                "flow_id_within_this_trace": "1793841724651527307",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 2,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724651404.420",
+                "host_duration_us": "5.28",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724651406335"
+                ]
+              },
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724651520.760",
+                "host_duration_us": "14.13",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724651527307"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 2,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_20_1",
+                "duration_us": "138.957",
+                "flow_id_within_this_trace": "1793841724651101318",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16448
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_21_1",
+                "duration_us": "109.827",
+                "flow_id_within_this_trace": "1793841724651243705",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16448
+                }
+              }
+            ],
+            "attributed_device_event_count": 20,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_20_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_21_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 2,
+              "MEMCPY_ASYNC": 2
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 5,
+            "host_start_us_from_this_export": "1793841724651072.140",
+            "host_duration_us": "594.41",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "8.726",
+                "flow_id_within_this_trace": "1793841724651480538",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              },
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "10.948",
+                "flow_id_within_this_trace": "1793841724651594586",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 2,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724651482.850",
+                "host_duration_us": "6.0",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724651480538"
+                ]
+              },
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724651597.540",
+                "host_duration_us": "3.05",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724651594586"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 2,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_20_1",
+                "duration_us": "43.524",
+                "flow_id_within_this_trace": "1793841724651194340",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16448
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_21_1",
+                "duration_us": "38.407",
+                "flow_id_within_this_trace": "1793841724651312904",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16448
+                }
+              }
+            ],
+            "attributed_device_event_count": 20,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_20_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_21_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 2,
+              "MEMCPY_ASYNC": 2
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-06",
+        "attention_ordinal_zero_based": 6,
+        "inferred_forward_ordinal_zero_based": 3,
+        "inferred_layer_ordinal_zero_based": 0,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 6,
+            "host_start_us_from_this_export": "1793841724658492.350",
+            "host_duration_us": "1043.5",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.5559375",
+                "flow_id_within_this_trace": "1793841724659233654",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              },
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "10.1159375",
+                "flow_id_within_this_trace": "1793841724659456938",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 2,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724659232.250",
+                "host_duration_us": "4.81",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724659233654"
+                ]
+              },
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724659460.180",
+                "host_duration_us": "3.73",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724659456938"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 2,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_26_1",
+                "duration_us": "83.939",
+                "flow_id_within_this_trace": "1793841724658663991",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 256
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_27_1",
+                "duration_us": "91.374",
+                "flow_id_within_this_trace": "1793841724658840630",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 256
+                }
+              }
+            ],
+            "attributed_device_event_count": 20,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_26_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_27_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 2,
+              "MEMCPY_ASYNC": 2
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 6,
+            "host_start_us_from_this_export": "1793841724658555.450",
+            "host_duration_us": "1036.92",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "8.931",
+                "flow_id_within_this_trace": "1793841724659272393",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              },
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.309",
+                "flow_id_within_this_trace": "1793841724659506325",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 2,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724659274.850",
+                "host_duration_us": "3.72",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724659272393"
+                ]
+              },
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724659512.510",
+                "host_duration_us": "3.26",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724659506325"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 2,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_26_1",
+                "duration_us": "56.294",
+                "flow_id_within_this_trace": "1793841724658689135",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 256
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_27_1",
+                "duration_us": "43.576",
+                "flow_id_within_this_trace": "1793841724658886030",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 256
+                }
+              }
+            ],
+            "attributed_device_event_count": 20,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_26_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_27_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 2,
+              "MEMCPY_ASYNC": 2
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-07",
+        "attention_ordinal_zero_based": 7,
+        "inferred_forward_ordinal_zero_based": 3,
+        "inferred_layer_ordinal_zero_based": 1,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 7,
+            "host_start_us_from_this_export": "1793841724660427.280",
+            "host_duration_us": "550.33",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "10.7769375",
+                "flow_id_within_this_trace": "1793841724660833096",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              },
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.7929375",
+                "flow_id_within_this_trace": "1793841724660911873",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 2,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724660817.660",
+                "host_duration_us": "2.71",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724660833096"
+                ]
+              },
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724660917.420",
+                "host_duration_us": "2.6",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724660911873"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 2,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_28_1",
+                "duration_us": "154.487",
+                "flow_id_within_this_trace": "1793841724660550303",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 256
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_29_1",
+                "duration_us": "121.097",
+                "flow_id_within_this_trace": "1793841724660708235",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 256
+                }
+              }
+            ],
+            "attributed_device_event_count": 20,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_28_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_29_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 2,
+              "MEMCPY_ASYNC": 2
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 7,
+            "host_start_us_from_this_export": "1793841724660521.450",
+            "host_duration_us": "629.78",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.872",
+                "flow_id_within_this_trace": "1793841724660956960",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              },
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.14",
+                "flow_id_within_this_trace": "1793841724661079583",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 2,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724660962.160",
+                "host_duration_us": "2.91",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724660956960"
+                ]
+              },
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724661088.020",
+                "host_duration_us": "2.18",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724661079583"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 2,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_28_1",
+                "duration_us": "45.511",
+                "flow_id_within_this_trace": "1793841724660656945",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 256
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_29_1",
+                "duration_us": "38.055",
+                "flow_id_within_this_trace": "1793841724660788620",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 256
+                }
+              }
+            ],
+            "attributed_device_event_count": 20,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_28_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_29_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 2,
+              "MEMCPY_ASYNC": 2
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-08",
+        "attention_ordinal_zero_based": 8,
+        "inferred_forward_ordinal_zero_based": 4,
+        "inferred_layer_ordinal_zero_based": 0,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 8,
+            "host_start_us_from_this_export": "1793841724666651.340",
+            "host_duration_us": "587.05",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.4979375",
+                "flow_id_within_this_trace": "1793841724667151459",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724667150.300",
+                "host_duration_us": "3.51",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724667151459"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_34_1",
+                "duration_us": "204.95",
+                "flow_id_within_this_trace": "1793841724666759349",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_35_1",
+                "duration_us": "85.366",
+                "flow_id_within_this_trace": "1793841724666965859",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 17,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_34_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_35_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 8,
+            "host_start_us_from_this_export": "1793841724666793.590",
+            "host_duration_us": "457.17",
+            "fia_device_tasks": [],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724667179.820",
+                "host_duration_us": "16.51",
+                "exact_source_flow_ids_within_this_trace": []
+              }
+            ],
+            "fia_matched_device_flow_count": 0,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_34_1",
+                "duration_us": "49.018",
+                "flow_id_within_this_trace": "1793841724666914836",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_35_1",
+                "duration_us": "41.793",
+                "flow_id_within_this_trace": "1793841724667007991",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 15,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_34_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_35_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-09",
+        "attention_ordinal_zero_based": 9,
+        "inferred_forward_ordinal_zero_based": 4,
+        "inferred_layer_ordinal_zero_based": 1,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 9,
+            "host_start_us_from_this_export": "1793841724667762.160",
+            "host_duration_us": "431.46",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "10.1089375",
+                "flow_id_within_this_trace": "1793841724668123803",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724668125.610",
+                "host_duration_us": "2.55",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724668123803"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_36_1",
+                "duration_us": "44.649",
+                "flow_id_within_this_trace": "1793841724667860298",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_37_1",
+                "duration_us": "40.808",
+                "flow_id_within_this_trace": "1793841724667962696",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 17,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_36_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_37_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 9,
+            "host_start_us_from_this_export": "1793841724667735.250",
+            "host_duration_us": "427.16",
+            "fia_device_tasks": [],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724668109.250",
+                "host_duration_us": "3.11",
+                "exact_source_flow_ids_within_this_trace": []
+              }
+            ],
+            "fia_matched_device_flow_count": 0,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_36_1",
+                "duration_us": "69.262",
+                "flow_id_within_this_trace": "1793841724667832037",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_37_1",
+                "duration_us": "67.075",
+                "flow_id_within_this_trace": "1793841724667932495",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 15,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_36_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_37_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-10",
+        "attention_ordinal_zero_based": 10,
+        "inferred_forward_ordinal_zero_based": 5,
+        "inferred_layer_ordinal_zero_based": 0,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 10,
+            "host_start_us_from_this_export": "1793841724673491.130",
+            "host_duration_us": "627.69",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "10.0689375",
+                "flow_id_within_this_trace": "1793841724674033594",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724674020.410",
+                "host_duration_us": "15.58",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724674033594"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_42_1",
+                "duration_us": "45.184",
+                "flow_id_within_this_trace": "1793841724673614083",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_43_1",
+                "duration_us": "42.245",
+                "flow_id_within_this_trace": "1793841724673700702",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 17,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_42_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_43_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 10,
+            "host_start_us_from_this_export": "1793841724673381.140",
+            "host_duration_us": "453.28",
+            "fia_device_tasks": [],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724673776.140",
+                "host_duration_us": "5.94",
+                "exact_source_flow_ids_within_this_trace": []
+              }
+            ],
+            "fia_matched_device_flow_count": 0,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_42_1",
+                "duration_us": "161.066",
+                "flow_id_within_this_trace": "1793841724673494140",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_43_1",
+                "duration_us": "82.712",
+                "flow_id_within_this_trace": "1793841724673656809",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 15,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_42_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_43_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-11",
+        "attention_ordinal_zero_based": 11,
+        "inferred_forward_ordinal_zero_based": 5,
+        "inferred_layer_ordinal_zero_based": 1,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 11,
+            "host_start_us_from_this_export": "1793841724674613.390",
+            "host_duration_us": "469.13",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "10.0549375",
+                "flow_id_within_this_trace": "1793841724675010143",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724675013.120",
+                "host_duration_us": "2.25",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724675010143"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_44_1",
+                "duration_us": "49.916",
+                "flow_id_within_this_trace": "1793841724674729892",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_45_1",
+                "duration_us": "41.94",
+                "flow_id_within_this_trace": "1793841724674823254",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 17,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_44_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_45_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 11,
+            "host_start_us_from_this_export": "1793841724674347.690",
+            "host_duration_us": "456.35",
+            "fia_device_tasks": [],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724674748.410",
+                "host_duration_us": "3.43",
+                "exact_source_flow_ids_within_this_trace": []
+              }
+            ],
+            "fia_matched_device_flow_count": 0,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_44_1",
+                "duration_us": "316.911",
+                "flow_id_within_this_trace": "1793841724674458977",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_45_1",
+                "duration_us": "83.894",
+                "flow_id_within_this_trace": "1793841724674777432",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 15,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_44_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_45_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-12",
+        "attention_ordinal_zero_based": 12,
+        "inferred_forward_ordinal_zero_based": 6,
+        "inferred_layer_ordinal_zero_based": 0,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 12,
+            "host_start_us_from_this_export": "1793841724680371.840",
+            "host_duration_us": "426.76",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.6009375",
+                "flow_id_within_this_trace": "1793841724680725309",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724680726.370",
+                "host_duration_us": "2.61",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724680725309"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_50_1",
+                "duration_us": "43.918",
+                "flow_id_within_this_trace": "1793841724680481088",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_51_1",
+                "duration_us": "39.345",
+                "flow_id_within_this_trace": "1793841724680556668",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 17,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_50_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_51_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 12,
+            "host_start_us_from_this_export": "1793841724679965.670",
+            "host_duration_us": "435.92",
+            "fia_device_tasks": [],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724680338.760",
+                "host_duration_us": "3.02",
+                "exact_source_flow_ids_within_this_trace": []
+              }
+            ],
+            "fia_matched_device_flow_count": 0,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_50_1",
+                "duration_us": "409.745",
+                "flow_id_within_this_trace": "1793841724680111146",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_51_1",
+                "duration_us": "70.701",
+                "flow_id_within_this_trace": "1793841724680522431",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 15,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_50_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_51_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-13",
+        "attention_ordinal_zero_based": 13,
+        "inferred_forward_ordinal_zero_based": 6,
+        "inferred_layer_ordinal_zero_based": 1,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 13,
+            "host_start_us_from_this_export": "1793841724681310.100",
+            "host_duration_us": "432.13",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "10.4829375",
+                "flow_id_within_this_trace": "1793841724681661695",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724681663.670",
+                "host_duration_us": "3.94",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724681661695"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_52_1",
+                "duration_us": "43.501",
+                "flow_id_within_this_trace": "1793841724681415355",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_53_1",
+                "duration_us": "39.932",
+                "flow_id_within_this_trace": "1793841724681506355",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 17,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_52_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_53_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 13,
+            "host_start_us_from_this_export": "1793841724680893.290",
+            "host_duration_us": "409.91",
+            "fia_device_tasks": [],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724681248.340",
+                "host_duration_us": "2.96",
+                "exact_source_flow_ids_within_this_trace": []
+              }
+            ],
+            "fia_matched_device_flow_count": 0,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_52_1",
+                "duration_us": "459.23",
+                "flow_id_within_this_trace": "1793841724680995806",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_53_1",
+                "duration_us": "86.391",
+                "flow_id_within_this_trace": "1793841724681456548",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 15,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_52_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_53_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-14",
+        "attention_ordinal_zero_based": 14,
+        "inferred_forward_ordinal_zero_based": 7,
+        "inferred_layer_ordinal_zero_based": 0,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 14,
+            "host_start_us_from_this_export": "1793841724691326.120",
+            "host_duration_us": "764.48",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "13.5359375",
+                "flow_id_within_this_trace": "1793841724692005722",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724692004.780",
+                "host_duration_us": "5.04",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724692005722"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_58_1",
+                "duration_us": "248.574",
+                "flow_id_within_this_trace": "1793841724691448567",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16512
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_59_1",
+                "duration_us": "120.401",
+                "flow_id_within_this_trace": "1793841724691700594",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16512
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_58_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_59_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 14,
+            "host_start_us_from_this_export": "1793841724691457.890",
+            "host_duration_us": "783.42",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "12.413",
+                "flow_id_within_this_trace": "1793841724692155383",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724692156.470",
+                "host_duration_us": "3.69",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724692155383"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_58_1",
+                "duration_us": "102.706",
+                "flow_id_within_this_trace": "1793841724691600974",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16512
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_59_1",
+                "duration_us": "54.562",
+                "flow_id_within_this_trace": "1793841724691767848",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16512
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_58_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_59_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-15",
+        "attention_ordinal_zero_based": 15,
+        "inferred_forward_ordinal_zero_based": 7,
+        "inferred_layer_ordinal_zero_based": 1,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 15,
+            "host_start_us_from_this_export": "1793841724692937.850",
+            "host_duration_us": "465.21",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "12.5639375",
+                "flow_id_within_this_trace": "1793841724693441494",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724693330.140",
+                "host_duration_us": "2.66",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724693441494"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_60_1",
+                "duration_us": "274.01",
+                "flow_id_within_this_trace": "1793841724693061896",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16512
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_61_1",
+                "duration_us": "94.646",
+                "flow_id_within_this_trace": "1793841724693339462",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16512
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_60_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_61_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 15,
+            "host_start_us_from_this_export": "1793841724693152.070",
+            "host_duration_us": "501.43",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "14.398",
+                "flow_id_within_this_trace": "1793841724693573459",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724693574.940",
+                "host_duration_us": "5.46",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724693573459"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_60_1",
+                "duration_us": "50.72",
+                "flow_id_within_this_trace": "1793841724693284662",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16512
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_61_1",
+                "duration_us": "42.392",
+                "flow_id_within_this_trace": "1793841724693390511",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 16512
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_60_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_61_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-16",
+        "attention_ordinal_zero_based": 16,
+        "inferred_forward_ordinal_zero_based": 8,
+        "inferred_layer_ordinal_zero_based": 0,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 16,
+            "host_start_us_from_this_export": "1793841724700498.960",
+            "host_duration_us": "885.49",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.5879375",
+                "flow_id_within_this_trace": "1793841724701074802",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              },
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "13.224875",
+                "flow_id_within_this_trace": "1793841724701302468",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 2,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724701063.870",
+                "host_duration_us": "14.02",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724701074802"
+                ]
+              },
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724701305.130",
+                "host_duration_us": "4.6",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724701302468"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 2,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_66_1",
+                "duration_us": "286.979",
+                "flow_id_within_this_trace": "1793841724700624587",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14528
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_67_1",
+                "duration_us": "151.692",
+                "flow_id_within_this_trace": "1793841724700914740",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14528
+                }
+              }
+            ],
+            "attributed_device_event_count": 20,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_66_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_67_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 2,
+              "MEMCPY_ASYNC": 2
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 16,
+            "host_start_us_from_this_export": "1793841724700703.210",
+            "host_duration_us": "877.3",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "8.46",
+                "flow_id_within_this_trace": "1793841724701264660",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              },
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "12.004",
+                "flow_id_within_this_trace": "1793841724701493010",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 2,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724701267.310",
+                "host_duration_us": "2.72",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724701264660"
+                ]
+              },
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724701499.040",
+                "host_duration_us": "3.16",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724701493010"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 2,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_66_1",
+                "duration_us": "93.618",
+                "flow_id_within_this_trace": "1793841724700823563",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14528
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_67_1",
+                "duration_us": "58.8",
+                "flow_id_within_this_trace": "1793841724701009897",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14528
+                }
+              }
+            ],
+            "attributed_device_event_count": 20,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_66_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_67_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 2,
+              "MEMCPY_ASYNC": 2
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-17",
+        "attention_ordinal_zero_based": 17,
+        "inferred_forward_ordinal_zero_based": 8,
+        "inferred_layer_ordinal_zero_based": 1,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 17,
+            "host_start_us_from_this_export": "1793841724702279.850",
+            "host_duration_us": "593.43",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "8.7169375",
+                "flow_id_within_this_trace": "1793841724702833870",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              },
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "13.4299375",
+                "flow_id_within_this_trace": "1793841724702843251",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 2,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724702685.820",
+                "host_duration_us": "2.99",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724702833870"
+                ]
+              },
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724702799.080",
+                "host_duration_us": "2.7",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724702843251"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 2,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_68_1",
+                "duration_us": "322.062",
+                "flow_id_within_this_trace": "1793841724702407361",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14528
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_69_1",
+                "duration_us": "93.512",
+                "flow_id_within_this_trace": "1793841724702733077",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14528
+                }
+              }
+            ],
+            "attributed_device_event_count": 20,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_68_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_69_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 2,
+              "MEMCPY_ASYNC": 2
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 17,
+            "host_start_us_from_this_export": "1793841724702541.840",
+            "host_duration_us": "586.16",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "8.722",
+                "flow_id_within_this_trace": "1793841724702953012",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              },
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "11.1639375",
+                "flow_id_within_this_trace": "1793841724703059464",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 2,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724702953.900",
+                "host_duration_us": "5.66",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724702953012"
+                ]
+              },
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724703067.450",
+                "host_duration_us": "2.7",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724703059464"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 2,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_68_1",
+                "duration_us": "50.911",
+                "flow_id_within_this_trace": "1793841724702679091",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14528
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_69_1",
+                "duration_us": "45.413",
+                "flow_id_within_this_trace": "1793841724702781154",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 14528
+                }
+              }
+            ],
+            "attributed_device_event_count": 20,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_68_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_69_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 2,
+              "MEMCPY_ASYNC": 2
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-18",
+        "attention_ordinal_zero_based": 18,
+        "inferred_forward_ordinal_zero_based": 9,
+        "inferred_layer_ordinal_zero_based": 0,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 18,
+            "host_start_us_from_this_export": "1793841724708534.630",
+            "host_duration_us": "461.54",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.3099375",
+                "flow_id_within_this_trace": "1793841724709128067",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724708917.120",
+                "host_duration_us": "4.04",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724709128067"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_74_1",
+                "duration_us": "350.282",
+                "flow_id_within_this_trace": "1793841724708661851",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_75_1",
+                "duration_us": "109.126",
+                "flow_id_within_this_trace": "1793841724709015455",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_74_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_75_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 18,
+            "host_start_us_from_this_export": "1793841724708854.740",
+            "host_duration_us": "622.26",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "10.328",
+                "flow_id_within_this_trace": "1793841724709385808",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724709386.780",
+                "host_duration_us": "4.28",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724709385808"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_74_1",
+                "duration_us": "46.82",
+                "flow_id_within_this_trace": "1793841724708966575",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_75_1",
+                "duration_us": "43.958",
+                "flow_id_within_this_trace": "1793841724709081285",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_74_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_75_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-19",
+        "attention_ordinal_zero_based": 19,
+        "inferred_forward_ordinal_zero_based": 9,
+        "inferred_layer_ordinal_zero_based": 1,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 19,
+            "host_start_us_from_this_export": "1793841724709565.000",
+            "host_duration_us": "465.66",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.2609375",
+                "flow_id_within_this_trace": "1793841724710327351",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724709957.910",
+                "host_duration_us": "2.76",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724710327351"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_76_1",
+                "duration_us": "551.428",
+                "flow_id_within_this_trace": "1793841724709674421",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_77_1",
+                "duration_us": "94.831",
+                "flow_id_within_this_trace": "1793841724710228921",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_76_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_77_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 19,
+            "host_start_us_from_this_export": "1793841724710058.600",
+            "host_duration_us": "466.9",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.435",
+                "flow_id_within_this_trace": "1793841724710448709",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724710454.050",
+                "host_duration_us": "2.57",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724710448709"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_76_1",
+                "duration_us": "50.52",
+                "flow_id_within_this_trace": "1793841724710177096",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_77_1",
+                "duration_us": "44.664",
+                "flow_id_within_this_trace": "1793841724710280255",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_76_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_77_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-20",
+        "attention_ordinal_zero_based": 20,
+        "inferred_forward_ordinal_zero_based": 10,
+        "inferred_layer_ordinal_zero_based": 0,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 20,
+            "host_start_us_from_this_export": "1793841724715523.510",
+            "host_duration_us": "479.58",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.7209375",
+                "flow_id_within_this_trace": "1793841724716492501",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724715923.750",
+                "host_duration_us": "9.32",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724716492501"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_82_1",
+                "duration_us": "475.757",
+                "flow_id_within_this_trace": "1793841724715908171",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_83_1",
+                "duration_us": "102.186",
+                "flow_id_within_this_trace": "1793841724716386820",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_82_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_83_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 20,
+            "host_start_us_from_this_export": "1793841724716187.630",
+            "host_duration_us": "617.7",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "10.013",
+                "flow_id_within_this_trace": "1793841724716713825",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724716709.930",
+                "host_duration_us": "5.91",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724716713825"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_82_1",
+                "duration_us": "49.784",
+                "flow_id_within_this_trace": "1793841724716334781",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_83_1",
+                "duration_us": "43.345",
+                "flow_id_within_this_trace": "1793841724716446368",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_82_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_83_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-21",
+        "attention_ordinal_zero_based": 21,
+        "inferred_forward_ordinal_zero_based": 10,
+        "inferred_layer_ordinal_zero_based": 1,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 21,
+            "host_start_us_from_this_export": "1793841724716499.990",
+            "host_duration_us": "476.16",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.6709375",
+                "flow_id_within_this_trace": "1793841724717610449",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724716902.500",
+                "host_duration_us": "2.59",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724717610449"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_84_1",
+                "duration_us": "891.964",
+                "flow_id_within_this_trace": "1793841724716620619",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_85_1",
+                "duration_us": "91.343",
+                "flow_id_within_this_trace": "1793841724717515581",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_84_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_85_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 21,
+            "host_start_us_from_this_export": "1793841724717344.980",
+            "host_duration_us": "451.9",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.989",
+                "flow_id_within_this_trace": "1793841724717720500",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724717724.910",
+                "host_duration_us": "2.78",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724717720500"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_84_1",
+                "duration_us": "49.454",
+                "flow_id_within_this_trace": "1793841724717463253",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_85_1",
+                "duration_us": "41.861",
+                "flow_id_within_this_trace": "1793841724717565140",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 128
+                }
+              }
+            ],
+            "attributed_device_event_count": 18,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_84_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "aclnnInplaceCopy_SliceAiCore_Slice": 1,
+              "hcom_allGather_AicpuKernel_752_85_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-22",
+        "attention_ordinal_zero_based": 22,
+        "inferred_forward_ordinal_zero_based": 11,
+        "inferred_layer_ordinal_zero_based": 0,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 22,
+            "host_start_us_from_this_export": "1793841724722179.720",
+            "host_duration_us": "417.84",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "9.6739375",
+                "flow_id_within_this_trace": "1793841724722958113",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724722527.030",
+                "host_duration_us": "2.97",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724722958113"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_90_1",
+                "duration_us": "387.767",
+                "flow_id_within_this_trace": "1793841724722503059",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_91_1",
+                "duration_us": "62.642",
+                "flow_id_within_this_trace": "1793841724722892417",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 17,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_90_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_91_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 22,
+            "host_start_us_from_this_export": "1793841724722740.030",
+            "host_duration_us": "384.85",
+            "fia_device_tasks": [],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724723070.210",
+                "host_duration_us": "3.28",
+                "exact_source_flow_ids_within_this_trace": []
+              }
+            ],
+            "fia_matched_device_flow_count": 0,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_90_1",
+                "duration_us": "50.868",
+                "flow_id_within_this_trace": "1793841724722840803",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_91_1",
+                "duration_us": "41.093",
+                "flow_id_within_this_trace": "1793841724722913637",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 15,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_90_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_91_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      },
+      {
+        "pair_id": "PCP2-attention-ordinal-23",
+        "attention_ordinal_zero_based": 23,
+        "inferred_forward_ordinal_zero_based": 11,
+        "inferred_layer_ordinal_zero_based": 1,
+        "inference_origin": "Reconstructed from sequential execution of this two-layer eager Qwen2; not explicit step/layer metadata in the trace",
+        "collective_raw_name_dtype_count_sequence_equal": true,
+        "ranks": [
+          {
+            "rank": 0,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 23,
+            "host_start_us_from_this_export": "1793841724723084.720",
+            "host_duration_us": "393.43",
+            "fia_device_tasks": [
+              {
+                "name": "FusedInferAttentionScore",
+                "duration_us": "11.3069375",
+                "flow_id_within_this_trace": "1793841724723794446",
+                "track_name": "Stream 61",
+                "physical_stream_id": 61
+              }
+            ],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724723406.340",
+                "host_duration_us": "3.88",
+                "exact_source_flow_ids_within_this_trace": [
+                  "1793841724723794446"
+                ]
+              }
+            ],
+            "fia_matched_device_flow_count": 1,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_92_1",
+                "duration_us": "523.872",
+                "flow_id_within_this_trace": "1793841724723202616",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_93_1",
+                "duration_us": "62.968",
+                "flow_id_within_this_trace": "1793841724723728126",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 17,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_92_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_93_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1,
+              "FusedInferAttentionScore": 1,
+              "MEMCPY_ASYNC": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          },
+          {
+            "rank": 1,
+            "scope": "vllm::unified_attention_with_output",
+            "scope_ordinal_zero_based": 23,
+            "host_start_us_from_this_export": "1793841724723575.120",
+            "host_duration_us": "369.78",
+            "fia_device_tasks": [],
+            "fia_cpu_call_count": 1,
+            "fia_cpu_api_calls": [
+              {
+                "name": "aclnnFusedInferAttentionScoreV5",
+                "host_start_us_from_this_export": "1793841724723894.110",
+                "host_duration_us": "3.05",
+                "exact_source_flow_ids_within_this_trace": []
+              }
+            ],
+            "fia_matched_device_flow_count": 0,
+            "collective_parent_tasks": [
+              {
+                "name": "hcom_allGather_AicpuKernel_752_92_1",
+                "duration_us": "45.392",
+                "flow_id_within_this_trace": "1793841724723682377",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              },
+              {
+                "name": "hcom_allGather_AicpuKernel_752_93_1",
+                "duration_us": "41.559",
+                "flow_id_within_this_trace": "1793841724723750306",
+                "track_name": "Group group_name_11 Communication",
+                "physical_stream_id": null,
+                "collective_signature": {
+                  "rank_size": 2,
+                  "data_type": "BFP16",
+                  "count": 64
+                }
+              }
+            ],
+            "attributed_device_event_count": 15,
+            "event_name_counts": {
+              "EVENT RECORD": 6,
+              "EVENT WAIT": 4,
+              "hcom_allGather_AicpuKernel_752_92_1": 1,
+              "HcclLaunchAicpuKernel": 2,
+              "hcom_allGather_AicpuKernel_752_93_1": 1,
+              "aclnnScatterPaKvCache_ScatterPaKvCache_ScatterPaKvCache": 1
+            },
+            "unmatched_duration_endpoint_count": 0
+          }
+        ]
+      }
+    ]
+  },
+  "host_clock_evidence": {
+    "source": "Existing profiler_info start_info/end_info and paired host/device metadata from the same local multiprocess captures; host identifier and local paths omitted.",
+    "formulas": {
+      "syscnt_ns_per_tick": "1000 / freq_MHz",
+      "monotonic_minus_syscnt_scaled_to_ns": "start_monotonic - start_cnt * (1000 / freq_MHz)",
+      "wall_minus_monotonic_at_collection_end": "collectionTimeEnd - MonotonicTimeEnd",
+      "reported_difference": "rank1 conversion offset minus rank0 conversion offset, in ns"
+    },
+    "captures": [
+      {
+        "capture": "isolated_attention/TP2_DCP1",
+        "same_host_observed": true,
+        "syscnt_enabled_by_rank": {
+          "rank0": true,
+          "rank1": true
+        },
+        "syscnt_frequency_MHz_by_rank": {
+          "rank0": 100,
+          "rank1": 100
+        },
+        "rank1_minus_rank0_offset_difference_ns": {
+          "monotonic_minus_syscnt_scaled_to_ns": -190,
+          "wall_minus_monotonic_at_collection_end": 1320
+        }
+      },
+      {
+        "capture": "isolated_attention/TP2_DCP2",
+        "same_host_observed": true,
+        "syscnt_enabled_by_rank": {
+          "rank0": true,
+          "rank1": true
+        },
+        "syscnt_frequency_MHz_by_rank": {
+          "rank0": 100,
+          "rank1": 100
+        },
+        "rank1_minus_rank0_offset_difference_ns": {
+          "monotonic_minus_syscnt_scaled_to_ns": -170,
+          "wall_minus_monotonic_at_collection_end": 590
+        }
+      },
+      {
+        "capture": "full_runner/TP2_PCP1_DCP2",
+        "same_host_observed": true,
+        "syscnt_enabled_by_rank": {
+          "rank0": true,
+          "rank1": true
+        },
+        "syscnt_frequency_MHz_by_rank": {
+          "rank0": 100,
+          "rank1": 100
+        },
+        "rank1_minus_rank0_offset_difference_ns": {
+          "monotonic_minus_syscnt_scaled_to_ns": 670,
+          "wall_minus_monotonic_at_collection_end": -190
+        }
+      },
+      {
+        "capture": "full_runner/TP1_PCP2_DCP1",
+        "same_host_observed": true,
+        "syscnt_enabled_by_rank": {
+          "rank0": true,
+          "rank1": true
+        },
+        "syscnt_frequency_MHz_by_rank": {
+          "rank0": 100,
+          "rank1": 100
+        },
+        "rank1_minus_rank0_offset_difference_ns": {
+          "monotonic_minus_syscnt_scaled_to_ns": 1040,
+          "wall_minus_monotonic_at_collection_end": 90
+        }
+      }
+    ],
+    "interpretation": "The observed differences support close agreement of the two processes’ Host clock conversions. Preserve exported absolute timestamps; rank-local first-event zeroing is only a UI locator and does not align peers.",
+    "provides_host_device_or_cross_device_alignment_error_bound": false,
+    "limitation": "These offset differences are not measured upper bounds on Host-to-device or cross-device timestamp error. They do not verify a calibrated common device clock or identify which rank caused a collective wait."
+  }
+}

@@ -18,7 +18,7 @@
 
 第五章《EP 通信与计算重叠：算子选择与融合执行》承接第四章的专家执行，比较 AllGather、AllToAll、MC2 与 MegaMoE 的通信组织和选择条件。副本实验室固定四十个 token、八十次专家任务与同一专家布局，只切换目标 rank 分布，区分专家任务、本地使用、远端激活副本与 BF16 逻辑 payload，不预测耗时。模拟 profiling 沿已核查的 W8A8 自定义内核，区分普通 MC2 的默认局部融合与 Fused-MC2 的 AIV / AIC flag 协作；支持单步、事件依赖和源码定位，横轴为教学推进格。
 
-第六章《上下文并行：KV 分片与 Attention 归并》先说明 TP 对 KV head 的切分与复制，再追踪 PCP 的 query 划分、DCP 的序列分片和局部 Attention 结果归并；源码调用、教学算例和 A5 实操分别标明适用条件。
+第六章《上下文并行：KV 分片与 Attention 归并》先说明 TP 对 KV head 的切分与复制，再追踪 PCP 的 query 划分、DCP 的序列分片和局部 Attention 结果归并；A5 实操用 rank0／rank1 的真实截图、同轮通信配对和逐卡任务记录对照，区分本地调用链、跨 rank 等待线索与尚未确认的原因。
 
 第七章《稀疏 KV 卸载与 HiSparse》沿完整历史、逻辑 TopK 与设备工作集讲解 Decode Offload；五张 SVG 展示地址空间、A3 泳道、A5 两段融合以及 HiSparse 页生命周期和跨层 gather。缓存实验室可切换 CPU LRU 与 Resident/Hot/Source 解析，逐步查看命中、Host miss 与 Attention 槽位。正文区分已合入框架、待合入算子和 RFC 方向，性能表保留作者报告及测量边界。
 

@@ -233,25 +233,77 @@ PCP 是 worker 布局中的一维，这里共四个 worker。DCP 则复用这些
 
 ## 10. 用真实 profiling 看交换发生在哪里
 
-下面两张取自同一组双卡算子实验的 rank 0。原始 trace 在 Linux 上由 Trace Processor 加载，浏览器使用 Perfetto 的 native RPC 查看；图片直接截取查看器，仅裁掉空白区域并转换格式，没有按事件重画泳道。
+只看一个 rank，可以解释本地调用链；要看分片后各卡参与了什么、通信伙伴如何配合，就要把同一轮的多个 rank 放在一起核对。本节为普通 TP、DCP 算子实验和完整 PCP Runner 分别展示 rank 0、rank 1。两卡数据来自同一次对应采集，不是重新挑选两次运行拼成对照。
 
-![TP2、DCP1 实测：完整 KV 路线的 Host scope 与 FIA 设备任务](../dist/assets/profile-cp-dcp1-rank0.png)
+原始 trace 在 Linux 上由 Trace Processor 加载，浏览器使用 Perfetto 的 native RPC 查看；图片直接截取查看器，仅裁掉空白区域并转换格式，没有按事件重画泳道。每张图各自缩放到选定 scope，图片左右边界不是共同起跑线，宽度也不能相除计算加速比。[截图来源与窗口](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/context-parallel/results/profiling-screenshots.json)
 
-第一张是 TP2、DCP1、长度 4096 的第二次采样。上面是 Python/Host scope，下面 `Stream 61` 才是设备任务。本实验的 Attention 对照只出现 FIA，不包含完整 Transformer 的投影、FFN 与 TP 收尾，不能把这张图当成整模型没有通信。
+### 先配对同一轮，再比较两个 rank
 
-![TP2、DCP2 实测：Q AllGather、本地 FIA、打包、AllToAll 和融合归并](../dist/assets/profile-cp-dcp2-rank0.png)
+DCP 算子实验有显式的 `length4096/iteration2` 标签。两个 rank 先按同一 job、输入与迭代配对，再核对通信组和操作序号：这轮 Q AllGather 为 `_503_2_1`，output/LSE AllToAll 为 `_503_3_1`。flow ID 只在各自 trace 内连接 Host 与设备，不能拿它跨 rank 寻找对端。
 
-第二张展开 DCP2 的相应调用。读图时先找 Host 上的 `all_gather` 与 `dcp_a2a_fused`，再沿设备与通信行确认发生了什么：Q AllGather 后，布局调整和本地 FIA 产生 output/LSE，随后 `_pack_token_peer` 打包，经 AllToAll，最后 `_fused_merge_kernel` 归并。短任务的完整名称在图上会被截断，可对照[原始 flow 关联得到的任务清单](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/context-parallel/results/profiling-events.json)。生产接口在这组形状下确实选到了前文描述的融合交换路线。
+完整 PCP Runner 没有显式的 global-step/layer 标签。这里按模型调用顺序重建对应关系，并用同一 communicator 的 collective 序列、dtype 和 count 交叉核对，不能只因两边都叫 AllGather 就认定是同一次通信。首个 Attention 的两次收集在两卡上均为 `_752_2_1`、`_752_3_1`，BF16 count 均为 14464。[两 rank 配对、任务与正确性记录](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/context-parallel/results/rank-comparison.json)
 
-通信导出行 `Group … Communication` 是 profiler 的通信聚合轨道，不要把它的行号当作真实设备 stream 编号。`RECORD/WAIT` 是流间同步事件，也不是额外的 Attention kernel。两个截图分别缩放到各自的采样窗口，横轴不能用图片宽度直接相除来算加速比。
+两卡在同一主机，Host 时钟转换记录也很接近；这支持保留原始导出时间轴查看，却没有给出跨设备对齐的最大误差界。尤其不能把两份文件各自的首事件归零后，就称为同一时刻。已有 flow/重叠 slice 告警也继续保留，微秒级连接线差值不用于推导 launch 延迟。
 
-这组 trace 的导入还有 flow/时钟告警：部分 Host→Device 关联时间差为负，某些 flow 无法配对。因此这里确认算子序列和依赖含义，不用几微秒的连接线间隔推导 launch 延迟，不把两个 rank 的绝对时间直接对齐。截图窗口、源 trace 校验值与这些限制另见[截图来源记录](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/context-parallel/results/profiling-screenshots.json)。
+### 普通 TP：两卡各算自己的 Q heads
 
-![完整 PCP2 Runner 实测：局部 query Attention 前的两次 K/V 收集、缓存写入与 FIA](../dist/assets/profile-cp-pcp2-runner-rank0.png)
+TP2、DCP1 的 Attention 对照里，两卡各有一个 FIA 设备任务，使用各自四个 Q heads 读取完整历史。它们的输出不是同一组 heads，不要求互相相等；正确性应分别对照完整 FP64 结果中对应的 head 范围。
 
-第三张来自实际 TP1、PCP2、DCP1 Runner 的 rank 0，选中第一处带 Prefill 的 `unified_attention_with_output`。Host scope 内先有两次 `all_gather`，再调用 `npu_scatter_pa_kv_cache` 与 FIA；下面能看到通信轨道、流间等待和 Stream 61 的设备任务。它对应第 4 节的本轮 K/V 收集与缓存写入，而不是 DCP 的 output/LSE 归并。
+<!-- DETAILS: 展开普通 TP 的 rank 0 / rank 1 真实对照 -->
 
-这张是一个 Attention scope，既不是整条 513-token 请求的一次完整 Prefill，也不是整个模型的耗时。完整采集里的 AllGather 还有 embedding、输出头和行恢复等用途，不能全部计为 KV 同步；导入的重叠 slice 告警也保留在来源记录中。完整 DCP Runner 还观察到其他打包与 combine 内核，因此前两张算子截图只代表所选分支，不能推广为模型内每次 Attention 的唯一实现。
+![TP2、DCP1 · rank 0：length4096/iteration2，完整 KV Attention](../dist/assets/profile-cp-dcp1-rank0.png)
+
+![TP2、DCP1 · rank 1：同一输入与迭代，完整 KV Attention](../dist/assets/profile-cp-dcp1-rank1.png)
+
+<!-- /DETAILS -->
+
+上面是 Python/Host scope，`Stream 61` 才是设备任务。本算子对照没有包含完整 Transformer 的投影、FFN 与 TP 收尾，不能把图中没有 Q 交换解释为整模型没有通信。
+
+### DCP：两边都要交换、计算和归并
+
+![TP2、DCP2 · rank 0：Q AllGather、本地 FIA、打包、AllToAll 和融合归并](../dist/assets/profile-cp-dcp2-rank0.png)
+
+![TP2、DCP2 · rank 1：同一 iteration2 与通信序号下的执行链](../dist/assets/profile-cp-dcp2-rank1.png)
+
+两卡都先收集需要的 Q heads，再读取各自历史分片，产生 output/LSE；随后 `_pack_token_peer` 打包，经 AllToAll 送回目标 head 的 owner，再由 `_fused_merge_kernel` 归并。短任务的标签会被截断，可对照[各 rank 的完整任务名与 flow 关联](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/context-parallel/results/profiling-events.json)。这组形状下，两边都选到了前文的融合交换路线。
+
+| 同一 DCP2 iteration2 的设备记录 | rank 0 | rank 1 |
+| --- | --- | --- |
+| FIA / 打包 / 融合归并任务数 | 各 1 | 各 1 |
+| Q AllGather 的导出区间 | 43.565 µs | 123.603 µs |
+| output/LSE AllToAll 的导出区间 | 42.377 µs | 145.990 µs |
+
+只看这张表，很容易把 collective 更长的 rank 1 判为慢卡。但在原始导出轴上，rank 1 更早进入这两次通信，两个 rank 的完成点接近；较早到达者等待同轮参与者，也会留下较长区间。它提示要继续追两卡通信前的生产者，不能仅凭 collective 长短完成根因判断。这些是 HCCL AICPU 父区间，包含同步等开销，不是纯传输时间，也不与嵌套的 transport 子任务累加。
+
+通信导出行 `Group … Communication` 是 profiler 的通信聚合轨道，不是真实设备 stream 编号。`RECORD/WAIT` 是流间同步控制，也不是额外的 Attention kernel。判断一处等待是否由对端造成，还需要同一轮的 producer-ready、collective 提交与完成、consumer-wait 等因果证据；当前截图没有把这些缺口补成已测结论。
+
+### PCP：首个窗口相似，不代表后续每轮都相同
+
+![完整 PCP2 Runner · rank 0：本捕获首个 Attention 的 K/V 收集、缓存写入与 FIA](../dist/assets/profile-cp-pcp2-runner-rank0.png)
+
+![完整 PCP2 Runner · rank 1：同一通信序列对应的首个 Attention](../dist/assets/profile-cp-pcp2-runner-rank1.png)
+
+这对 TP1、PCP2、DCP1 窗口里，两卡的 Host scope 都先有两次 K/V AllGather，再调用 `npu_scatter_pa_kv_cache` 与 FIA，并各观测到一个关联的设备 FIA。它对应第 4 节的本轮 K/V 收集与缓存写入，不是 DCP 的 output/LSE 归并，也不是整条 513-token 请求的一次完整 Prefill。
+
+继续配对同一捕获的第九个 Attention，就不能再概括为“两卡做完全相同的事”：两卡仍有同一 communicator 的 `_752_34_1`、`_752_35_1`，BF16 count 均为 64；两边也都有 Host FIA 调用，但 rank 1 未观测到从该调用关联出的设备 FIA。
+
+| 同一 PCP 捕获的观测口径 | rank 0 | rank 1 |
+| --- | --- | --- |
+| 首个 Attention：CPU FIA 调用 / 关联设备 FIA | 1 / 1 | 1 / 1 |
+| 第九个 Attention：CPU FIA 调用 / 关联设备 FIA | 1 / 1 | 1 / 0 |
+| 完整捕获：CPU FIA 调用 / 设备 FIA 记录 | 30 / 30 | 30 / 22 |
+
+<!-- DETAILS: 展开第九个 Attention 的双 rank 真实窗口与观测差异 -->
+
+![完整 PCP2 Runner · rank 0：第九个 Attention，观测到关联设备 FIA](../dist/assets/profile-cp-pcp2-runner-rank0-scope9.png)
+
+![完整 PCP2 Runner · rank 1：配对的第九个 Attention，Host FIA 存在，未观测到关联设备 FIA](../dist/assets/profile-cp-pcp2-runner-rank1-scope9.png)
+
+<!-- /DETAILS -->
+
+这里“未观测到”只描述 trace。当前采集没有每层的有效 query、请求位置和显式 step 标记，不能把这个差异直接归因为空 query、实际跳过计算、丢采样或计算失败，更不能用 30/22 推算负载均衡度或加速比。需要进一步解释时，应补这些 metadata，并把对应 Host 调用、设备任务和输出验证接起来。
+
+两卡完整采集中的 AllGather 还包含 embedding、输出头和行恢复等用途，不能全部计为 KV 同步。完整 DCP Runner 也观察到其他打包与 combine 内核；算子实验展示的单条路径，不是模型内每次 Attention 的唯一实现。
 
 ### 在 Linux 上怎么自己打开？
 
