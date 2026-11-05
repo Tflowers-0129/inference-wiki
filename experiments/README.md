@@ -37,9 +37,11 @@ python3 sse-buffering.py --output ./captures/sse/result.json
 
 MoE 的正确性先比较相同量化权重的两条实现，并用独立路由计数核对任务守恒；这不等于与预训练 BF16 模型比较精度。NPU event 包围 Python 函数提交，区间可能包含等待 Host 或通信伙伴的空隙；结果中的原始样本和中位数不能写成纯 kernel 算力或服务吞吐收益。
 
-各 rank 的 profiler 初始化不同步，完整采集里含有预热遗留。active iteration 由原始 `torch_to_npu` flow ID 关联到 Host scope，再关联设备任务；选定的 [泳道数据](results/a5-moe-swimlane.json) 使用每种实现自己的设备首任务作零点，没有跨 rank 对齐。Host／Device 微秒级时间差未经独立校准，Perfetto 导入还存在 flow 告警，因此不据其计算派发延迟。
+各 rank 的 profiler 初始化不同步，完整采集还含未归属 active scope 的设备任务。active iteration 由原始 `torch_to_npu` flow ID 关联到 Host scope，再关联设备任务；选定的 [泳道数据](results/a5-moe-swimlane.json) 使用每种实现自己的设备首任务作零点，没有跨 rank 对齐。Host／Device 微秒级时间差未经独立校准，Perfetto 导入还存在 flow 告警，因此不据其计算派发延迟。
 
 第二章的 [padded 正确性结果](results/padded-inputs.json) 与 [任务归属摘要](results/padded-profile.json)、第三章的 [进度修正结果](results/batch-change.json) 与 [SSE 实际打点](results/sse-buffering.json) 分别保留各自口径。SSE 的单块七项 TPOT=0 是接收边界的退化结果；O=1 时记录为未定义。
+
+第五章另用四张真实 Perfetto 截图配对 tokens32、iteration2 的 MC2／CANN MegaMoE 两个 rank。[逐卡任务与路由结果](results/a5-moe-rank-comparison.json)保留精确 flow、Host／Device 窗口及 71+57=128 次专家任务；[截图来源](results/a5-moe-profiling-screenshots.json)记录源 SHA 和实际显示范围。Level0 没有独立的 HCCL peer 收发轨道，因此不套用第六章的集体通信序号配对，也不从单卡区间判定慢 rank。
 
 Linux 上解析与浏览器查看的完整步骤见 [第五章实操](https://tflowers-0129.github.io/inference-wiki/ep-communication.html#ep-communication-11)。MindStudio Insight 应保留完整 `*_ascend_pt` 目录；本仓库不自动公开原始 trace。
 

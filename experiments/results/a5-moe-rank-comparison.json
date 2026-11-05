@@ -1,0 +1,454 @@
+{
+  "schema": "wiki-a5-moe-rank-comparison/1",
+  "capture_date": "2026-11-04",
+  "analysis_date": "2026-11-05",
+  "scope": "Existing A5 eager isolated MoE-layer capture; two EP ranks, fixed random inputs and W4A8MXFP weights; no new NPU run",
+  "source": {
+    "vllm_ascend": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+    "vllm": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0.post7",
+    "cann": "9.2.1",
+    "driver": "25.6.rc3"
+  },
+  "conditions": {
+    "hardware": "Ascend950DT",
+    "ep": 2,
+    "tp": 1,
+    "experts": 8,
+    "hidden": 1024,
+    "intermediate": 1024,
+    "topk": 2,
+    "quantization": "W4A8MXFP",
+    "activation": "SiLU",
+    "graph": "eager",
+    "tokens_per_source_rank": 32,
+    "source_rank_count": 2,
+    "global_input_token_count": 64,
+    "global_token_expert_assignment_count": 128,
+    "local_experts_per_rank": 4,
+    "profile_iteration": 2,
+    "profiler_level": "Level0",
+    "profile_warmup_iteration": 0,
+    "active_profile_iterations": [
+      1,
+      2
+    ]
+  },
+  "references": {
+    "harness": "../a5-moe.py",
+    "numeric_results": "a5-moe.json",
+    "existing_rank0_swimlane": "a5-moe-swimlane.json",
+    "numeric_results_sha256": "063379548e58c036be8adc1ee6fc174a18ed0a67f5b15d0c5a91fe8056e55bcc",
+    "existing_rank0_swimlane_sha256": "acfe20c2beb7900940fe81cf2ce06f7d42188d1ba561401e8f9dfeb733a663cb"
+  },
+  "association": {
+    "within_one_rank": "Exact async_npu torch_to_npu flow ID joins an exact CPU source pid/tid/timestamp to an exact device destination pid/tid/timestamp; same-thread CPU scope ancestry selects iteration2. Host-time containment does not assign device tasks.",
+    "across_ranks": "Same two-process profiling job, explicit implementation/tokens32/iteration2 scope, fixed per-rank inputs and logical weights, and identical ordered CPU endpoint/device-task names cross-check the same semantic invocation.",
+    "collective_sequence_or_peer_transfer_ids_present": false,
+    "specific_peer_send_receive_matching_established": false,
+    "cross_rank_clock_calibration_established": false,
+    "per_scope_time_origin": "First flow-attributed device task in that rank and implementation; relative zero is not a shared synchronization point.",
+    "limits": [
+      "MC2 dispatch/combine and MegaMoe communicate internally. These Level0 exports have no separate HCCL parent/transport duration events or communication.json to pair individual peer transfers.",
+      "Generic Communication/Free summary tracks are present; they do not identify the internal MC2 or MegaMoe send/receive protocol.",
+      "Flow IDs and task/connection IDs are local export associations, not cross-rank message IDs.",
+      "Shared job/scope order establishes semantic pairing, not equal issue time, simultaneous device start, or the peer responsible for a wait."
+    ]
+  },
+  "interpretation_limits": [
+    "Single instrumented iteration snapshots do not measure steady-state latency, service throughput, a stable rank speedup, or the critical rank.",
+    "Host scopes submit asynchronous work. The selected rank1 device tasks lie well after the Host scope on the raw exporter time axis; associate by explicit flow, not scope-window overlap.",
+    "Negative and large positive Host-to-Device flow endpoint differences are retained as raw diagnostics; they are not calibrated launch latency or proof of a particular wait cause.",
+    "Independent re-zeroing cannot align ranks. Do not draw cross-rank flow arrows, infer peer arrival order, or divide screenshot widths to compute speedup.",
+    "MegaMoe is one externally visible device task here. Its internal AIV/AIC stages, tile handoffs, network pipeline and achieved overlap are opaque in this capture.",
+    "Task Type labels classify exported tasks; KERNEL_MIX_AIC does not establish that a fused task contains no internal AIV work.",
+    "Blank intervals on Stream61 have no assigned cause. Do not label every gap as communication, waiting, CPU overhead, or available overlap.",
+    "The correctness comparison is MegaMoe versus the decomposed production-operator reference with the same logical quantized weights; there is no independent full-precision numerical oracle or trained-model quality evaluation.",
+    "Routing counts count token-expert assignments, not unique original tokens or allocated buffer rows. TopK2 contributes two assignments per input token.",
+    "Expert task count differences do not establish a load-balance runtime result or explain the rank timing differences.",
+    "Full-range rank1 exports contain extra device tasks not attributed to either active scope. They are excluded here; their exact origin is not established by this extract."
+  ],
+  "per_rank_correctness_and_routing": [
+    {
+      "rank": 0,
+      "source_input_tokens": 32,
+      "local_global_expert_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "local_expert_assignment_counts": [
+        15,
+        18,
+        24,
+        14
+      ],
+      "received_expert_assignment_count": 71,
+      "count_oracle_method": "bincount(topk_ids.flatten(), minlength=8), all_reduce over the EP group, then select this rank global expert-ID range",
+      "mega_counts_equal_decomposed_counts": true,
+      "mega_counts_equal_independent_routing_count_oracle": true,
+      "relative_rmse_mega_vs_mc2": 0.0,
+      "cosine_mega_vs_mc2": 1.0000000000000002,
+      "max_abs_error_mega_vs_mc2": 0.0,
+      "comparison_output_shape": [
+        32,
+        1024
+      ],
+      "measurement_relation": "Correctness is asserted before profiling on the same input/weight case; no new numeric assertion is performed inside selected profiler iteration2."
+    },
+    {
+      "rank": 1,
+      "source_input_tokens": 32,
+      "local_global_expert_ids": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "local_expert_assignment_counts": [
+        14,
+        15,
+        13,
+        15
+      ],
+      "received_expert_assignment_count": 57,
+      "count_oracle_method": "bincount(topk_ids.flatten(), minlength=8), all_reduce over the EP group, then select this rank global expert-ID range",
+      "mega_counts_equal_decomposed_counts": true,
+      "mega_counts_equal_independent_routing_count_oracle": true,
+      "relative_rmse_mega_vs_mc2": 0.0,
+      "cosine_mega_vs_mc2": 0.9999999999999999,
+      "max_abs_error_mega_vs_mc2": 0.0,
+      "comparison_output_shape": [
+        32,
+        1024
+      ],
+      "measurement_relation": "Correctness is asserted before profiling on the same input/weight case; no new numeric assertion is performed inside selected profiler iteration2."
+    }
+  ],
+  "routing_conservation": {
+    "rank0_received_assignments": 71,
+    "rank1_received_assignments": 57,
+    "sum_received_assignments": 128,
+    "expected_assignments": "2 source ranks * 32 input tokens/rank * topk2 = 128",
+    "passed": true,
+    "original_unique_token_count": 64,
+    "expert_num_interpretation": "Returned per-local-expert token-expert assignment counts; the two rank sums 71 and 57 are not the original token counts.",
+    "capacity_note": "Harness passes max_recv_token_num=128 to the buffer allocator. This is a configured receive limit, not a verified allocation shape, HBM measurement, or effective assignment count.",
+    "not_recorded": [
+      "per-source-rank to destination-rank send-count matrix",
+      "per-token expert IDs in the public result",
+      "unique input tokens contributing to each destination rank"
+    ],
+    "configured_max_recv_token_num": 128
+  },
+  "paired_windows": [
+    {
+      "pair_id": "EP2-MC2-tokens32-iteration2",
+      "implementation": "MC2",
+      "viewer_search_scope": "wiki/MC2/tokens32/iteration2",
+      "same_job_explicit_scope_and_input_case": true,
+      "cross_rank_ordered_host_endpoint_and_device_task_names_equal": true,
+      "matching_is_semantic_not_timestamp_alignment": true,
+      "ranks": [
+        {
+          "rank": 0,
+          "source_trace_sha256": "d7a007adc24dddfd9389ec66426363b68753b7ac55e4fb4217557353bced748d",
+          "source_trace_bytes": 41537,
+          "scope": "wiki/MC2/tokens32/iteration2",
+          "selected_scope_occurrence_one_based": 1,
+          "host_scope_start_us_from_this_export": "1793798522879028.830",
+          "host_scope_duration_us": "778.33",
+          "device_origin_us_from_this_export": "1793798522879307.746",
+          "device_span_us": "449.6409375",
+          "device_duration_sum_us": "42.8706875",
+          "device_duration_sum_limit": "Only the listed nonoverlapping external tasks; excludes gaps and opaque internal stages, and is not end-to-end layer time.",
+          "attributed_device_task_count": 5,
+          "physical_stream_ids": [
+            61
+          ],
+          "tasks": [
+            {
+              "kernel": "MoeDistributeDispatchV3",
+              "host_operator": "aclnnMoeDistributeDispatchV4",
+              "category": "dispatch_communication",
+              "physical_stream_id": 61,
+              "task_type": "KERNEL_MIX_AIV",
+              "flow_id_within_this_trace": "1793798522879307746",
+              "device_start_us_from_this_export": "1793798522879307.746",
+              "device_end_us_from_this_export": "1793798522879319.745875",
+              "duration_us": "11.999875",
+              "relative_start_us_from_this_rank_first_task": "0.000",
+              "relative_end_us_from_this_rank_first_task": "11.999875",
+              "raw_flow_endpoint_delta_us_not_launch_latency": "-11.574"
+            },
+            {
+              "kernel": "aclnnGroupedMatmulWeightNz_GroupedMatmul_GroupedMatmul",
+              "host_operator": "aclnnGroupedMatmulWeightNz",
+              "category": "grouped_matmul_compute",
+              "physical_stream_id": 61,
+              "task_type": "KERNEL_MIX_AIC",
+              "flow_id_within_this_trace": "1793798522879382950",
+              "device_start_us_from_this_export": "1793798522879382.950",
+              "device_end_us_from_this_export": "1793798522879391.350",
+              "duration_us": "8.4",
+              "relative_start_us_from_this_rank_first_task": "75.204",
+              "relative_end_us_from_this_rank_first_task": "83.604",
+              "raw_flow_endpoint_delta_us_not_launch_latency": "-10.980"
+            },
+            {
+              "kernel": "SwigluGroupQuant",
+              "host_operator": "aclnnSwigluGroupQuant",
+              "category": "activation_quantization",
+              "physical_stream_id": 61,
+              "task_type": "KERNEL_AIVEC",
+              "flow_id_within_this_trace": "1793798522879442542",
+              "device_start_us_from_this_export": "1793798522879442.542",
+              "device_end_us_from_this_export": "1793798522879447.6139375",
+              "duration_us": "5.0719375",
+              "relative_start_us_from_this_rank_first_task": "134.796",
+              "relative_end_us_from_this_rank_first_task": "139.8679375",
+              "raw_flow_endpoint_delta_us_not_launch_latency": "-5.048"
+            },
+            {
+              "kernel": "aclnnGroupedMatmulWeightNz_GroupedMatmul_GroupedMatmul",
+              "host_operator": "aclnnGroupedMatmulWeightNz",
+              "category": "grouped_matmul_compute",
+              "physical_stream_id": 61,
+              "task_type": "KERNEL_MIX_AIC",
+              "flow_id_within_this_trace": "1793798522879491118",
+              "device_start_us_from_this_export": "1793798522879491.118",
+              "device_end_us_from_this_export": "1793798522879500.1809375",
+              "duration_us": "9.0629375",
+              "relative_start_us_from_this_rank_first_task": "183.372",
+              "relative_end_us_from_this_rank_first_task": "192.4349375",
+              "raw_flow_endpoint_delta_us_not_launch_latency": "-13.332"
+            },
+            {
+              "kernel": "MoeDistributeCombineV3",
+              "host_operator": "aclnnMoeDistributeCombineV4",
+              "category": "combine_communication",
+              "physical_stream_id": 61,
+              "task_type": "KERNEL_MIX_AIV",
+              "flow_id_within_this_trace": "1793798522879749051",
+              "device_start_us_from_this_export": "1793798522879749.051",
+              "device_end_us_from_this_export": "1793798522879757.3869375",
+              "duration_us": "8.3359375",
+              "relative_start_us_from_this_rank_first_task": "441.305",
+              "relative_end_us_from_this_rank_first_task": "449.6409375",
+              "raw_flow_endpoint_delta_us_not_launch_latency": "-12.439"
+            }
+          ],
+          "export_import_diagnostics": {
+            "full_range_device_task_count": 10,
+            "full_range_unassigned_device_task_count": 0,
+            "full_range_unresolved_framework_flow_count": 0,
+            "perfetto_parse_exit": 0,
+            "perfetto_full_range_warnings": {
+              "flow_no_enclosing_slice": 10
+            },
+            "warning_scope": "Warnings and full-range task counts apply to the complete source export, not only selected iteration2."
+          }
+        },
+        {
+          "rank": 1,
+          "source_trace_sha256": "1057fe270e78b19881b51ee1b473606767ed5bb2b68b8e0dea6535b3351ba2f7",
+          "source_trace_bytes": 45019,
+          "scope": "wiki/MC2/tokens32/iteration2",
+          "selected_scope_occurrence_one_based": 1,
+          "host_scope_start_us_from_this_export": "1793798522866169.670",
+          "host_scope_duration_us": "742.93",
+          "device_origin_us_from_this_export": "1793798522878888.971",
+          "device_span_us": "870.357625",
+          "device_duration_sum_us": "870.2691875",
+          "device_duration_sum_limit": "Only the listed nonoverlapping external tasks; excludes gaps and opaque internal stages, and is not end-to-end layer time.",
+          "attributed_device_task_count": 5,
+          "physical_stream_ids": [
+            61
+          ],
+          "tasks": [
+            {
+              "kernel": "MoeDistributeDispatchV3",
+              "host_operator": "aclnnMoeDistributeDispatchV4",
+              "category": "dispatch_communication",
+              "physical_stream_id": 61,
+              "task_type": "KERNEL_MIX_AIV",
+              "flow_id_within_this_trace": "1793798522878888971",
+              "device_start_us_from_this_export": "1793798522878888.971",
+              "device_end_us_from_this_export": "1793798522879321.398625",
+              "duration_us": "432.427625",
+              "relative_start_us_from_this_rank_first_task": "0.000",
+              "relative_end_us_from_this_rank_first_task": "432.427625",
+              "raw_flow_endpoint_delta_us_not_launch_latency": "12447.481"
+            },
+            {
+              "kernel": "aclnnGroupedMatmulWeightNz_GroupedMatmul_GroupedMatmul",
+              "host_operator": "aclnnGroupedMatmulWeightNz",
+              "category": "grouped_matmul_compute",
+              "physical_stream_id": 61,
+              "task_type": "KERNEL_MIX_AIC",
+              "flow_id_within_this_trace": "1793798522879321421",
+              "device_start_us_from_this_export": "1793798522879321.421",
+              "device_end_us_from_this_export": "1793798522879329.965",
+              "duration_us": "8.544",
+              "relative_start_us_from_this_rank_first_task": "432.450",
+              "relative_end_us_from_this_rank_first_task": "440.994",
+              "raw_flow_endpoint_delta_us_not_launch_latency": "12807.821"
+            },
+            {
+              "kernel": "SwigluGroupQuant",
+              "host_operator": "aclnnSwigluGroupQuant",
+              "category": "activation_quantization",
+              "physical_stream_id": 61,
+              "task_type": "KERNEL_AIVEC",
+              "flow_id_within_this_trace": "1793798522879329987",
+              "device_start_us_from_this_export": "1793798522879329.987",
+              "device_end_us_from_this_export": "1793798522879334.6409375",
+              "duration_us": "4.6539375",
+              "relative_start_us_from_this_rank_first_task": "441.016",
+              "relative_end_us_from_this_rank_first_task": "445.6699375",
+              "raw_flow_endpoint_delta_us_not_launch_latency": "12757.167"
+            },
+            {
+              "kernel": "aclnnGroupedMatmulWeightNz_GroupedMatmul_GroupedMatmul",
+              "host_operator": "aclnnGroupedMatmulWeightNz",
+              "category": "grouped_matmul_compute",
+              "physical_stream_id": 61,
+              "task_type": "KERNEL_MIX_AIC",
+              "flow_id_within_this_trace": "1793798522879334663",
+              "device_start_us_from_this_export": "1793798522879334.663",
+              "device_end_us_from_this_export": "1793798522879341.957",
+              "duration_us": "7.294",
+              "relative_start_us_from_this_rank_first_task": "445.692",
+              "relative_end_us_from_this_rank_first_task": "452.986",
+              "raw_flow_endpoint_delta_us_not_launch_latency": "12708.173"
+            },
+            {
+              "kernel": "MoeDistributeCombineV3",
+              "host_operator": "aclnnMoeDistributeCombineV4",
+              "category": "combine_communication",
+              "physical_stream_id": 61,
+              "task_type": "KERNEL_MIX_AIV",
+              "flow_id_within_this_trace": "1793798522879341979",
+              "device_start_us_from_this_export": "1793798522879341.979",
+              "device_end_us_from_this_export": "1793798522879759.328625",
+              "duration_us": "417.349625",
+              "relative_start_us_from_this_rank_first_task": "453.008",
+              "relative_end_us_from_this_rank_first_task": "870.357625",
+              "raw_flow_endpoint_delta_us_not_launch_latency": "12470.359"
+            }
+          ],
+          "export_import_diagnostics": {
+            "full_range_device_task_count": 15,
+            "full_range_unassigned_device_task_count": 5,
+            "full_range_unresolved_framework_flow_count": 0,
+            "perfetto_parse_exit": 0,
+            "perfetto_full_range_warnings": {
+              "flow_no_enclosing_slice": 10,
+              "slice_spill_overlapping_complete_event": 12
+            },
+            "warning_scope": "Warnings and full-range task counts apply to the complete source export, not only selected iteration2."
+          }
+        }
+      ]
+    },
+    {
+      "pair_id": "EP2-MegaMoe-tokens32-iteration2",
+      "implementation": "MegaMoe",
+      "viewer_search_scope": "wiki/MegaMoe/tokens32/iteration2",
+      "same_job_explicit_scope_and_input_case": true,
+      "cross_rank_ordered_host_endpoint_and_device_task_names_equal": true,
+      "matching_is_semantic_not_timestamp_alignment": true,
+      "ranks": [
+        {
+          "rank": 0,
+          "source_trace_sha256": "2dd1b073a8470ca0e2456f210f4dd804a18b7cafd2f1d0644c6b6a323a7cfba0",
+          "source_trace_bytes": 15332,
+          "scope": "wiki/MegaMoe/tokens32/iteration2",
+          "selected_scope_occurrence_one_based": 1,
+          "host_scope_start_us_from_this_export": "1793798527684307.920",
+          "host_scope_duration_us": "226.8",
+          "device_origin_us_from_this_export": "1793798527684488.542",
+          "device_span_us": "32.5188125",
+          "device_duration_sum_us": "32.5188125",
+          "device_duration_sum_limit": "Only the listed nonoverlapping external tasks; excludes gaps and opaque internal stages, and is not end-to-end layer time.",
+          "attributed_device_task_count": 1,
+          "physical_stream_ids": [
+            61
+          ],
+          "tasks": [
+            {
+              "kernel": "MegaMoe",
+              "host_operator": "aclnnMegaMoe",
+              "category": "fused_moe_opaque",
+              "physical_stream_id": 61,
+              "task_type": "KERNEL_MIX_AIC",
+              "flow_id_within_this_trace": "1793798527684488542",
+              "device_start_us_from_this_export": "1793798527684488.542",
+              "device_end_us_from_this_export": "1793798527684521.0608125",
+              "duration_us": "32.5188125",
+              "relative_start_us_from_this_rank_first_task": "0.000",
+              "relative_end_us_from_this_rank_first_task": "32.5188125",
+              "raw_flow_endpoint_delta_us_not_launch_latency": "-4.348"
+            }
+          ],
+          "export_import_diagnostics": {
+            "full_range_device_task_count": 2,
+            "full_range_unassigned_device_task_count": 0,
+            "full_range_unresolved_framework_flow_count": 0,
+            "perfetto_parse_exit": 0,
+            "perfetto_full_range_warnings": {
+              "flow_no_enclosing_slice": 2
+            },
+            "warning_scope": "Warnings and full-range task counts apply to the complete source export, not only selected iteration2."
+          }
+        },
+        {
+          "rank": 1,
+          "source_trace_sha256": "8d646630f505e1f012c271db9f4730608d96259c641f27ee700bc643318b98fb",
+          "source_trace_bytes": 16041,
+          "scope": "wiki/MegaMoe/tokens32/iteration2",
+          "selected_scope_occurrence_one_based": 1,
+          "host_scope_start_us_from_this_export": "1793798527677721.540",
+          "host_scope_duration_us": "252.71",
+          "device_origin_us_from_this_export": "1793798527684222.477",
+          "device_span_us": "299.7576875",
+          "device_duration_sum_us": "299.7576875",
+          "device_duration_sum_limit": "Only the listed nonoverlapping external tasks; excludes gaps and opaque internal stages, and is not end-to-end layer time.",
+          "attributed_device_task_count": 1,
+          "physical_stream_ids": [
+            61
+          ],
+          "tasks": [
+            {
+              "kernel": "MegaMoe",
+              "host_operator": "aclnnMegaMoe",
+              "category": "fused_moe_opaque",
+              "physical_stream_id": 61,
+              "task_type": "KERNEL_MIX_AIC",
+              "flow_id_within_this_trace": "1793798527684222477",
+              "device_start_us_from_this_export": "1793798527684222.477",
+              "device_end_us_from_this_export": "1793798527684522.2346875",
+              "duration_us": "299.7576875",
+              "relative_start_us_from_this_rank_first_task": "0.000",
+              "relative_end_us_from_this_rank_first_task": "299.7576875",
+              "raw_flow_endpoint_delta_us_not_launch_latency": "6292.077"
+            }
+          ],
+          "export_import_diagnostics": {
+            "full_range_device_task_count": 3,
+            "full_range_unassigned_device_task_count": 1,
+            "full_range_unresolved_framework_flow_count": 0,
+            "perfetto_parse_exit": 0,
+            "perfetto_full_range_warnings": {
+              "flow_no_enclosing_slice": 2,
+              "slice_spill_overlapping_complete_event": 2
+            },
+            "warning_scope": "Warnings and full-range task counts apply to the complete source export, not only selected iteration2."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -256,7 +256,9 @@ DBO 则把 batch 拆为两个 microbatch，用一份的计算覆盖另一份的�
 
 名称还需按层对齐：Python 调用的是 `npu_moe_distribute_dispatch_v2/combine_v2`，Host trace 记录 `aclnnMoeDistributeDispatchV4/CombineV4`，设备任务名则带 V3。它们属于不同接口层，不能仅凭设备矩形的名字反推 Python 配置。
 
-![A5 实测快照：同一 rank 的普通 MC2 五个设备任务与单个 CANN MegaMoE，按各自首任务归零并使用相同微秒刻度](../dist/assets/a5-mc2-megamoe-measured.svg)
+<!-- COLLAPSIBLE_FIGURE: 展开 rank 0 实测事件复绘 · SVG，非查看器截图 -->
+
+![A5 实测事件复绘：同一 rank 的 MC2 五个设备任务与单个 CANN MegaMoE，各自首任务归零，不是跨 rank 同步时间线](../dist/assets/a5-mc2-megamoe-measured.svg)
 
 图选取每 rank 32 行、rank 0 的第二个 active iteration，保留实际 stream 61 与设备时间，两个实现各自以首任务为零。普通链的首尾跨度为 449.64 µs，五个任务的时长和为 42.87 µs；融合任务为 32.52 µs。留白只表示这条流没有记录到所选专家链的设备任务，尚未逐段归因，不能全部标成网络等待。这是一对带 profiling 的执行快照，不是延迟中位数或跨 rank 同步时间线。[可复算的泳道数据](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/results/a5-moe-swimlane.json)
 
@@ -271,7 +273,40 @@ DBO 则把 batch 拆为两个 microbatch，用一份的计算覆盖另一份的�
 
 event 包围的是 Python 函数提交的整条链，可能包含设备等待 Host 后续提交及通信伙伴的空隙。它反映这组固定小输入的 eager 执行区间，不是纯 kernel 时长；独占的是这两张设备，同机其他卡仍有服务。大矩阵、graph replay、其他量化或完整模型都需要重新对照。外部只有一个 `MegaMoe` 矩形，也不足以证明第 7 节自定义内核的每个 flag 在 A5 CANN 中怎样发生。
 
-### 11.3 在 Linux 解析，再用浏览器看泳道
+### 11.3 把同一轮的 rank 0、rank 1 放在一起看
+
+单个 rank 的快照只能解释本地任务。判断两卡如何共同完成同一轮，先要补齐参与者，再检查窗口是否真的对应。下面复用同次双卡实验的每 rank 32 行输入，选择明确标记的 `wiki/MC2/tokens32/iteration2` 与 `wiki/MegaMoe/tokens32/iteration2`；权重、输入和路由与第 11.1 节相同，没有另外挑选一组更均衡的数据。
+
+本组 Level0 导出没有独立的 HCCL 收发轨道、`communication.json` 或可用的集体通信序号。配对依据是同一双进程 job、实现、形状、显式迭代标签及一致的调用顺序；随后在各自文件内沿精确 flow ID 找到设备任务。MC2 与 MegaMoE 各自创建通信组，不能把两条实现的相似编号当成同一个 communicator，也不能把某个 flow ID 当作跨 rank 的消息 ID。[双 rank 原始任务、窗口与正确性记录](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/results/a5-moe-rank-comparison.json)
+
+先看 MC2。两卡都是 Dispatch、GMM1、SwiGLU/量化、GMM2、Combine 五个外部设备任务，实际记录在 `Stream 61` 上。任务序列相同，不表示每段耗时、提交间隙或有效专家任务数相同。
+
+![MC2 · rank 0：tokens32/iteration2 的 Host 提交与五个关联设备任务](../dist/assets/profile-a5-mc2-rank0.png)
+
+![MC2 · rank 1：按 flow 定位同一 iteration2 的设备窗口，保留五个任务](../dist/assets/profile-a5-mc2-rank1.png)
+
+再看 CANN MegaMoE。两卡各观测到一个外部 `MegaMoe` 任务；这确认了本次调用的融合边界，内部 Dispatch、矩阵与向量计算、回传怎样交错，仍没有从这一级采样展开。
+
+![CANN MegaMoE · rank 0：tokens32/iteration2 的单个融合设备任务](../dist/assets/profile-a5-megamoe-rank0.png)
+
+![CANN MegaMoE · rank 1：通过 flow 关联同一 iteration2 的融合设备任务](../dist/assets/profile-a5-megamoe-rank1.png)
+
+| 同一 iteration2 的记录 | rank | 本 rank 专家任务数 | 外部设备任务数 | 关联设备首尾跨度 |
+| --- | --- | --- | --- | --- |
+| MC2 | 0 | 71 | 5 | 449.64 µs |
+| MC2 | 1 | 57 | 5 | 870.36 µs |
+| CANN MegaMoE | 0 | 71 | 1 | 32.52 µs |
+| CANN MegaMoE | 1 | 57 | 1 | 299.76 µs |
+
+71 与 57 是 token-expert assignment 数，不是两卡原始输入行数。rank 0 的四位本地专家分别收到 `[15,18,24,14]`，rank 1 为 `[14,15,13,15]`，仍满足 `71+57=2×32×2=128`；它们也不是接收缓冲的预留容量。两实现分别对每个源 rank 的输出做正确性比较，不要求 rank 0 的输出与 rank 1 相等。
+
+表中的单次设备跨度与第 11.2 节的 NPU event 中位数是两种口径。rank 0 的 32.52 µs 不能代表整个 EP 组；rank 1 的 Dispatch、Combine 区间较长，也不能仅凭较长矩形断言对端迟到、链路慢或本卡专家计算更慢。通信和内部同步包含在这些设备任务里，本采集没有恢复每条 peer 消息、producer-ready 或消费者等待的完整因果链。上述数值不用于计算稳态或服务级加速比。
+
+这里还有一个定位问题：rank 1 的 Host scope 与其关联设备任务在原始导出轴上相距较远，不能只放大 Host 范围、再把落在范围外的设备任务删掉。图中 rank 1 展示的是精确 flow 找到的设备窗口；rank 0 则保留能同时看到提交与设备链的窗口。每张图独立缩放，画面左边界不是统一起跑线；这些 Host→Device 时间差也不作为已校准的派发延迟。[真实截图来源与选中设备窗口](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/results/a5-moe-profiling-screenshots.json)
+
+完整采集还含未归到 active scope 的设备任务，不能凭“第几个矩形”直接选择迭代。图中只解释经 flow 归属到 iteration2 的任务；其他可见区间不混入本轮计数，也不把留白一概标成网络等待。本次 A5 W4A8MXFP CANN 图与第 7 节的自定义 W8A8 源码模拟继续分开，单个 `MegaMoe` 记录不证明后者的每个 AIV/AIC flag 已在本次测得。
+
+### 11.4 在 Linux 解析，再用浏览器看泳道
 
 本次已在服务器的 Linux aarch64 上运行 Perfetto Trace Processor，读取真实 `trace_view.json` 并执行 SQL；随后通过 SSH 转发，把服务器本地解析器接到浏览器 Perfetto UI，实际展开了 Host 线程和 Ascend Hardware 的 stream 泳道。Linux 无桌面也能完成解析，不要求先安装 GUI。官方工具提供 Linux arm64 预编译版本；本次服务器直连二进制下载失败，采用本地下载、核对 SHA256 后传入的方式。[官方下载脚本](https://raw.githubusercontent.com/google/perfetto/main/tools/trace_processor) · [命令行接口](https://perfetto.dev/docs/reference/trace-processor-cli)
 

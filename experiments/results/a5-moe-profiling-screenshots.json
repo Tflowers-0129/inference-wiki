@@ -1,0 +1,167 @@
+{
+  "schema": "wiki-moe-viewer-screenshots/1",
+  "trace_capture_date": "2026-11-04",
+  "screenshot_date": "2026-11-05",
+  "new_npu_runs_for_screenshots": 0,
+  "viewer": "Perfetto UI v59.1-1e9c61e98",
+  "native_linux_parser": "official Linux-arm64 trace_processor_shell v59.1",
+  "native_linux_binary_sha256": "a08e4836171c87be3ba5834eef3489aa8803476d35f292ed7feaccae252747d0",
+  "tool_source": "https://github.com/google/perfetto/releases/tag/v59.1",
+  "conditions": "A5 W4A8MXFP, SiLU, EP2/TP1, tokens32 per source rank, topk2, eager isolated MoE layer; CANN MegaMoE, not the custom W8A8 teaching kernel",
+  "images": [
+    {
+      "asset": "dist/assets/profile-a5-mc2-rank0.png",
+      "implementation": "MC2",
+      "rank": 0,
+      "tokens_per_source_rank": 32,
+      "capture_iteration": 2,
+      "source_trace_sha256": "d7a007adc24dddfd9389ec66426363b68753b7ac55e4fb4217557353bced748d",
+      "source_trace_bytes": 41537,
+      "attributed_host_scope": "wiki/MC2/tokens32/iteration2",
+      "host_scope_start_us_from_export": "1793798522879028.830",
+      "host_scope_duration_us": "778.33",
+      "attributed_device_start_us_from_export": "1793798522879307.746",
+      "attributed_device_span_us": "449.6409375",
+      "attributed_device_task_count": 5,
+      "physical_stream_ids": [
+        61
+      ],
+      "viewer_selection": {
+        "kind": "Host record_function scope; associated Stream61 device tasks visible",
+        "search": "wiki/MC2/tokens32/iteration2",
+        "search_match_one_based": 1,
+        "search_match_total": 1
+      },
+      "capture": "actual Perfetto UI over SSH-forwarded localhost Linux native RPC; no trace upload",
+      "crop_pixels": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 500
+      },
+      "original_jpeg_sha256": "1c645234ba644f103cbfd46968c1cb9210ee4438768ea0e37aede96c264c4c86",
+      "published_png_sha256": "eaac93396fb24f89c16a73c0aaab2abadd78cf50e4c788ed33a6f72306087f67",
+      "conversion": "sips -s format png; crop and format conversion only; no redraw, AI generation, timestamp shift or event geometry edits"
+    },
+    {
+      "asset": "dist/assets/profile-a5-mc2-rank1.png",
+      "implementation": "MC2",
+      "rank": 1,
+      "tokens_per_source_rank": 32,
+      "capture_iteration": 2,
+      "source_trace_sha256": "1057fe270e78b19881b51ee1b473606767ed5bb2b68b8e0dea6535b3351ba2f7",
+      "source_trace_bytes": 45019,
+      "attributed_host_scope": "wiki/MC2/tokens32/iteration2",
+      "host_scope_start_us_from_export": "1793798522866169.670",
+      "host_scope_duration_us": "742.93",
+      "attributed_device_start_us_from_export": "1793798522878888.971",
+      "attributed_device_span_us": "870.357625",
+      "attributed_device_task_count": 5,
+      "physical_stream_ids": [
+        61
+      ],
+      "viewer_selection": {
+        "kind": "flow-attributed device window; Host scope is outside viewport",
+        "search": "MoeDistributeDispatchV3",
+        "search_match_one_based": 3,
+        "search_match_total": 3,
+        "selected_device_kernel": "MoeDistributeDispatchV3",
+        "device_kernel_occurrence_one_based": 3,
+        "area_selection_duration_us_approx": "871.440",
+        "area_selection_note": "Native mouse area selection with small margins around exact flow-attributed first Dispatch through final Combine. Table durations use exact raw tasks, not this manually selected area."
+      },
+      "capture": "actual Perfetto UI over SSH-forwarded localhost Linux native RPC; no trace upload",
+      "crop_pixels": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 500
+      },
+      "original_jpeg_sha256": "018589bbe0e2f96de4b4ce1ba6f4c8b849bb5388540bd48f2a0f0a66f53ffbbf",
+      "published_png_sha256": "9ca80c91162b4a49eb81f53e0a901eaf57c7081db0500ec0a0785e4e6031605c",
+      "conversion": "sips -s format png; crop and format conversion only; no redraw, AI generation, timestamp shift or event geometry edits"
+    },
+    {
+      "asset": "dist/assets/profile-a5-megamoe-rank0.png",
+      "implementation": "MegaMoe",
+      "rank": 0,
+      "tokens_per_source_rank": 32,
+      "capture_iteration": 2,
+      "source_trace_sha256": "2dd1b073a8470ca0e2456f210f4dd804a18b7cafd2f1d0644c6b6a323a7cfba0",
+      "source_trace_bytes": 15332,
+      "attributed_host_scope": "wiki/MegaMoe/tokens32/iteration2",
+      "host_scope_start_us_from_export": "1793798527684307.920",
+      "host_scope_duration_us": "226.8",
+      "attributed_device_start_us_from_export": "1793798527684488.542",
+      "attributed_device_span_us": "32.5188125",
+      "attributed_device_task_count": 1,
+      "physical_stream_ids": [
+        61
+      ],
+      "viewer_selection": {
+        "kind": "Host record_function scope; associated Stream61 device tasks visible",
+        "search": "wiki/MegaMoe/tokens32/iteration2",
+        "search_match_one_based": 1,
+        "search_match_total": 1
+      },
+      "capture": "actual Perfetto UI over SSH-forwarded localhost Linux native RPC; no trace upload",
+      "crop_pixels": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 500
+      },
+      "original_jpeg_sha256": "4f3ff8790c3f753ddf774daec5b805d813d843802bfdbc4d4e727d05cdd90b8d",
+      "published_png_sha256": "1ecf7c3a6c526b42d4b065ae11bec509375c16f9f0c2b84397c3e5d3383b0e00",
+      "conversion": "sips -s format png; crop and format conversion only; no redraw, AI generation, timestamp shift or event geometry edits"
+    },
+    {
+      "asset": "dist/assets/profile-a5-megamoe-rank1.png",
+      "implementation": "MegaMoe",
+      "rank": 1,
+      "tokens_per_source_rank": 32,
+      "capture_iteration": 2,
+      "source_trace_sha256": "8d646630f505e1f012c271db9f4730608d96259c641f27ee700bc643318b98fb",
+      "source_trace_bytes": 16041,
+      "attributed_host_scope": "wiki/MegaMoe/tokens32/iteration2",
+      "host_scope_start_us_from_export": "1793798527677721.540",
+      "host_scope_duration_us": "252.71",
+      "attributed_device_start_us_from_export": "1793798527684222.477",
+      "attributed_device_span_us": "299.7576875",
+      "attributed_device_task_count": 1,
+      "physical_stream_ids": [
+        61
+      ],
+      "viewer_selection": {
+        "kind": "flow-attributed device window; Host scope is outside viewport",
+        "search": "MegaMoe",
+        "search_match_one_based": 11,
+        "search_match_total": 11,
+        "selected_device_kernel": "MegaMoe",
+        "device_kernel_occurrence_one_based": 3
+      },
+      "capture": "actual Perfetto UI over SSH-forwarded localhost Linux native RPC; no trace upload",
+      "crop_pixels": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 500
+      },
+      "original_jpeg_sha256": "387e82d0939472e248211b0c7218b145274399bbda718d90423a970583f5c1d7",
+      "published_png_sha256": "caefc34140427161c83cdaaa6311abc014264a55166a6d669da8ff6aa3b324ca",
+      "conversion": "sips -s format png; crop and format conversion only; no redraw, AI generation, timestamp shift or event geometry edits"
+    }
+  ],
+  "semantic_pairing": "Same original two-rank job, implementation, tokens32 input/weight/routing case and explicit iteration2 label; exact within-trace Host/device flows. No peer-message or HCCL collective-sequence matching is claimed.",
+  "limits": [
+    "Each picture is independently zoomed. Left edges are not a synchronized start and image widths are not speedup ratios.",
+    "Rank1 Host scopes and associated device windows are far apart on the export axis. Rank1 screenshots focus the exact attributed device tasks, not the Host containment interval.",
+    "MC2 rank1 includes a native area selection with small margins; selected range width is not the exact device-span metric.",
+    "Other visible slices outside the attributed window or selection belong to other scopes and are not counted in iteration2.",
+    "Stream61 is an external task track. A single MegaMoe task does not expose its internal Dispatch/compute/Combine or AIV/AIC pipeline.",
+    "Level0 contains no independent peer-send/recv timeline or usable HCCL operation sequence; no straggler or wait root cause is inferred.",
+    "Per-rank clock conversion metadata does not establish a Host/device or cross-device calibration error bound; raw endpoint differences are not dispatch latency.",
+    "Importer warnings: MC2 rank0 flow_no_enclosing_slice10; rank1 flow10 and overlap12; MegaMoE rank0 flow2; rank1 flow2 and overlap2. Native overflow layout and incomplete arrows are retained.",
+    "Raw trace files, environment logs, server identifiers and credentials remain private."
+  ]
+}
