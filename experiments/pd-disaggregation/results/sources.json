@@ -1,0 +1,698 @@
+{
+  "audited_date": "2026-11-05",
+  "scope": "Source evidence for the ordinary FullAttention pull and layerwise-push request handoff paths; runtime observations are recorded separately.",
+  "repositories": [
+    {
+      "name": "vllm-ascend",
+      "url": "https://github.com/vllm-project/vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "vllm",
+      "url": "https://github.com/vllm-project/vllm",
+      "commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "Mooncake",
+      "url": "https://github.com/kvcache-ai/Mooncake",
+      "commit": "e5598b0992cc258b06d22f24d875480e8931a28e",
+      "license": "Apache-2.0",
+      "tag": "v0.3.13",
+      "tag_resolution": "GitHub git/ref/tags/v0.3.13 resolved to this commit during the audit",
+      "role": "source reference; equivalence to the installed binary is not established"
+    }
+  ],
+  "source_archives": [
+    {
+      "repository": "Mooncake",
+      "ref": "v0.3.13",
+      "url": "https://codeload.github.com/kvcache-ai/Mooncake/tar.gz/refs/tags/v0.3.13",
+      "sha256": "b4634da24749fd5a55c29d9e5783955a5f2c1b10a5fa8cb6554216b2a67f385a",
+      "verification": "Downloaded archive bytes were independently hashed; extracted key-file hashes are listed below."
+    },
+    {
+      "repository": "vllm",
+      "ref": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "url": "https://api.github.com/repos/vllm-project/vllm/tarball/5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "sha256": "33247d5def035a78ccc8b2e5499a429ab82358e426c6aa0fe91cb6c60bab9c3a",
+      "verification": "Downloaded archive bytes were independently hashed; GitHub archive compression bytes can differ across regenerated archives."
+    }
+  ],
+  "installed_mooncake_distribution": {
+    "name": "mooncake-transfer-engine",
+    "version": "0.3.13",
+    "wheel_basename": "mooncake_transfer_engine-0.3.13-cp312-cp312-manylinux_2_35_aarch64.whl",
+    "metadata_declared_wheel_archive_sha256": "1347085176ea15abeaaba02466f22c670f9ce39fd3108b7bee9d3769c0f069bf",
+    "hash_evidence": "Installed dist-info/direct_url.json archive_info.hash; the original wheel archive was not independently rehashed in this audit.",
+    "source_commit": null,
+    "source_equivalence_to_reference_tag": "not_established",
+    "boundary": "The distribution version and installation metadata identify the installed package declaration, not the native binary build source. The Mooncake tag is a separate code reference."
+  },
+  "sources": [
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/distributed/kv_transfer/__init__.py",
+      "sha256": "8c76d9d83c8dc600175e63e1765d674885ee3e747f9d3a7a685337999abe0d0f",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/__init__.py",
+      "claims": [
+        {
+          "id": "connector_registry",
+          "line_start": 81,
+          "line_end": 100,
+          "claim": "MooncakeConnectorV1 selects the monolithic connector; MooncakeConnectorV2 and MooncakePullConnector select the split implementation.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/__init__.py#L81-L100"
+        }
+      ]
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "examples/disaggregated_prefill_v1/load_balance_proxy_server_example.py",
+      "sha256": "ffd9a54456dc6ad10bc7668bc2db52c81edfd5a477f707b41a8be33f56353208",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/examples/disaggregated_prefill_v1/load_balance_proxy_server_example.py",
+      "claims": [
+        {
+          "id": "pull_prefill_request",
+          "line_start": 855,
+          "line_end": 871,
+          "claim": "The proxy constructs a nonstreaming one-output-token P request with do_remote_decode enabled.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/examples/disaggregated_prefill_v1/load_balance_proxy_server_example.py#L855-L871"
+        },
+        {
+          "id": "pull_selection_order",
+          "line_start": 982,
+          "line_end": 1043,
+          "claim": "The proxy selects P and receives transfer parameters before selecting D.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/examples/disaggregated_prefill_v1/load_balance_proxy_server_example.py#L982-L1043"
+        },
+        {
+          "id": "proxy_scoring_release",
+          "line_start": 1142,
+          "line_end": 1188,
+          "claim": "The proxy releases its P-side load score after a nonempty D response chunk; this is separate from device block release.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/examples/disaggregated_prefill_v1/load_balance_proxy_server_example.py#L1142-L1188"
+        }
+      ]
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "examples/disaggregated_prefill_v1/load_balance_proxy_layerwise_server_example.py",
+      "sha256": "2c9757c842e3bc25f2ad6c77306a075f1b9eef4d18dd1c9745625d52ad0c509c",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/examples/disaggregated_prefill_v1/load_balance_proxy_layerwise_server_example.py",
+      "claims": [
+        {
+          "id": "push_decode_first",
+          "line_start": 491,
+          "line_end": 631,
+          "claim": "The proxy selects D first and supplies its MetaServer callback address.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/examples/disaggregated_prefill_v1/load_balance_proxy_layerwise_server_example.py#L491-L631"
+        },
+        {
+          "id": "push_dispatch_after_metadata",
+          "line_start": 672,
+          "line_end": 756,
+          "claim": "D allocation metadata is collected for child requests before dispatching P.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/examples/disaggregated_prefill_v1/load_balance_proxy_layerwise_server_example.py#L672-L756"
+        }
+      ]
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py",
+      "sha256": "619ef33af20dbbaf82866743cdd49f7d99526ae53d912a2fa93011a643be129e",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py",
+      "claims": [
+        {
+          "id": "pull_source_expiry",
+          "line_start": 178,
+          "line_end": 259,
+          "claim": "Source request tracking includes delayed-release expiration, which is not a proof of successful receive.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L178-L259"
+        },
+        {
+          "id": "pull_source_done_ack",
+          "line_start": 339,
+          "line_end": 411,
+          "claim": "The P-side control listener handles metadata requests and receive-completion messages, tracks expected ports and acknowledges them.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L339-L411"
+        },
+        {
+          "id": "pull_receive_finalization",
+          "line_start": 711,
+          "line_end": 787,
+          "claim": "All local pull tasks are counted; finalization performs reformat, reports local completion or failure, and sends source-release notifications.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L711-L787"
+        },
+        {
+          "id": "pull_transfer_descriptors",
+          "line_start": 806,
+          "line_end": 1088,
+          "claim": "The D worker maps local and peer blocks to addresses and calls batch_transfer_sync_read with local D buffers and remote P addresses.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L806-L1088"
+        },
+        {
+          "id": "pull_handshake_and_done",
+          "line_start": 1483,
+          "line_end": 1553,
+          "claim": "Agent metadata and DONE acknowledgments use the connector side channel, separately from TE payload transfer.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1483-L1553"
+        },
+        {
+          "id": "pull_scheduler_plan",
+          "line_start": 1940,
+          "line_end": 2031,
+          "claim": "External hit count is an asynchronous load plan; after allocation the connector packages local and remote block information for workers.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1940-L2031"
+        },
+        {
+          "id": "pull_source_hold_and_params",
+          "line_start": 2033,
+          "line_end": 2095,
+          "claim": "P completion may delay block release and return prompt-block transfer parameters; D rejection may enqueue a notification-only receive.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L2033-L2095"
+        },
+        {
+          "id": "pull_pool_registration",
+          "line_start": 2646,
+          "line_end": 2785,
+          "claim": "KV backing storage is registered at pool setup while per-layer block lengths and strides are published separately.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L2646-L2785"
+        },
+        {
+          "id": "pull_worker_completion_results",
+          "line_start": 2787,
+          "line_end": 2821,
+          "claim": "Worker results distinguish finished sending, finished receiving and failed receiving.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L2787-L2821"
+        },
+        {
+          "id": "pull_worker_submit",
+          "line_start": 3930,
+          "line_end": 4053,
+          "claim": "Worker metadata is split by P/D parallel ownership and submitted to receive tasks; source tracking is updated separately.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L3930-L4053"
+        }
+      ]
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py",
+      "sha256": "66e26ecc209f05ea0f4553634251b903da388b3e540fc0995b8fe0606f065254",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py",
+      "claims": [
+        {
+          "id": "push_wait_before_write",
+          "line_start": 758,
+          "line_end": 836,
+          "claim": "The background sender waits for the layer KV-write event before calling batch_transfer_sync_write.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py#L758-L836"
+        },
+        {
+          "id": "push_receive_source_set",
+          "line_start": 878,
+          "line_end": 962,
+          "claim": "D tracks unique source paths for DONE; FAILED is tracked separately.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py#L878-L962"
+        },
+        {
+          "id": "push_forward_binding",
+          "line_start": 1079,
+          "line_end": 1122,
+          "claim": "Binding prepares the layerwise step; wait_for_save is empty in this snapshot.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py#L1079-L1122"
+        },
+        {
+          "id": "push_allocation_and_progress",
+          "line_start": 1290,
+          "line_end": 1450,
+          "claim": "D publishes allocated targets; P constructs planned per-chunk and per-layer transfer progress.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py#L1290-L1450"
+        },
+        {
+          "id": "push_source_no_delay",
+          "line_start": 1464,
+          "line_end": 1489,
+          "claim": "The layerwise request_finished methods return no delayed source block release.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py#L1464-L1489"
+        },
+        {
+          "id": "push_receiver_results",
+          "line_start": 1965,
+          "line_end": 1993,
+          "claim": "The receiving worker maps external IDs, exposes failed block IDs, and returns an empty sending set plus successful receive completions.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py#L1965-L1993"
+        },
+        {
+          "id": "push_chunk_block_boundary",
+          "line_start": 2006,
+          "line_end": 2116,
+          "claim": "Nonfinal chunks send completed whole blocks; the final chunk can include the partial tail block.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py#L2006-L2116"
+        },
+        {
+          "id": "push_write_event_and_queue",
+          "line_start": 2298,
+          "line_end": 2497,
+          "claim": "The KV-write hook records an event and save_kv_layer queues layer transfer tasks with a fallback event where needed.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py#L2298-L2497"
+        },
+        {
+          "id": "push_target_handshake_done",
+          "line_start": 2527,
+          "line_end": 2635,
+          "claim": "The P sender fetches D agent metadata and reports final completion; wait_for_layer_load is empty.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py#L2527-L2635"
+        }
+      ]
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/distributed/kv_transfer/utils/mooncake_transfer_engine.py",
+      "sha256": "ab6ba46e4d1c06b6f8b635c16c0b62d2755e96134a1d1983d9492cc018cabd07",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/utils/mooncake_transfer_engine.py",
+      "claims": [
+        {
+          "id": "global_te_init",
+          "line_start": 13,
+          "line_end": 53,
+          "claim": "A worker process initializes TE with P2PHANDSHAKE and ascend; an unsuccessful initialization attempt cannot simply be retried in that process.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/utils/mooncake_transfer_engine.py#L13-L53"
+        },
+        {
+          "id": "pool_register_unregister",
+          "line_start": 55,
+          "line_end": 102,
+          "claim": "Buffer registration is separate from per-request completion; unregister disconnects peers before unregistering buffers.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/distributed/kv_transfer/utils/mooncake_transfer_engine.py#L55-L102"
+        }
+      ]
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/attention/utils.py",
+      "sha256": "c0ae149782f84340caaa9251c9cb104fb88717dadb6186438fe7eccd9ba6ddb4",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/attention/utils.py",
+      "claims": [
+        {
+          "id": "kv_write_notification",
+          "line_start": 647,
+          "line_end": 665,
+          "claim": "The attention helper forwards a KV-write notification to a connector that provides the hook.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/attention/utils.py#L647-L665"
+        }
+      ]
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/attention/attention_v1.py",
+      "sha256": "a960ff5933b99674660abc3b95df0d3389773ca04e371db3df70d3261d11cf10",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/attention/attention_v1.py",
+      "claims": [
+        {
+          "id": "full_attention_kv_write",
+          "line_start": 1210,
+          "line_end": 1243,
+          "claim": "The ordinary Attention KV-write path emits the connector notification after cache writing.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/attention/attention_v1.py#L1210-L1243"
+        },
+        {
+          "id": "nz_attention_kv_write",
+          "line_start": 1780,
+          "line_end": 1830,
+          "claim": "The NZ-layout Attention path also notifies the connector after its KV-write operation.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/attention/attention_v1.py#L1780-L1830"
+        }
+      ]
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/worker/v2/model_runner.py",
+      "sha256": "cc36703a57b6fc6be2e893a1802bf52277a8a02f48d4a1e4ced219c334402cce",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/worker/v2/model_runner.py",
+      "claims": [
+        {
+          "id": "ascend_v2_execution",
+          "line_start": 705,
+          "line_end": 755,
+          "claim": "The Ascend ModelRunnerV2 calls the upstream runner while handling transfer preemptions and execution context.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/worker/v2/model_runner.py#L705-L755"
+        }
+      ]
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "Dockerfile.a5",
+      "sha256": "b41488c9a284cbf49cd87e64935300b771b303a02f065a5edf06bfa87f8f067e",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/Dockerfile.a5",
+      "claims": [
+        {
+          "id": "wheel_name_is_not_build_provenance",
+          "line_start": 137,
+          "line_end": 164,
+          "claim": "This build recipe uses a v0.3.14.rc1 download prefix with a wheel basename labeled 0.3.13; a distribution label alone does not identify a source commit.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/Dockerfile.a5#L137-L164"
+        }
+      ]
+    },
+    {
+      "repository": "vllm",
+      "commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "path": "vllm/v1/core/sched/scheduler.py",
+      "sha256": "d9a39870286c424cef2fc0730e24092ee3df67e848608e2278944846bab804ae",
+      "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/core/sched/scheduler.py",
+      "claims": [
+        {
+          "id": "scheduler_async_allocation",
+          "line_start": 1241,
+          "line_end": 1342,
+          "claim": "The scheduler reserves local KV slots and marks an asynchronous load WAITING_FOR_REMOTE_KVS before device receive completion.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/core/sched/scheduler.py#L1241-L1342"
+        },
+        {
+          "id": "scheduler_cancel_and_free",
+          "line_start": 2700,
+          "line_end": 2780,
+          "claim": "A canceled request can retain target blocks while receive completion is pending; connector delay controls source request release.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/core/sched/scheduler.py#L2700-L2780"
+        },
+        {
+          "id": "scheduler_connector_finished",
+          "line_start": 3004,
+          "line_end": 3059,
+          "claim": "The scheduler invokes connector completion with the relevant computed-token block table.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/core/sched/scheduler.py#L3004-L3059"
+        },
+        {
+          "id": "scheduler_receive_ready_last_token",
+          "line_start": 3123,
+          "line_end": 3193,
+          "claim": "After receive completion the scheduler restores eligibility, including last-prompt-token recomputation for a complete ordinary prompt hit.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/core/sched/scheduler.py#L3123-L3193"
+        },
+        {
+          "id": "scheduler_source_target_completion",
+          "line_start": 3210,
+          "line_end": 3235,
+          "claim": "Receiving and sending results are processed separately; completed sends release the finished source request.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/core/sched/scheduler.py#L3210-L3235"
+        },
+        {
+          "id": "scheduler_load_failure_policy",
+          "line_start": 3341,
+          "line_end": 3436,
+          "claim": "Failure handling distinguishes request-level and block-level failures and recompute versus fail policies; asynchronous recovery still waits for receive termination.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/core/sched/scheduler.py#L3341-L3436"
+        }
+      ]
+    },
+    {
+      "repository": "vllm",
+      "commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "path": "vllm/distributed/kv_transfer/kv_connector/utils.py",
+      "sha256": "69756f0485c60b0df7fa025429a397c8871c962e5b150de44ff75c12552f0060",
+      "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/distributed/kv_transfer/kv_connector/utils.py",
+      "claims": [
+        {
+          "id": "engine_all_rank_completion",
+          "line_start": 63,
+          "line_end": 186,
+          "claim": "KVOutputAggregator waits for the configured number of worker completions before reporting an engine-level receive or send completion.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/distributed/kv_transfer/kv_connector/utils.py#L63-L186"
+        }
+      ]
+    },
+    {
+      "repository": "vllm",
+      "commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "path": "vllm/distributed/kv_transfer/kv_connector/v1/base.py",
+      "sha256": "6a70c2b50bf1fc89dec052f66873f64ffa358ec30077cd4a49be8c7cf9944760",
+      "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/distributed/kv_transfer/kv_connector/v1/base.py",
+      "claims": [
+        {
+          "id": "failed_is_also_finished_contract",
+          "line_start": 88,
+          "line_end": 98,
+          "claim": "The transfer-result contract states failed receives also appear in finished_recving to terminate the receive lifecycle.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/distributed/kv_transfer/kv_connector/v1/base.py#L88-L98"
+        },
+        {
+          "id": "connector_default_results",
+          "line_start": 383,
+          "line_end": 409,
+          "claim": "The default get_transfer_results converts get_finished results without inventing additional failures.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/distributed/kv_transfer/kv_connector/v1/base.py#L383-L409"
+        },
+        {
+          "id": "connector_expected_finished_count",
+          "line_start": 716,
+          "line_end": 725,
+          "claim": "Connectors can override the completion count used by the executor aggregator.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/distributed/kv_transfer/kv_connector/v1/base.py#L716-L725"
+        }
+      ]
+    },
+    {
+      "repository": "vllm",
+      "commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "path": "vllm/v1/worker/gpu/kv_connector.py",
+      "sha256": "7d9fec7b8b81c09c0bd87e5b9b4e2b829b0231b5805e86111df6a1eef2b4fe97",
+      "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/worker/gpu/kv_connector.py",
+      "claims": [
+        {
+          "id": "v2_connector_registration",
+          "line_start": 58,
+          "line_end": 71,
+          "claim": "ActiveKVConnector registers the cache pool with the selected connector.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/worker/gpu/kv_connector.py#L58-L71"
+        },
+        {
+          "id": "v2_connector_lifecycle",
+          "line_start": 73,
+          "line_end": 167,
+          "claim": "The V2 connector wrapper binds per-step metadata, initiates loads, waits for save, collects results and advances transfer even without a forward.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/worker/gpu/kv_connector.py#L73-L167"
+        }
+      ]
+    },
+    {
+      "repository": "vllm",
+      "commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "path": "vllm/v1/worker/gpu/model_runner.py",
+      "sha256": "5240fe8d62d403e466a4aa07a28fb7af5c0f1e9b9c3bb08c4003185bde461f87",
+      "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/worker/gpu/model_runner.py",
+      "claims": [
+        {
+          "id": "v2_forward_hooks",
+          "line_start": 2000,
+          "line_end": 2048,
+          "claim": "The V2 model runner invokes connector pre_forward and finish_forward around model execution.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/worker/gpu/model_runner.py#L2000-L2048"
+        },
+        {
+          "id": "v2_sample_completion_hook",
+          "line_start": 2268,
+          "line_end": 2303,
+          "claim": "The V2 output path polls connector post_forward for completion information.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/worker/gpu/model_runner.py#L2268-L2303"
+        }
+      ]
+    },
+    {
+      "repository": "vllm",
+      "commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "path": "vllm/v1/executor/multiproc_executor.py",
+      "sha256": "948c15e09617b02e2d0746d9ee20b43168b083da71313d05f06b29a753f8570b",
+      "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/executor/multiproc_executor.py",
+      "claims": [
+        {
+          "id": "executor_collect_all_connector_outputs",
+          "line_start": 381,
+          "line_end": 423,
+          "claim": "When a connector aggregator is present, the executor collects the workers and aggregates their connector outputs.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/executor/multiproc_executor.py#L381-L423"
+        }
+      ]
+    },
+    {
+      "repository": "vllm",
+      "commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "path": "vllm/v1/core/kv_cache_manager.py",
+      "sha256": "d08315437c6b07040d1b7e12d7bd7d6e966c976a286f05a9788098cfdd9754c7",
+      "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/core/kv_cache_manager.py",
+      "claims": [
+        {
+          "id": "request_free_is_pool_operation",
+          "line_start": 620,
+          "line_end": 631,
+          "claim": "KVCacheManager.free releases a request through its cache coordinator, separately from TE memory unregistration.",
+          "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/core/kv_cache_manager.py#L620-L631"
+        }
+      ]
+    },
+    {
+      "repository": "Mooncake",
+      "commit": "e5598b0992cc258b06d22f24d875480e8931a28e",
+      "path": "mooncake-integration/transfer_engine/transfer_engine_py.cpp",
+      "sha256": "6ca81bf5cfecc0212df131d0abb926e191135db99294b2662fcf7592f741e4ae",
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-integration/transfer_engine/transfer_engine_py.cpp",
+      "claims": [
+        {
+          "id": "te_initialization_bridge",
+          "line_start": 188,
+          "line_end": 340,
+          "claim": "The Python bridge constructs the transfer engine and initializes the selected metadata connection and transport context.",
+          "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-integration/transfer_engine/transfer_engine_py.cpp#L188-L340"
+        },
+        {
+          "id": "te_local_peer_read_write",
+          "line_start": 427,
+          "line_end": 477,
+          "claim": "Sync and async wrappers preserve the local buffer versus peer address interpretation while choosing READ or WRITE.",
+          "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-integration/transfer_engine/transfer_engine_py.cpp#L427-L477"
+        },
+        {
+          "id": "te_sync_batch_completion",
+          "line_start": 574,
+          "line_end": 677,
+          "claim": "The synchronous batch bridge submits descriptors and polls transfer status, returning success only after COMPLETED.",
+          "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-integration/transfer_engine/transfer_engine_py.cpp#L574-L677"
+        },
+        {
+          "id": "te_memory_registration",
+          "line_start": 885,
+          "line_end": 893,
+          "claim": "register_memory and unregister_memory forward to local-memory registration operations.",
+          "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-integration/transfer_engine/transfer_engine_py.cpp#L885-L893"
+        }
+      ]
+    },
+    {
+      "repository": "Mooncake",
+      "commit": "e5598b0992cc258b06d22f24d875480e8931a28e",
+      "path": "mooncake-transfer-engine/src/transfer_engine_impl.cpp",
+      "sha256": "6bba239e8bdab991bbc1f1e928632dbb6711c4660f7804a43d8552a2a356540b",
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-transfer-engine/src/transfer_engine_impl.cpp",
+      "claims": [
+        {
+          "id": "te_rpc_and_ascend_transport",
+          "line_start": 130,
+          "line_end": 234,
+          "claim": "The engine publishes a separately selected RPC port and installs Ascend transport when built for Ascend.",
+          "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-transfer-engine/src/transfer_engine_impl.cpp#L130-L234"
+        }
+      ]
+    },
+    {
+      "repository": "Mooncake",
+      "commit": "e5598b0992cc258b06d22f24d875480e8931a28e",
+      "path": "mooncake-transfer-engine/src/transport/ascend_transport/ascend_direct_transport/ascend_direct_transport.cpp",
+      "sha256": "b969466c5a26d434e6e4925cb887a793e5873bbcf3d754e0b0a6238c791026b4",
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-transfer-engine/src/transport/ascend_transport/ascend_direct_transport/ascend_direct_transport.cpp",
+      "claims": [
+        {
+          "id": "ascend_transport_install",
+          "line_start": 113,
+          "line_end": 164,
+          "claim": "The Ascend transport installs the executor and dispatcher.",
+          "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-transfer-engine/src/transport/ascend_transport/ascend_direct_transport/ascend_direct_transport.cpp#L113-L164"
+        },
+        {
+          "id": "ascend_transport_current_device",
+          "line_start": 180,
+          "line_end": 255,
+          "claim": "The direct transport describes endpoints using the current device context or configured agent mode.",
+          "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-transfer-engine/src/transport/ascend_transport/ascend_direct_transport/ascend_direct_transport.cpp#L180-L255"
+        }
+      ]
+    },
+    {
+      "repository": "Mooncake",
+      "commit": "e5598b0992cc258b06d22f24d875480e8931a28e",
+      "path": "mooncake-transfer-engine/src/transport/ascend_transport/ascend_direct_transport/transfer_executor_base.cpp",
+      "sha256": "a5ac618607be39a8edeeda497f76438421ccdc4e910052331fbd0f1241311c7b",
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-transfer-engine/src/transport/ascend_transport/ascend_direct_transport/transfer_executor_base.cpp",
+      "claims": [
+        {
+          "id": "ascend_executor_sync_async_choice",
+          "line_start": 96,
+          "line_end": 158,
+          "claim": "Executor selection distinguishes synchronous and asynchronous internal Ascend transfer modes.",
+          "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-transfer-engine/src/transport/ascend_transport/ascend_direct_transport/transfer_executor_base.cpp#L96-L158"
+        },
+        {
+          "id": "ascend_resource_options",
+          "line_start": 215,
+          "line_end": 264,
+          "claim": "The executor forwards configured local and global communication resource settings to ADXL.",
+          "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-transfer-engine/src/transport/ascend_transport/ascend_direct_transport/transfer_executor_base.cpp#L215-L264"
+        }
+      ]
+    },
+    {
+      "repository": "Mooncake",
+      "commit": "e5598b0992cc258b06d22f24d875480e8931a28e",
+      "path": "mooncake-transfer-engine/src/transport/ascend_transport/ascend_direct_transport/sync_transfer_executor.cpp",
+      "sha256": "9377b0ab8a0eb6f96f59a2be00952e671ada3481ab617e21c14ad7ee87d5e91f",
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-transfer-engine/src/transport/ascend_transport/ascend_direct_transport/sync_transfer_executor.cpp",
+      "claims": [
+        {
+          "id": "ascend_sync_transfer",
+          "line_start": 44,
+          "line_end": 98,
+          "claim": "The sync executor uses ADXL TransferSync and marks slices successful only after success.",
+          "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-transfer-engine/src/transport/ascend_transport/ascend_direct_transport/sync_transfer_executor.cpp#L44-L98"
+        }
+      ]
+    },
+    {
+      "repository": "Mooncake",
+      "commit": "e5598b0992cc258b06d22f24d875480e8931a28e",
+      "path": "mooncake-transfer-engine/src/transport/ascend_transport/ascend_direct_transport/async_transfer_executor.cpp",
+      "sha256": "10f33b19566b627781dc2908a88915a54f7e9cb969c936a8c28e141b22cc09b4",
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-transfer-engine/src/transport/ascend_transport/ascend_direct_transport/async_transfer_executor.cpp",
+      "claims": [
+        {
+          "id": "ascend_async_transfer",
+          "line_start": 41,
+          "line_end": 118,
+          "claim": "The async executor starts a query thread and submits ADXL TransferAsync requests.",
+          "url": "https://github.com/kvcache-ai/Mooncake/blob/e5598b0992cc258b06d22f24d875480e8931a28e/mooncake-transfer-engine/src/transport/ascend_transport/ascend_direct_transport/async_transfer_executor.cpp#L41-L118"
+        }
+      ]
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/worker/v2/attn_utils.py",
+      "sha256": "d3ce7bb25e26e335c10d034c90bc2d4ddda9ccaa89786227152bcc0a5791e01b",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/worker/v2/attn_utils.py",
+      "claims": [
+        {
+          "id": "dcp_selects_separate_kv_allocation",
+          "line_start": 1545,
+          "line_end": 1557,
+          "claim": "The Ascend allocator bypasses packed K/V allocation when DCP is used.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/worker/v2/attn_utils.py#L1545-L1557"
+        },
+        {
+          "id": "reshape_independent_vs_packed_kv",
+          "line_start": 2170,
+          "line_end": 2190,
+          "claim": "The Ascend reshape path distinguishes separately allocated K/V from views of a packed K/V tensor.",
+          "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/worker/v2/attn_utils.py#L2170-L2190"
+        }
+      ]
+    }
+  ]
+}

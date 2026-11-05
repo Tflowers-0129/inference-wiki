@@ -1,0 +1,268 @@
+{
+  "schema": "wiki-pd-pull-trace-review/1",
+  "selected_request_label": "prompt513-repetition1",
+  "request_key": "q10c5ef9577b5e89c",
+  "explicit_aliases": [
+    "q10c5ef9577b5e89c",
+    "qf7199af673bd9ea7"
+  ],
+  "attribution_limits": [
+    "Four native marker scopes match the four measured JSONL calls in the capture monotonic window, in method/thread order; the selected fourth is 513-token repetition1.",
+    "Scope names have no request hash; the match uses same-process method/order plus recorded Host conversion, not a request-id field in the trace.",
+    "Profiler Host conversion is used for call localization. No cross-device clock error bound was measured.",
+    "Background TE Python record_function scopes are absent. CANN hixlOpBatchRead and HixlBatchGet are real captured events; matching connection_id is within one trace.",
+    "HixlBatchGet device duration is one transfer-pipeline AI_CPU task, not the whole sync-read or end-to-end handoff duration.",
+    "HostToDevice arrows for the selected Hixl task have only device endpoints in the export. Do not draw a complete observed flow or derive a dispatch delay from it.",
+    "Screenshots may zoom each native trace independently. Do not overlay their left edges or infer a straggler/speedup from the picture."
+  ],
+  "traces": [
+    {
+      "role": "D",
+      "tp_rank": "0",
+      "trace_sha256": "ad5639fcbffa0b7518e1f82fcb2ada509e0a39d8ad9a7d0c7233999f3d4ea18b",
+      "trace_bytes": 11672609,
+      "events": 57798,
+      "wiki_scope_calls": 415,
+      "selected_semantic_marker": {
+        "occurrence_1based": 4,
+        "request_key": "qf7199af673bd9ea7",
+        "ts_us": "1793861161464162.510",
+        "dur_us": 29.78,
+        "trace_minus_converted_log_begin_us": 33.3
+      },
+      "flow_endpoint_counts": [
+        {
+          "category": "async_task_queue",
+          "phase": "f",
+          "count": 2972
+        },
+        {
+          "category": "async_task_queue",
+          "phase": "s",
+          "count": 2972
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "f",
+          "count": 2844
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "s",
+          "count": 2936
+        },
+        {
+          "category": "async_npu",
+          "phase": "s",
+          "count": 2760
+        },
+        {
+          "category": "async_npu",
+          "phase": "f",
+          "count": 2760
+        }
+      ],
+      "background_TE_record_function_scope_count": 0,
+      "selected_transfer": {
+        "request_key": "q10c5ef9577b5e89c",
+        "source_request_key": "q10c5ef9577b5e89c",
+        "direction": "read",
+        "TE_bytes": 327680,
+        "TE_ranges": 20,
+        "TE_return_code": 0,
+        "TE_begin_converted_trace_us": "1793861161465764.99",
+        "TE_end_converted_trace_us": "1793861161466125.68",
+        "host_CANN": {
+          "name": "AscendCL@hixlOpBatchRead",
+          "ts_us": "1793861161465896.290",
+          "dur_us": 170.48,
+          "connection_id": 12456
+        },
+        "device_task": {
+          "name": "HixlBatchGet",
+          "ts_us": "1793861161465969.908",
+          "dur_us": 47.4086875,
+          "stream": 18,
+          "task_type": "AI_CPU",
+          "connection_id": 12456
+        },
+        "HostToDevice_flow_endpoint_phases": [
+          "f"
+        ],
+        "pairing": "same trace connection_id, plus Host CANN is enclosed by the request-attributed JSONL sync-read call; no cross-rank flow id assumed"
+      }
+    },
+    {
+      "role": "D",
+      "tp_rank": "1",
+      "trace_sha256": "7bcf61c1c303cf958c9b181321dc84ee26bbb30cadb8cf296b08bc1a61a7e604",
+      "trace_bytes": 11670607,
+      "events": 57797,
+      "wiki_scope_calls": 415,
+      "selected_semantic_marker": {
+        "occurrence_1based": 4,
+        "request_key": "qf7199af673bd9ea7",
+        "ts_us": "1793861161464199.380",
+        "dur_us": 29.45,
+        "trace_minus_converted_log_begin_us": 27.04
+      },
+      "flow_endpoint_counts": [
+        {
+          "category": "async_task_queue",
+          "phase": "f",
+          "count": 2972
+        },
+        {
+          "category": "async_task_queue",
+          "phase": "s",
+          "count": 2972
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "f",
+          "count": 2844
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "s",
+          "count": 2936
+        },
+        {
+          "category": "async_npu",
+          "phase": "s",
+          "count": 2760
+        },
+        {
+          "category": "async_npu",
+          "phase": "f",
+          "count": 2760
+        }
+      ],
+      "background_TE_record_function_scope_count": 0,
+      "selected_transfer": {
+        "request_key": "q10c5ef9577b5e89c",
+        "source_request_key": "q10c5ef9577b5e89c",
+        "direction": "read",
+        "TE_bytes": 327680,
+        "TE_ranges": 20,
+        "TE_return_code": 0,
+        "TE_begin_converted_trace_us": "1793861161465960.64",
+        "TE_end_converted_trace_us": "1793861161467107.61",
+        "host_CANN": {
+          "name": "AscendCL@hixlOpBatchRead",
+          "ts_us": "1793861161466128.540",
+          "dur_us": 264.4,
+          "connection_id": 12464
+        },
+        "device_task": {
+          "name": "HixlBatchGet",
+          "ts_us": "1793861161466205.835",
+          "dur_us": 45.7658125,
+          "stream": 18,
+          "task_type": "AI_CPU",
+          "connection_id": 12464
+        },
+        "HostToDevice_flow_endpoint_phases": [
+          "f"
+        ],
+        "pairing": "same trace connection_id, plus Host CANN is enclosed by the request-attributed JSONL sync-read call; no cross-rank flow id assumed"
+      }
+    },
+    {
+      "role": "P",
+      "tp_rank": "0",
+      "trace_sha256": "18a9ffeebe825dc726a8a5b41fce9d6bacb820c9534ba8c1f324d07de166e8f3",
+      "trace_bytes": 5561931,
+      "events": 28474,
+      "wiki_scope_calls": 310,
+      "selected_semantic_marker": {
+        "occurrence_1based": 4,
+        "request_key": "q10c5ef9577b5e89c",
+        "ts_us": "1793861161461746.470",
+        "dur_us": 104.29,
+        "trace_minus_converted_log_begin_us": 18.03
+      },
+      "flow_endpoint_counts": [
+        {
+          "category": "async_task_queue",
+          "phase": "f",
+          "count": 1474
+        },
+        {
+          "category": "async_task_queue",
+          "phase": "s",
+          "count": 1474
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "f",
+          "count": 1408
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "s",
+          "count": 1432
+        },
+        {
+          "category": "async_npu",
+          "phase": "s",
+          "count": 1388
+        },
+        {
+          "category": "async_npu",
+          "phase": "f",
+          "count": 1388
+        }
+      ],
+      "background_TE_record_function_scope_count": 0
+    },
+    {
+      "role": "P",
+      "tp_rank": "1",
+      "trace_sha256": "19408012a1920a2bdba276a33f2e7b09c02408eb68581094e7280a5d8c3f5420",
+      "trace_bytes": 5560917,
+      "events": 28476,
+      "wiki_scope_calls": 310,
+      "selected_semantic_marker": {
+        "occurrence_1based": 4,
+        "request_key": "q10c5ef9577b5e89c",
+        "ts_us": "1793861161461740.140",
+        "dur_us": 109.66,
+        "trace_minus_converted_log_begin_us": 17.86
+      },
+      "flow_endpoint_counts": [
+        {
+          "category": "async_task_queue",
+          "phase": "f",
+          "count": 1474
+        },
+        {
+          "category": "async_task_queue",
+          "phase": "s",
+          "count": 1474
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "f",
+          "count": 1408
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "s",
+          "count": 1432
+        },
+        {
+          "category": "async_npu",
+          "phase": "s",
+          "count": 1388
+        },
+        {
+          "category": "async_npu",
+          "phase": "f",
+          "count": 1388
+        }
+      ],
+      "background_TE_record_function_scope_count": 0
+    }
+  ]
+}

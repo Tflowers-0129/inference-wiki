@@ -1,0 +1,138 @@
+{
+  "schema": "wiki-pd-profiling-screenshots/1",
+  "capture_date": "2026-11-05",
+  "viewer": "Official Perfetto UI v59.1-1e9c61e98 with Linux trace_processor_shell v59.1 native RPC",
+  "capture_method": "Actual browser viewport screenshots through CUA. Native UI pins, searches, selections and zoom only; JPEG converted to PNG without annotation.",
+  "evidence_limits": [
+    "Native CANN/device screenshots and exported Host-observation screenshots are distinct kinds.",
+    "HostToDevice flow source endpoints are missing for the selected native HIXL tasks; pairing uses same-trace connection_id and explicit request/layer observations.",
+    "No cross-device calibration bound or uninstrumented throughput is claimed.",
+    "Host release-call return is not proof of block_pool.free_blocks or actual overwrite."
+  ],
+  "screenshots": [
+    {
+      "mode": "pull",
+      "role": "D",
+      "tp_rank": "0",
+      "original_jpeg": "pull-D-rank0.jpg",
+      "asset": "profile-pd-pull-d-rank0.png",
+      "kind": "native_CANN_and_NPU_trace_UI",
+      "source_trace_sha256": "ad5639fcbffa0b7518e1f82fcb2ada509e0a39d8ad9a7d0c7233999f3d4ea18b",
+      "source_trace_bytes": 11672609,
+      "request_key": "q10c5ef9577b5e89c",
+      "selection": "Last measured 513-token request; fourth HixlBatchGet",
+      "trace_health_issues": {
+        "slice_spill_overlapping_complete_event": 1251
+      },
+      "clock_scope": "Independent original device trace viewport; left edges are not synchronized across ranks.",
+      "width": 1440,
+      "height": 700,
+      "png_sha256": "ec0032bfbaf648e10306e29a7b299e988b891933ba4f0a0c1648cf9ba1dd6726",
+      "original_jpeg_sha256": "4cad8941b318647947d9d5e7032d0cc28e33f7722c011eb729dad309b5aba0f0"
+    },
+    {
+      "mode": "pull",
+      "role": "D",
+      "tp_rank": "1",
+      "original_jpeg": "pull-D-rank1.jpg",
+      "asset": "profile-pd-pull-d-rank1.png",
+      "kind": "native_CANN_and_NPU_trace_UI",
+      "source_trace_sha256": "7bcf61c1c303cf958c9b181321dc84ee26bbb30cadb8cf296b08bc1a61a7e604",
+      "source_trace_bytes": 11670607,
+      "request_key": "q10c5ef9577b5e89c",
+      "selection": "Last measured 513-token request; fourth HixlBatchGet",
+      "trace_health_issues": {
+        "slice_spill_overlapping_complete_event": 924
+      },
+      "clock_scope": "Independent original device trace viewport; left edges are not synchronized across ranks.",
+      "width": 1440,
+      "height": 700,
+      "png_sha256": "bbc2b631a57a72b7ffac07179e7d4dff8da22b02b5b8acb6fcabc7358254746b",
+      "original_jpeg_sha256": "c2cb179432e52222a94682930332a4018b8b8084bf975d312cf03b8d64d61e8e"
+    },
+    {
+      "mode": "push",
+      "role": "P",
+      "tp_rank": "0",
+      "original_jpeg": "push-P-rank0.jpg",
+      "asset": "profile-pd-push-p-rank0.png",
+      "kind": "native_CANN_and_NPU_trace_UI",
+      "source_trace_sha256": "d1549cf9495e74e1cb75b54cd0f06f34d1908d26e78fc50fd3ae0623852a2bbc",
+      "source_trace_bytes": 3622241,
+      "request_key": "q261a8a1d6dda6f7e",
+      "selection": "Last measured 513-token request, layer 1; eighth CANN hixlOpBatchWrite and same-connection HixlBatchPut",
+      "trace_health_issues": {
+        "slice_spill_overlapping_complete_event": 345
+      },
+      "clock_scope": "Independent original device trace viewport; left edges are not synchronized across ranks.",
+      "width": 1440,
+      "height": 390,
+      "png_sha256": "0e5b3d81e405841b7a758d420e88bb1e34e8a211067d581c47eedd531252f5be",
+      "original_jpeg_sha256": "c01d699f2b6fb928edd69e7ab1d316fb39e14af7f2ced474d336f0aa13aae48a"
+    },
+    {
+      "mode": "push",
+      "role": "P",
+      "tp_rank": "1",
+      "original_jpeg": "push-P-rank1.jpg",
+      "asset": "profile-pd-push-p-rank1.png",
+      "kind": "native_CANN_and_NPU_trace_UI",
+      "source_trace_sha256": "6090131a061e4e49e14540d7117df55ec7ff7fcb21887fb550b8668c4806e644",
+      "source_trace_bytes": 3618284,
+      "request_key": "q261a8a1d6dda6f7e",
+      "selection": "Last measured 513-token request, layer 1; eighth CANN hixlOpBatchWrite and same-connection HixlBatchPut",
+      "trace_health_issues": {
+        "slice_spill_overlapping_complete_event": 290
+      },
+      "clock_scope": "Independent original device trace viewport; left edges are not synchronized across ranks.",
+      "width": 1440,
+      "height": 390,
+      "png_sha256": "3e85a4cb7df98ba1f8a8821cc46fdaf13bf64874c1836d59cfc572f057cab151",
+      "original_jpeg_sha256": "4e211a447a2c2e4d733f92e7f409c800b58b158e5e388ca719c60d9cfc8697f2"
+    },
+    {
+      "mode": "pull",
+      "role": "P_and_D",
+      "tp_ranks": [
+        "0",
+        "1"
+      ],
+      "asset": "profile-pd-pull-host-lifecycle.png",
+      "original_jpeg": "pull-host-lifecycle.jpg",
+      "kind": "actual_observed_Host_calls_exported_to_Chrome_trace_UI",
+      "source_trace_sha256": "beddefb28b7cac834c602fb1cb12663b22148353fcf9c7fb8a5c31c58e9bfc5c",
+      "source_trace_bytes": 103723,
+      "observation_references_sha256": "801ab4d4b4a7443202b2c897bd615408bbe03a8fcc11eeeaf1adbc5009b0e7dd",
+      "request_key": "q10c5ef9577b5e89c",
+      "selection": "Same measured 513-token request as native pull figures",
+      "clock_scope": "One shared same-host monotonic origin for all original processes; no NPU timestamps are merged.",
+      "trace_health_issues": {},
+      "width": 1440,
+      "height": 850,
+      "png_sha256": "27aa1213dfd5d867f88971d57b579c89717b2a5e0482389cf3d3364c43f51b74",
+      "original_jpeg_sha256": "eaeb20a37d7197608f81bebee7a003f52006c3ea7b7ae331b778a8a24882a75e"
+    },
+    {
+      "mode": "push",
+      "role": "P_and_D",
+      "tp_ranks": [
+        "0",
+        "1"
+      ],
+      "asset": "profile-pd-push-host-lifecycle.png",
+      "original_jpeg": "push-host-lifecycle.jpg",
+      "kind": "actual_observed_Host_calls_exported_to_Chrome_trace_UI",
+      "source_trace_sha256": "06496361964d7d780cdc0810fb4e761da5b7baf4d4c1a5d3a6fe6188715cdc60",
+      "source_trace_bytes": 172359,
+      "observation_references_sha256": "bb8a9379410954f3e574297633c2eb861cc34dd31b108485783bac5267282391",
+      "request_key": "q692b73ec4d3ccf09",
+      "selection": "First warmup 129-token handoff; release-call return before last write return",
+      "clock_scope": "One shared same-host monotonic origin for all original processes; no NPU timestamps are merged.",
+      "trace_health_issues": {},
+      "width": 1440,
+      "height": 720,
+      "png_sha256": "a9bcb6b4583bc8856ac0fc111581a51c1dbafec6730307058f0a72d2cf1feef2",
+      "original_jpeg_sha256": "95abf5c31bbd032fd6f9b45ecf89ad4a06a0aabceea8940b64bbc1aff5650dbf"
+    }
+  ]
+}

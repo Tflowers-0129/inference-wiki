@@ -1,0 +1,248 @@
+{
+  "schema": "wiki-pd-pull-result/1",
+  "captured_date": "2026-11-05",
+  "status": "passed",
+  "mode": "pull",
+  "connector": "MooncakeConnectorV1",
+  "topology": {
+    "producer_instances": 1,
+    "P_tp": 2,
+    "decoder_instances": 1,
+    "D_tp": 2,
+    "hosts": 1,
+    "worker_processes": 4
+  },
+  "runner": "ModelRunnerV2, eager, multiprocessing",
+  "transport": "Mooncake NPU transfer on one A5 host; not an inter-host fabric benchmark",
+  "model": {
+    "kind": "random Qwen2 GQA checkpoint",
+    "seed": 20261105,
+    "layers": 2,
+    "hidden_size": 512,
+    "intermediate_size": 1024,
+    "query_heads": 8,
+    "kv_heads": 2,
+    "head_dim": 64,
+    "vocabulary": 256,
+    "dtype": "BF16"
+  },
+  "effective_config": {
+    "max_model_len": 2048,
+    "max_num_batched_tokens": 1024,
+    "max_num_seqs": 4,
+    "kv_cache_memory_bytes_per_worker": 33554432,
+    "prefix_caching": false,
+    "block_size": 128,
+    "output_tokens_per_request": 4,
+    "greedy": true,
+    "ignore_eos": true
+  },
+  "comparison": "Same checkpoint and eager TP2 settings; colocated P execution without remote-transfer parameters versus proxy P-to-D execution.",
+  "transfer_accounting": {
+    "unit": "actual lengths submitted to TE sync read",
+    "bytes_per_prompt_block_per_rank": 65536,
+    "formula": "128 positions * 2 layers * 2(K,V) * 1 KV head per TP rank * 64 dimensions * 2 bytes",
+    "full_allocated_prompt_blocks_transferred": true,
+    "last_block_padding_included": true,
+    "not_effective_KV_positions_or_HBM_occupancy": true,
+    "measured_read_calls_per_D_rank": 4,
+    "measured_read_bytes_per_D_rank": 917504
+  },
+  "requests": [
+    {
+      "label": "prompt129-repetition0",
+      "prompt_length": 129,
+      "repetition": 0,
+      "output_token_ids": [
+        147,
+        220,
+        220,
+        220
+      ],
+      "greedy_tokens_match_colocated": true,
+      "selected_logprob_max_abs_vs_colocated": 0.0,
+      "source_prompt_blocks": [
+        [
+          1,
+          2
+        ]
+      ],
+      "target_allocated_blocks": [
+        [
+          5,
+          4
+        ]
+      ],
+      "read_per_D_tp_rank": [
+        {
+          "tp_rank": "0",
+          "calls": 1,
+          "bytes": 131072,
+          "ranges": 8,
+          "return_code": 0
+        },
+        {
+          "tp_rank": "1",
+          "calls": 1,
+          "bytes": 131072,
+          "ranges": 8,
+          "return_code": 0
+        }
+      ],
+      "source_free_after_observed_reads": true,
+      "D_remote_wait_to_waiting_observed": true
+    },
+    {
+      "label": "prompt513-repetition0",
+      "prompt_length": 513,
+      "repetition": 0,
+      "output_token_ids": [
+        216,
+        99,
+        22,
+        22
+      ],
+      "greedy_tokens_match_colocated": true,
+      "selected_logprob_max_abs_vs_colocated": 0.007660388946533203,
+      "source_prompt_blocks": [
+        [
+          2,
+          1,
+          3,
+          4,
+          5
+        ]
+      ],
+      "target_allocated_blocks": [
+        [
+          4,
+          5,
+          3,
+          1,
+          2
+        ]
+      ],
+      "read_per_D_tp_rank": [
+        {
+          "tp_rank": "0",
+          "calls": 1,
+          "bytes": 327680,
+          "ranges": 20,
+          "return_code": 0
+        },
+        {
+          "tp_rank": "1",
+          "calls": 1,
+          "bytes": 327680,
+          "ranges": 20,
+          "return_code": 0
+        }
+      ],
+      "source_free_after_observed_reads": true,
+      "D_remote_wait_to_waiting_observed": true
+    },
+    {
+      "label": "prompt129-repetition1",
+      "prompt_length": 129,
+      "repetition": 1,
+      "output_token_ids": [
+        147,
+        220,
+        220,
+        220
+      ],
+      "greedy_tokens_match_colocated": true,
+      "selected_logprob_max_abs_vs_colocated": 0.0,
+      "source_prompt_blocks": [
+        [
+          5,
+          4
+        ]
+      ],
+      "target_allocated_blocks": [
+        [
+          2,
+          1
+        ]
+      ],
+      "read_per_D_tp_rank": [
+        {
+          "tp_rank": "0",
+          "calls": 1,
+          "bytes": 131072,
+          "ranges": 8,
+          "return_code": 0
+        },
+        {
+          "tp_rank": "1",
+          "calls": 1,
+          "bytes": 131072,
+          "ranges": 8,
+          "return_code": 0
+        }
+      ],
+      "source_free_after_observed_reads": true,
+      "D_remote_wait_to_waiting_observed": true
+    },
+    {
+      "label": "prompt513-repetition1",
+      "prompt_length": 513,
+      "repetition": 1,
+      "output_token_ids": [
+        216,
+        99,
+        22,
+        22
+      ],
+      "greedy_tokens_match_colocated": true,
+      "selected_logprob_max_abs_vs_colocated": 0.007660388946533203,
+      "source_prompt_blocks": [
+        [
+          4,
+          5,
+          3,
+          1,
+          2
+        ]
+      ],
+      "target_allocated_blocks": [
+        [
+          1,
+          2,
+          3,
+          5,
+          4
+        ]
+      ],
+      "read_per_D_tp_rank": [
+        {
+          "tp_rank": "0",
+          "calls": 1,
+          "bytes": 327680,
+          "ranges": 20,
+          "return_code": 0
+        },
+        {
+          "tp_rank": "1",
+          "calls": 1,
+          "bytes": 327680,
+          "ranges": 20,
+          "return_code": 0
+        }
+      ],
+      "source_free_after_observed_reads": true,
+      "D_remote_wait_to_waiting_observed": true
+    }
+  ],
+  "correctness_summary": {
+    "greedy_output_token_sequences_equal": "4/4 measured requests",
+    "selected_logprob_max_abs_vs_colocated": 0.007660388946533203,
+    "bitwise_logprobs_equal": false
+  },
+  "scope": [
+    "Request handoff and observed lifecycle correctness on a random tiny model.",
+    "No pretrained quality, steady-state throughput, inter-host bandwidth, or pull-versus-push speedup claim.",
+    "Profiling viewer evidence and its attribution limitations are maintained separately."
+  ],
+  "lifecycle_evidence": "lifecycle-summary-pull.json"
+}

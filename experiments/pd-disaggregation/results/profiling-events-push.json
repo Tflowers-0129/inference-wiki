@@ -1,0 +1,385 @@
+{
+  "schema": "wiki-pd-push-trace-review/1",
+  "selected_request_label": "prompt513-repetition1",
+  "request_key": "q261a8a1d6dda6f7e",
+  "explicit_aliases": [
+    "q261a8a1d6dda6f7e",
+    "qa703c43e3e7e6b6b",
+    "qd8fb6049218577df"
+  ],
+  "configuration": "MQA KV1, P TP2/DCP2 and D TP2/DCP2; differs from pull KV2 DCP1.",
+  "source_retention_counterexample": "lifecycle-summary-push.json#source_retention_counterexample",
+  "attribution_limits": [
+    "Producer TE record_function scopes in background threads are absent, but CANN hixlOpBatchWrite and HixlBatchPut are captured.",
+    "Host conversion localizes request-attributed JSONL calls within native traces; no cross-device clock error bound was established.",
+    "Producer CANN and device tasks share a trace-local connection_id. This is not a cross-rank request ID.",
+    "D get_finished scope has no request argument; the selected result is located with same-process method timing and explicit nonempty JSONL identities.",
+    "The first warm-up source free precedes final observed write return. The four measured requests do not establish a general retention guarantee.",
+    "The two P/D captures use different local views; independent screenshot zooms cannot establish synchronized left edges, stragglers or speedup.",
+    "No pull-versus-push speed comparison is valid because KV-head and DCP configurations differ."
+  ],
+  "traces": [
+    {
+      "role": "D",
+      "tp_rank": "0",
+      "trace_sha256": "d7ced21559d3db289f4e4c1c80ba657e25f5405860a10abff7079f1443ff05d4",
+      "trace_bytes": 16246264,
+      "events": 80013,
+      "wiki_scope_calls": 530,
+      "flow_endpoint_counts": [
+        {
+          "category": "async_task_queue",
+          "phase": "f",
+          "count": 4123
+        },
+        {
+          "category": "async_task_queue",
+          "phase": "s",
+          "count": 4123
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "f",
+          "count": 3820
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "s",
+          "count": 3980
+        },
+        {
+          "category": "async_npu",
+          "phase": "s",
+          "count": 3740
+        },
+        {
+          "category": "async_npu",
+          "phase": "f",
+          "count": 3740
+        }
+      ],
+      "background_TE_record_function_scope_count": 0,
+      "selected_request_marker": {
+        "name": "wiki/push/D/rank0/get_external_request_id",
+        "occurrence_1based": 4,
+        "matches": 4,
+        "ts_us": "1793861654272206.160",
+        "dur_us": 15.78,
+        "input_request_key": "q261a8a1d6dda6f7e",
+        "external_request_key": "qa703c43e3e7e6b6b"
+      },
+      "selected_completion_return": {
+        "name": "wiki/push/D/rank0/MooncakeLayerwiseConnectorWorker.get_finished",
+        "occurrence_1based": 59,
+        "matches": 66,
+        "ts_us": "1793861654285279.400",
+        "dur_us": 304.74,
+        "observed_finished_recving": [
+          "q261a8a1d6dda6f7e"
+        ],
+        "converted_JSONL_end_us": "1793861654285613.81",
+        "JSONL_minus_native_scope_end_us": 29.67,
+        "mapping": "Same-process method; unique closest native completion before the explicit nonempty JSONL result. Scope itself does not contain the request ID."
+      },
+      "first_subsequent_attention_task": {
+        "name": "FusedInferAttentionScore",
+        "ts_us": "1793861654293247.072",
+        "dur_us": 11.0299375,
+        "stream": 61,
+        "scope": "Later captured target execution, not proof that all intervening time is network wait."
+      }
+    },
+    {
+      "role": "D",
+      "tp_rank": "1",
+      "trace_sha256": "56123287a83406e4c05e1dee72ea554a4a48cca3985a2d2ca0d40291f8f5718f",
+      "trace_bytes": 16265181,
+      "events": 80049,
+      "wiki_scope_calls": 530,
+      "flow_endpoint_counts": [
+        {
+          "category": "async_task_queue",
+          "phase": "f",
+          "count": 4123
+        },
+        {
+          "category": "async_task_queue",
+          "phase": "s",
+          "count": 4123
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "f",
+          "count": 3820
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "s",
+          "count": 3980
+        },
+        {
+          "category": "async_npu",
+          "phase": "s",
+          "count": 3740
+        },
+        {
+          "category": "async_npu",
+          "phase": "f",
+          "count": 3740
+        }
+      ],
+      "background_TE_record_function_scope_count": 0,
+      "selected_request_marker": {
+        "name": "wiki/push/D/rank1/get_external_request_id",
+        "occurrence_1based": 4,
+        "matches": 4,
+        "ts_us": "1793861654272650.440",
+        "dur_us": 17.23,
+        "input_request_key": "q261a8a1d6dda6f7e",
+        "external_request_key": "qa703c43e3e7e6b6b"
+      },
+      "selected_completion_return": {
+        "name": "wiki/push/D/rank1/MooncakeLayerwiseConnectorWorker.get_finished",
+        "occurrence_1based": 59,
+        "matches": 66,
+        "ts_us": "1793861654285848.580",
+        "dur_us": 423.99,
+        "observed_finished_recving": [
+          "q261a8a1d6dda6f7e"
+        ],
+        "converted_JSONL_end_us": "1793861654286305.59",
+        "JSONL_minus_native_scope_end_us": 33.02,
+        "mapping": "Same-process method; unique closest native completion before the explicit nonempty JSONL result. Scope itself does not contain the request ID."
+      },
+      "first_subsequent_attention_task": {
+        "name": "FusedInferAttentionScore",
+        "ts_us": "1793861654294534.546",
+        "dur_us": 11.4899375,
+        "stream": 61,
+        "scope": "Later captured target execution, not proof that all intervening time is network wait."
+      }
+    },
+    {
+      "role": "P",
+      "tp_rank": "0",
+      "trace_sha256": "d1549cf9495e74e1cb75b54cd0f06f34d1908d26e78fc50fd3ae0623852a2bbc",
+      "trace_bytes": 3622241,
+      "events": 18243,
+      "wiki_scope_calls": 92,
+      "flow_endpoint_counts": [
+        {
+          "category": "async_task_queue",
+          "phase": "f",
+          "count": 927
+        },
+        {
+          "category": "async_task_queue",
+          "phase": "s",
+          "count": 927
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "f",
+          "count": 868
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "s",
+          "count": 884
+        },
+        {
+          "category": "async_npu",
+          "phase": "s",
+          "count": 840
+        },
+        {
+          "category": "async_npu",
+          "phase": "f",
+          "count": 840
+        }
+      ],
+      "background_TE_record_function_scope_count": 0,
+      "selected_transfers": [
+        {
+          "request_key": "q261a8a1d6dda6f7e",
+          "layer_idx": 0,
+          "TE_bytes": 98304,
+          "TE_ranges": 6,
+          "TE_return_code": 0,
+          "TE_begin_converted_trace_us": "1793861654280106.77",
+          "TE_end_converted_trace_us": "1793861654280453.79",
+          "host_CANN": {
+            "name": "AscendCL@hixlOpBatchWrite",
+            "ts_us": "1793861654280181.190",
+            "dur_us": 232.13,
+            "connection_id": 4128
+          },
+          "device_task": {
+            "name": "HixlBatchPut",
+            "ts_us": "1793861654280228.296",
+            "dur_us": 83.5435,
+            "stream": 13,
+            "task_type": "AI_CPU",
+            "connection_id": 4128
+          },
+          "HostToDevice_flow_endpoint_phases": [
+            "f"
+          ],
+          "pairing": "Same-trace connection_id; CANN call enclosed by the explicit request/layer JSONL write. Byte counts come from TE lengths, not device task arguments."
+        },
+        {
+          "request_key": "q261a8a1d6dda6f7e",
+          "layer_idx": 1,
+          "TE_bytes": 98304,
+          "TE_ranges": 6,
+          "TE_return_code": 0,
+          "TE_begin_converted_trace_us": "1793861654282396.20",
+          "TE_end_converted_trace_us": "1793861654282614.57",
+          "host_CANN": {
+            "name": "AscendCL@hixlOpBatchWrite",
+            "ts_us": "1793861654282452.550",
+            "dur_us": 107.05,
+            "connection_id": 4265
+          },
+          "device_task": {
+            "name": "HixlBatchPut",
+            "ts_us": "1793861654282485.994",
+            "dur_us": 39.78575,
+            "stream": 12,
+            "task_type": "AI_CPU",
+            "connection_id": 4265
+          },
+          "HostToDevice_flow_endpoint_phases": [
+            "f"
+          ],
+          "pairing": "Same-trace connection_id; CANN call enclosed by the explicit request/layer JSONL write. Byte counts come from TE lengths, not device task arguments."
+        }
+      ],
+      "selected_layer_write_markers": [
+        {
+          "occurrence_1based": 7,
+          "name": "wiki/push/P/rank0/MooncakeLayerwiseConnectorWorker.on_kv_cache_written",
+          "ts_us": "1793861654279044.200",
+          "dur_us": 100.88
+        },
+        {
+          "occurrence_1based": 8,
+          "name": "wiki/push/P/rank0/MooncakeLayerwiseConnectorWorker.on_kv_cache_written",
+          "ts_us": "1793861654281435.850",
+          "dur_us": 98.58
+        }
+      ]
+    },
+    {
+      "role": "P",
+      "tp_rank": "1",
+      "trace_sha256": "6090131a061e4e49e14540d7117df55ec7ff7fcb21887fb550b8668c4806e644",
+      "trace_bytes": 3618284,
+      "events": 18230,
+      "wiki_scope_calls": 92,
+      "flow_endpoint_counts": [
+        {
+          "category": "async_task_queue",
+          "phase": "f",
+          "count": 922
+        },
+        {
+          "category": "async_task_queue",
+          "phase": "s",
+          "count": 922
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "f",
+          "count": 868
+        },
+        {
+          "category": "HostToDevice",
+          "phase": "s",
+          "count": 884
+        },
+        {
+          "category": "async_npu",
+          "phase": "s",
+          "count": 840
+        },
+        {
+          "category": "async_npu",
+          "phase": "f",
+          "count": 840
+        }
+      ],
+      "background_TE_record_function_scope_count": 0,
+      "selected_transfers": [
+        {
+          "request_key": "q261a8a1d6dda6f7e",
+          "layer_idx": 0,
+          "TE_bytes": 65536,
+          "TE_ranges": 4,
+          "TE_return_code": 0,
+          "TE_begin_converted_trace_us": "1793861654280688.00",
+          "TE_end_converted_trace_us": "1793861654280939.44",
+          "host_CANN": {
+            "name": "AscendCL@hixlOpBatchWrite",
+            "ts_us": "1793861654280760.640",
+            "dur_us": 139.65,
+            "connection_id": 4112
+          },
+          "device_task": {
+            "name": "HixlBatchPut",
+            "ts_us": "1793861654280825.127",
+            "dur_us": 39.851,
+            "stream": 13,
+            "task_type": "AI_CPU",
+            "connection_id": 4112
+          },
+          "HostToDevice_flow_endpoint_phases": [
+            "f"
+          ],
+          "pairing": "Same-trace connection_id; CANN call enclosed by the explicit request/layer JSONL write. Byte counts come from TE lengths, not device task arguments."
+        },
+        {
+          "request_key": "q261a8a1d6dda6f7e",
+          "layer_idx": 1,
+          "TE_bytes": 65536,
+          "TE_ranges": 4,
+          "TE_return_code": 0,
+          "TE_begin_converted_trace_us": "1793861654283410.88",
+          "TE_end_converted_trace_us": "1793861654283638.79",
+          "host_CANN": {
+            "name": "AscendCL@hixlOpBatchWrite",
+            "ts_us": "1793861654283485.130",
+            "dur_us": 109.96,
+            "connection_id": 4270
+          },
+          "device_task": {
+            "name": "HixlBatchPut",
+            "ts_us": "1793861654283529.417",
+            "dur_us": 34.8539375,
+            "stream": 12,
+            "task_type": "AI_CPU",
+            "connection_id": 4270
+          },
+          "HostToDevice_flow_endpoint_phases": [
+            "f"
+          ],
+          "pairing": "Same-trace connection_id; CANN call enclosed by the explicit request/layer JSONL write. Byte counts come from TE lengths, not device task arguments."
+        }
+      ],
+      "selected_layer_write_markers": [
+        {
+          "occurrence_1based": 7,
+          "name": "wiki/push/P/rank1/MooncakeLayerwiseConnectorWorker.on_kv_cache_written",
+          "ts_us": "1793861654279567.260",
+          "dur_us": 107.45
+        },
+        {
+          "occurrence_1based": 8,
+          "name": "wiki/push/P/rank1/MooncakeLayerwiseConnectorWorker.on_kv_cache_written",
+          "ts_us": "1793861654282243.920",
+          "dur_us": 96.65
+        }
+      ]
+    }
+  ]
+}

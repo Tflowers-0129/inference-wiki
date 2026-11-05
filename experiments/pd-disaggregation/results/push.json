@@ -1,0 +1,405 @@
+{
+  "schema": "wiki-pd-push-result/1",
+  "captured_date": "2026-11-05",
+  "status": "passed",
+  "mode": "push",
+  "connector": "MooncakeLayerwiseConnector",
+  "topology": {
+    "producer_instances": 1,
+    "P_tp": 2,
+    "P_dcp": 2,
+    "decoder_instances": 1,
+    "D_tp": 2,
+    "D_dcp": 2,
+    "hosts": 1,
+    "worker_processes": 4
+  },
+  "runner": "ModelRunnerV2, eager, multiprocessing",
+  "transport": "Mooncake NPU transfer on one A5 host; not an inter-host fabric benchmark",
+  "model": {
+    "kind": "random Qwen2 MQA checkpoint",
+    "seed": 20261105,
+    "layers": 2,
+    "hidden_size": 512,
+    "intermediate_size": 1024,
+    "query_heads": 8,
+    "kv_heads": 1,
+    "head_dim": 64,
+    "vocabulary": 256,
+    "dtype": "BF16"
+  },
+  "effective_config": {
+    "max_model_len": 2048,
+    "max_num_batched_tokens": 1024,
+    "max_num_seqs": 4,
+    "kv_cache_memory_bytes_per_worker": 33554432,
+    "prefix_caching": false,
+    "block_size": 128,
+    "DCP_interleave_size": 128,
+    "output_tokens_per_request": 4,
+    "greedy": true,
+    "ignore_eos": true
+  },
+  "comparison": "Colocated P and PD outputs use the same MQA checkpoint and TP2/DCP2 settings. This differs from the separate pull GQA/DCP1 experiment; no pull/push timing comparison is valid.",
+  "transfer_accounting": {
+    "unit": "actual lengths submitted to TE sync write",
+    "bytes_per_owned_sequence_block_per_layer": 32768,
+    "formula": "128 positions * 2(K,V) * 1 KV head * 64 dimensions * 2 bytes",
+    "ownership": "MQA head replicated by TP, sequence positions partitioned by DCP2 in 128-position interleaves. For 513 tokens, five global sequence blocks map 3 to rank0 and 2 to rank1.",
+    "logical_allocation_note": "Both ranks can share a logical block table length of three; that is not a claim that both own three populated sequence blocks.",
+    "last_block_padding_included": true,
+    "not_effective_KV_positions_or_HBM_occupancy": true,
+    "measured_write_calls_per_P_rank": 8,
+    "measured_write_bytes_by_P_rank": {
+      "0": 524288,
+      "1": 393216
+    }
+  },
+  "requests": [
+    {
+      "label": "prompt129-repetition0",
+      "prompt_length": 129,
+      "repetition": 0,
+      "output_token_ids": [
+        116,
+        189,
+        116,
+        189
+      ],
+      "greedy_tokens_match_colocated": true,
+      "selected_logprob_max_abs_vs_colocated": 0.007887840270996094,
+      "source_logical_blocks": [
+        [
+          1
+        ]
+      ],
+      "target_allocated_logical_blocks": [
+        [
+          3
+        ]
+      ],
+      "write_per_P_tp_rank": [
+        {
+          "tp_rank": "0",
+          "calls": 2,
+          "bytes": 65536,
+          "ranges": 4,
+          "layers": [
+            {
+              "layer_idx": 0,
+              "bytes": 32768,
+              "ranges": 2,
+              "return_code": 0
+            },
+            {
+              "layer_idx": 1,
+              "bytes": 32768,
+              "ranges": 2,
+              "return_code": 0
+            }
+          ]
+        },
+        {
+          "tp_rank": "1",
+          "calls": 2,
+          "bytes": 65536,
+          "ranges": 4,
+          "layers": [
+            {
+              "layer_idx": 0,
+              "bytes": 32768,
+              "ranges": 2,
+              "return_code": 0
+            },
+            {
+              "layer_idx": 1,
+              "bytes": 32768,
+              "ranges": 2,
+              "return_code": 0
+            }
+          ]
+        }
+      ],
+      "source_release_result": {
+        "source_free_observed": true,
+        "write_observed": true,
+        "observed_write_call_count": 4,
+        "observed_successful_write_call_count": 4,
+        "verdict": "source_free_call_began_after_all_observed_write_returns",
+        "scope": "observed host-side call boundaries; not proof that all expected writes were captured or that allocator reuse occurred",
+        "first_source_free_begin_us": 19609.54,
+        "first_source_free_end_us": 19767.72,
+        "last_observed_write_end_us": 17106.86,
+        "last_observed_successful_write_end_us": 17106.86,
+        "source_free_minus_last_observed_write_us": 2660.8600000000006
+      },
+      "D_rank0_rank1_completion_observed": true,
+      "D_remote_wait_to_waiting_observed": true
+    },
+    {
+      "label": "prompt513-repetition0",
+      "prompt_length": 513,
+      "repetition": 0,
+      "output_token_ids": [
+        75,
+        144,
+        242,
+        54
+      ],
+      "greedy_tokens_match_colocated": true,
+      "selected_logprob_max_abs_vs_colocated": 0.007551670074462891,
+      "source_logical_blocks": [
+        [
+          1,
+          2,
+          3
+        ]
+      ],
+      "target_allocated_logical_blocks": [
+        [
+          3,
+          2,
+          1
+        ]
+      ],
+      "write_per_P_tp_rank": [
+        {
+          "tp_rank": "0",
+          "calls": 2,
+          "bytes": 196608,
+          "ranges": 12,
+          "layers": [
+            {
+              "layer_idx": 0,
+              "bytes": 98304,
+              "ranges": 6,
+              "return_code": 0
+            },
+            {
+              "layer_idx": 1,
+              "bytes": 98304,
+              "ranges": 6,
+              "return_code": 0
+            }
+          ]
+        },
+        {
+          "tp_rank": "1",
+          "calls": 2,
+          "bytes": 131072,
+          "ranges": 8,
+          "layers": [
+            {
+              "layer_idx": 0,
+              "bytes": 65536,
+              "ranges": 4,
+              "return_code": 0
+            },
+            {
+              "layer_idx": 1,
+              "bytes": 65536,
+              "ranges": 4,
+              "return_code": 0
+            }
+          ]
+        }
+      ],
+      "source_release_result": {
+        "source_free_observed": true,
+        "write_observed": true,
+        "observed_write_call_count": 4,
+        "observed_successful_write_call_count": 4,
+        "verdict": "source_free_call_began_after_all_observed_write_returns",
+        "scope": "observed host-side call boundaries; not proof that all expected writes were captured or that allocator reuse occurred",
+        "first_source_free_begin_us": 16927.45,
+        "first_source_free_end_us": 17077.3,
+        "last_observed_write_end_us": 12460.51,
+        "last_observed_successful_write_end_us": 12460.51,
+        "source_free_minus_last_observed_write_us": 4616.789999999999
+      },
+      "D_rank0_rank1_completion_observed": true,
+      "D_remote_wait_to_waiting_observed": true
+    },
+    {
+      "label": "prompt129-repetition1",
+      "prompt_length": 129,
+      "repetition": 1,
+      "output_token_ids": [
+        116,
+        189,
+        116,
+        189
+      ],
+      "greedy_tokens_match_colocated": true,
+      "selected_logprob_max_abs_vs_colocated": 0.007887840270996094,
+      "source_logical_blocks": [
+        [
+          3
+        ]
+      ],
+      "target_allocated_logical_blocks": [
+        [
+          1
+        ]
+      ],
+      "write_per_P_tp_rank": [
+        {
+          "tp_rank": "0",
+          "calls": 2,
+          "bytes": 65536,
+          "ranges": 4,
+          "layers": [
+            {
+              "layer_idx": 0,
+              "bytes": 32768,
+              "ranges": 2,
+              "return_code": 0
+            },
+            {
+              "layer_idx": 1,
+              "bytes": 32768,
+              "ranges": 2,
+              "return_code": 0
+            }
+          ]
+        },
+        {
+          "tp_rank": "1",
+          "calls": 2,
+          "bytes": 65536,
+          "ranges": 4,
+          "layers": [
+            {
+              "layer_idx": 0,
+              "bytes": 32768,
+              "ranges": 2,
+              "return_code": 0
+            },
+            {
+              "layer_idx": 1,
+              "bytes": 32768,
+              "ranges": 2,
+              "return_code": 0
+            }
+          ]
+        }
+      ],
+      "source_release_result": {
+        "source_free_observed": true,
+        "write_observed": true,
+        "observed_write_call_count": 4,
+        "observed_successful_write_call_count": 4,
+        "verdict": "source_free_call_began_after_all_observed_write_returns",
+        "scope": "observed host-side call boundaries; not proof that all expected writes were captured or that allocator reuse occurred",
+        "first_source_free_begin_us": 16332.24,
+        "first_source_free_end_us": 16492.1,
+        "last_observed_write_end_us": 11997.96,
+        "last_observed_successful_write_end_us": 11997.96,
+        "source_free_minus_last_observed_write_us": 4494.139999999999
+      },
+      "D_rank0_rank1_completion_observed": true,
+      "D_remote_wait_to_waiting_observed": true
+    },
+    {
+      "label": "prompt513-repetition1",
+      "prompt_length": 513,
+      "repetition": 1,
+      "output_token_ids": [
+        75,
+        144,
+        242,
+        54
+      ],
+      "greedy_tokens_match_colocated": true,
+      "selected_logprob_max_abs_vs_colocated": 0.007551670074462891,
+      "source_logical_blocks": [
+        [
+          3,
+          2,
+          1
+        ]
+      ],
+      "target_allocated_logical_blocks": [
+        [
+          1,
+          2,
+          3
+        ]
+      ],
+      "write_per_P_tp_rank": [
+        {
+          "tp_rank": "0",
+          "calls": 2,
+          "bytes": 196608,
+          "ranges": 12,
+          "layers": [
+            {
+              "layer_idx": 0,
+              "bytes": 98304,
+              "ranges": 6,
+              "return_code": 0
+            },
+            {
+              "layer_idx": 1,
+              "bytes": 98304,
+              "ranges": 6,
+              "return_code": 0
+            }
+          ]
+        },
+        {
+          "tp_rank": "1",
+          "calls": 2,
+          "bytes": 131072,
+          "ranges": 8,
+          "layers": [
+            {
+              "layer_idx": 0,
+              "bytes": 65536,
+              "ranges": 4,
+              "return_code": 0
+            },
+            {
+              "layer_idx": 1,
+              "bytes": 65536,
+              "ranges": 4,
+              "return_code": 0
+            }
+          ]
+        }
+      ],
+      "source_release_result": {
+        "source_free_observed": true,
+        "write_observed": true,
+        "observed_write_call_count": 4,
+        "observed_successful_write_call_count": 4,
+        "verdict": "source_free_call_began_after_all_observed_write_returns",
+        "scope": "observed host-side call boundaries; not proof that all expected writes were captured or that allocator reuse occurred",
+        "first_source_free_begin_us": 17507.85,
+        "first_source_free_end_us": 17656.14,
+        "last_observed_write_end_us": 13291.4,
+        "last_observed_successful_write_end_us": 13291.4,
+        "source_free_minus_last_observed_write_us": 4364.74
+      },
+      "D_rank0_rank1_completion_observed": true,
+      "D_remote_wait_to_waiting_observed": true
+    }
+  ],
+  "correctness_summary": {
+    "greedy_output_token_sequences_equal": "4/4 measured requests",
+    "selected_logprob_max_abs_vs_colocated": 0.007887840270996094,
+    "bitwise_logprobs_equal": false
+  },
+  "source_retention_summary": {
+    "measured_requests": "All four measured free calls begin after their observed writes returned.",
+    "counterexample": "The first 129-token PD warm-up completed the Scheduler request-free call before final observed write return, by about 190833.51us on the shared Host monotonic clock.",
+    "conclusion": "These records do not establish a general source-retention guarantee or an early physical reuse. The allocator deferred-free branch and concurrent block-overwrite were not observed.",
+    "evidence": "lifecycle-summary-push.json#source_retention_counterexample"
+  },
+  "scope": [
+    "Request handoff and observed lifecycle on a random tiny model, with a separate warm-up lifetime counterexample.",
+    "No pretrained quality, steady-state throughput, inter-host bandwidth, or pull-versus-push speedup claim.",
+    "Profiling viewer evidence and its attribution limits are maintained separately."
+  ],
+  "lifecycle_evidence": "lifecycle-summary-push.json"
+}

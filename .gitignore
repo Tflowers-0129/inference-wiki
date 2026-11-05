@@ -30,3 +30,4 @@ node_modules/
 /dist/sparse-offload.md
 /dist/ep-communication.md
 /dist/context-parallel.md
+/dist/pd-disaggregation.md

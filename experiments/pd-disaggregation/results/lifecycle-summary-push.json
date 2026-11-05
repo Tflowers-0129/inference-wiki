@@ -1,0 +1,2316 @@
+{
+  "schema": "wiki-pd-selected-lifecycle/1",
+  "mode": "push",
+  "captured_date": "2026-11-05",
+  "topology": {
+    "P_tp": 2,
+    "P_dcp": 2,
+    "D_tp": 2,
+    "D_dcp": 2
+  },
+  "model_kv_heads": 1,
+  "clock_domain": "same-host-monotonic",
+  "selection": "Four measured API requests. One minimal warm-up source-release counterexample is retained separately because it changes the lifecycle conclusion; other warm-up and baseline lifecycles are excluded.",
+  "rank_scope": "Each P/D engine has its own local TP0/TP1; DCP reuses these two workers. rankS denotes the engine Scheduler.",
+  "pairing": "Observed get_external_request_id/request_map edges and HTTP child-id convention; no cross-rank left-edge alignment.",
+  "warnings": [
+    "Hooked entry/exit adds Python and I/O overhead; durations are diagnostic, not a performance benchmark.",
+    "rankS denotes Scheduler and rankU denotes unknown. Neither is silently relabeled rank0.",
+    "A release call is allocator/request bookkeeping; it does not prove immediate physical HBM reuse.",
+    "TE sync return >=0 is a host completion observation; absent calls/scopes are not proof of absent transfers.",
+    "D _update_waiting_for_remote_kv handles completed receipt; its method boundary alone is not a logged status transition or device decode start.",
+    "Requests are joined only by observed local/remote ID or explicit mapping edges; batched calls may belong to several requests.",
+    "This MQA DCP2 setup differs from the pull GQA DCP1 setup. Do not use these captures as a pull-versus-push performance comparison."
+  ],
+  "private_raw_provenance": {
+    "result_json_sha256": "a1cd5bbee8ede9162d0718b34008e8f90eceaa74b4b9e359f56da7179b10de0b",
+    "lifecycle_sources": [
+      {
+        "source": "lifecycle-000.jsonl",
+        "sha256": "1bbf720deadefaceafa6831fb84dc47ab1a558698404df337df18ad6e4cb08a8",
+        "bytes": 22023
+      },
+      {
+        "source": "lifecycle-001.jsonl",
+        "sha256": "b5399d93e752a3a4f23b9c3eb063b1ddc29b2a6b75537e55c3fbe3080bc3f7ea",
+        "bytes": 271
+      },
+      {
+        "source": "lifecycle-002.jsonl",
+        "sha256": "8f8bb75d94d0def11679d89ebf25b01a8309e167c917f710854499a82b06bace",
+        "bytes": 480731
+      },
+      {
+        "source": "lifecycle-003.jsonl",
+        "sha256": "df926bf709ab17867866f2f48161df3ea2dfe27be391de0a47da0b3ff7ac9fb1",
+        "bytes": 561393
+      },
+      {
+        "source": "lifecycle-004.jsonl",
+        "sha256": "5581540297b48e16ed721c691e631190e183aad211b794676fbe77f0763d5b74",
+        "bytes": 562114
+      },
+      {
+        "source": "lifecycle-005.jsonl",
+        "sha256": "6df137955451ea03b026c276170799eecc40f07c7cf06cef6d9f1c3ecea1e151",
+        "bytes": 271
+      },
+      {
+        "source": "lifecycle-006.jsonl",
+        "sha256": "612df95bd65807cf713d70391c694cee41e319fc787886a6aa62b9971a9bdcd7",
+        "bytes": 22023
+      },
+      {
+        "source": "lifecycle-007.jsonl",
+        "sha256": "1b7afc9d318cfeff6e8f2ae03b717cd7fb17daf41cdaaf6aa2262b07db960842",
+        "bytes": 271
+      },
+      {
+        "source": "lifecycle-008.jsonl",
+        "sha256": "b861558a6420f99a7a82e1fa2c1e4168d22d84c7491960006b2aca71127cdb12",
+        "bytes": 141749
+      },
+      {
+        "source": "lifecycle-009.jsonl",
+        "sha256": "711e4bfb8cbd5c06f9038c11299b94306c019b233cfaded0abc1194bea1f908b",
+        "bytes": 182539
+      },
+      {
+        "source": "lifecycle-010.jsonl",
+        "sha256": "b94ce577d14d30d58a11b477f7514eb05b5445a9c91f1ac5c1ba4fe779b9c1ea",
+        "bytes": 182392
+      },
+      {
+        "source": "lifecycle-011.jsonl",
+        "sha256": "afc156816ca199c087299ccd0a7bf92add53bef4c7f35a7c4f384874a85d5f43",
+        "bytes": 271
+      }
+    ],
+    "parsed_rows": 6708,
+    "summary_recomputed_equal": true
+  },
+  "requests": [
+    {
+      "request_key": "q02ce0251376b2022",
+      "explicit_aliases": [
+        "q02ce0251376b2022",
+        "q6b5279ffb59ff00d",
+        "q98480f74a9acd5c2"
+      ],
+      "roles": [
+        "D",
+        "P"
+      ],
+      "ranks": {
+        "D": [
+          "0",
+          "1",
+          "S"
+        ],
+        "P": [
+          "0",
+          "1",
+          "S"
+        ]
+      },
+      "origin": "first associated observed call; unrelated request origins must not be overlaid",
+      "allocation": [
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.update_state_after_alloc",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 635.36,
+          "end_us": 1006.49,
+          "duration_us": 353.24,
+          "num_external_tokens": 129,
+          "allocated_block_ids": [
+            [
+              3
+            ]
+          ],
+          "request": {
+            "request_id": "q6b5279ffb59ff00d",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 0,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.update_state_after_alloc",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 4359.43,
+          "end_us": 4424.8,
+          "duration_us": 49.17,
+          "num_external_tokens": 0,
+          "allocated_block_ids": [
+            [
+              1
+            ]
+          ],
+          "request": {
+            "request_id": "q98480f74a9acd5c2",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 0,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.update_state_after_alloc",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 22372.14,
+          "end_us": 22431.63,
+          "duration_us": 43.33,
+          "num_external_tokens": 0,
+          "allocated_block_ids": [
+            [
+              3
+            ]
+          ],
+          "request": {
+            "request_id": "q6b5279ffb59ff00d",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 128,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        }
+      ],
+      "delay_free_results": [
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.request_finished_all_groups",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 19452.71,
+          "end_us": 19515.99,
+          "duration_us": 45.92,
+          "block_ids": [
+            [
+              1
+            ]
+          ],
+          "request": {
+            "request_id": "q98480f74a9acd5c2",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 129,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        },
+        {
+          "event": "Scheduler._connector_finished",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 19380.45,
+          "end_us": 19563.89,
+          "duration_us": 167.14,
+          "request": {
+            "request_id": "q98480f74a9acd5c2",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 129,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.request_finished_all_groups",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 68441.11,
+          "end_us": 68506.49,
+          "duration_us": 48.11,
+          "block_ids": [
+            [
+              3
+            ]
+          ],
+          "request": {
+            "request_id": "q6b5279ffb59ff00d",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 132,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        },
+        {
+          "event": "Scheduler._connector_finished",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 68363.18,
+          "end_us": 68555.43,
+          "duration_us": 176.75,
+          "request": {
+            "request_id": "q6b5279ffb59ff00d",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 132,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        }
+      ],
+      "transfers": [
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "0",
+          "begin_us": 11963.27,
+          "end_us": 12968.49,
+          "duration_us": 932.7,
+          "transfer_bytes": 32768,
+          "transfer_ranges": 2,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 0,
+            "request_ids": [
+              "q98480f74a9acd5c2"
+            ]
+          }
+        },
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "0",
+          "begin_us": 14399.91,
+          "end_us": 14614.85,
+          "duration_us": 197.74,
+          "transfer_bytes": 32768,
+          "transfer_ranges": 2,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 1,
+            "request_ids": [
+              "q98480f74a9acd5c2"
+            ]
+          }
+        },
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "1",
+          "begin_us": 12395.7,
+          "end_us": 16257.07,
+          "duration_us": 3836.86,
+          "transfer_bytes": 32768,
+          "transfer_ranges": 2,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 0,
+            "request_ids": [
+              "q98480f74a9acd5c2"
+            ]
+          }
+        },
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "1",
+          "begin_us": 16801.37,
+          "end_us": 17106.86,
+          "duration_us": 287.79,
+          "transfer_bytes": 32768,
+          "transfer_ranges": 2,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 1,
+            "request_ids": [
+              "q98480f74a9acd5c2"
+            ]
+          }
+        }
+      ],
+      "done_observations": [
+        {
+          "event": "KVCacheRecvingLayerThread.update_done_task",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "0",
+          "begin_us": 15792.47,
+          "end_us": 15934.56,
+          "duration_us": 91.0,
+          "trans_count": 1,
+          "done_source_count": 0
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.send_done_send_signal",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "0",
+          "begin_us": 14735.75,
+          "end_us": 16281.14,
+          "duration_us": 1526.36,
+          "trans_flag": true,
+          "req_meta": {
+            "prompt_len": 129,
+            "local_computed_tokens": 129,
+            "local_transed_tokens": 0,
+            "remote_cache_tokens": 0,
+            "chunk_finish": true,
+            "local_block_ids": [
+              [
+                1
+              ]
+            ],
+            "remote_block_ids": [
+              [
+                3
+              ]
+            ]
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.get_finished",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "0",
+          "begin_us": null,
+          "end_us": 16818.62,
+          "duration_us": 329.72,
+          "result": {
+            "finished_sending": [],
+            "finished_recving": [
+              "q6b5279ffb59ff00d"
+            ]
+          }
+        },
+        {
+          "event": "KVCacheRecvingLayerThread.update_done_task",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "1",
+          "begin_us": 18881.18,
+          "end_us": 19052.98,
+          "duration_us": 137.98,
+          "trans_count": 1,
+          "done_source_count": 0
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.send_done_send_signal",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "1",
+          "begin_us": 17237.28,
+          "end_us": 19465.9,
+          "duration_us": 2209.21,
+          "trans_flag": true,
+          "req_meta": {
+            "prompt_len": 129,
+            "local_computed_tokens": 129,
+            "local_transed_tokens": 0,
+            "remote_cache_tokens": 0,
+            "chunk_finish": true,
+            "local_block_ids": [
+              [
+                1
+              ]
+            ],
+            "remote_block_ids": [
+              [
+                3
+              ]
+            ]
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.get_finished",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "1",
+          "begin_us": null,
+          "end_us": 20449.04,
+          "duration_us": 472.07,
+          "result": {
+            "finished_sending": [],
+            "finished_recving": [
+              "q6b5279ffb59ff00d"
+            ]
+          }
+        }
+      ],
+      "remote_kv_completion_handling": [
+        {
+          "event": "Scheduler._update_waiting_for_remote_kv",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 22167.9,
+          "end_us": 22240.85,
+          "duration_us": 50.74,
+          "request": {
+            "request_id": "q6b5279ffb59ff00d",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 128,
+            "status": "WAITING_FOR_REMOTE_KVS",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        }
+      ],
+      "remote_wait_status_transitions": [
+        {
+          "event": "Scheduler._handle_blocked_waiting_request",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": null,
+          "end_us": 22294.81,
+          "duration_us": 165.71,
+          "before_status": "WAITING_FOR_REMOTE_KVS",
+          "request": {
+            "request_id": "q6b5279ffb59ff00d",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 128,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          },
+          "result": {
+            "proceed": true
+          }
+        }
+      ],
+      "free_calls": [
+        {
+          "event": "Scheduler._free_blocks",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 19609.54,
+          "end_us": 19767.72,
+          "duration_us": 144.45,
+          "request": {
+            "request_id": "q98480f74a9acd5c2",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 129,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          }
+        },
+        {
+          "event": "Scheduler._free_blocks",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 68600.11,
+          "end_us": 68758.93,
+          "duration_us": 140.89,
+          "request": {
+            "request_id": "q6b5279ffb59ff00d",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 132,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        }
+      ],
+      "source_free_vs_write": {
+        "source_free_observed": true,
+        "write_observed": true,
+        "observed_write_call_count": 4,
+        "observed_successful_write_call_count": 4,
+        "verdict": "source_free_call_began_after_all_observed_write_returns",
+        "scope": "observed host-side call boundaries; not proof that all expected writes were captured or that allocator reuse occurred",
+        "first_source_free_begin_us": 19609.54,
+        "first_source_free_end_us": 19767.72,
+        "last_observed_write_end_us": 17106.86,
+        "last_observed_successful_write_end_us": 17106.86,
+        "source_free_minus_last_observed_write_us": 2660.8600000000006
+      },
+      "missing_observations": [],
+      "label": "prompt129-repetition0",
+      "prompt_length": 129,
+      "repetition": 0,
+      "selection_evidence": {
+        "method": "Exact HTTP response id expanded by official one-prompt /completions child-id convention; hash occurs in the recorded get_external_request_id/request_map alias graph. No internal-suffix guessing or ordinal P/D join.",
+        "response_json_sha256": "4cfc50abcb3ff2992e336d5084ba45eb4745c10f5cd81dabc217d17daa3d510e"
+      }
+    },
+    {
+      "request_key": "q1f4f2266e103ffed",
+      "explicit_aliases": [
+        "q1f4f2266e103ffed",
+        "q4d1c1be2a674ca9a",
+        "q89fcec380d5427f0"
+      ],
+      "roles": [
+        "D",
+        "P"
+      ],
+      "ranks": {
+        "D": [
+          "0",
+          "1",
+          "S"
+        ],
+        "P": [
+          "0",
+          "1",
+          "S"
+        ]
+      },
+      "origin": "first associated observed call; unrelated request origins must not be overlaid",
+      "allocation": [
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.update_state_after_alloc",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 428.39,
+          "end_us": 691.8,
+          "duration_us": 247.06,
+          "num_external_tokens": 513,
+          "allocated_block_ids": [
+            [
+              3,
+              2,
+              1
+            ]
+          ],
+          "request": {
+            "request_id": "q4d1c1be2a674ca9a",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 0,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.update_state_after_alloc",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 3746.29,
+          "end_us": 3811.43,
+          "duration_us": 48.06,
+          "num_external_tokens": 0,
+          "allocated_block_ids": [
+            [
+              1,
+              2,
+              3
+            ]
+          ],
+          "request": {
+            "request_id": "q1f4f2266e103ffed",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 0,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.update_state_after_alloc",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 17095.68,
+          "end_us": 17153.72,
+          "duration_us": 42.19,
+          "num_external_tokens": 0,
+          "allocated_block_ids": [
+            [
+              3,
+              2,
+              1
+            ]
+          ],
+          "request": {
+            "request_id": "q4d1c1be2a674ca9a",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 512,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        }
+      ],
+      "delay_free_results": [
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.request_finished_all_groups",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 16764.38,
+          "end_us": 16834.63,
+          "duration_us": 49.28,
+          "block_ids": [
+            [
+              1,
+              2,
+              3
+            ]
+          ],
+          "request": {
+            "request_id": "q1f4f2266e103ffed",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 513,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        },
+        {
+          "event": "Scheduler._connector_finished",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 16692.59,
+          "end_us": 16882.77,
+          "duration_us": 174.68,
+          "request": {
+            "request_id": "q1f4f2266e103ffed",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 513,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.request_finished_all_groups",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 58143.44,
+          "end_us": 58215.78,
+          "duration_us": 50.91,
+          "block_ids": [
+            [
+              3,
+              2,
+              1
+            ]
+          ],
+          "request": {
+            "request_id": "q4d1c1be2a674ca9a",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 516,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        },
+        {
+          "event": "Scheduler._connector_finished",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 58068.49,
+          "end_us": 58266.49,
+          "duration_us": 182.41,
+          "request": {
+            "request_id": "q4d1c1be2a674ca9a",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 516,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        }
+      ],
+      "transfers": [
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "1",
+          "begin_us": 9854.23,
+          "end_us": 10135.74,
+          "duration_us": 263.33,
+          "transfer_bytes": 65536,
+          "transfer_ranges": 4,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 0,
+            "request_ids": [
+              "q1f4f2266e103ffed"
+            ]
+          }
+        },
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "0",
+          "begin_us": 9890.53,
+          "end_us": 10834.84,
+          "duration_us": 884.98,
+          "transfer_bytes": 98304,
+          "transfer_ranges": 6,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 0,
+            "request_ids": [
+              "q1f4f2266e103ffed"
+            ]
+          }
+        },
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "1",
+          "begin_us": 12243.32,
+          "end_us": 12459.32,
+          "duration_us": 194.2,
+          "transfer_bytes": 65536,
+          "transfer_ranges": 4,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 1,
+            "request_ids": [
+              "q1f4f2266e103ffed"
+            ]
+          }
+        },
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "0",
+          "begin_us": 12206.14,
+          "end_us": 12460.51,
+          "duration_us": 226.1,
+          "transfer_bytes": 98304,
+          "transfer_ranges": 6,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 1,
+            "request_ids": [
+              "q1f4f2266e103ffed"
+            ]
+          }
+        }
+      ],
+      "done_observations": [
+        {
+          "event": "KVCacheRecvingLayerThread.update_done_task",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "0",
+          "begin_us": 13580.48,
+          "end_us": 13696.81,
+          "duration_us": 84.91,
+          "trans_count": 1,
+          "done_source_count": 0
+        },
+        {
+          "event": "KVCacheRecvingLayerThread.update_done_task",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "1",
+          "begin_us": 13654.34,
+          "end_us": 13773.43,
+          "duration_us": 86.62,
+          "trans_count": 1,
+          "done_source_count": 0
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.send_done_send_signal",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "0",
+          "begin_us": 12579.0,
+          "end_us": 14289.45,
+          "duration_us": 1689.34,
+          "trans_flag": true,
+          "req_meta": {
+            "prompt_len": 513,
+            "local_computed_tokens": 513,
+            "local_transed_tokens": 0,
+            "remote_cache_tokens": 0,
+            "chunk_finish": true,
+            "local_block_ids": [
+              [
+                1,
+                2,
+                3
+              ]
+            ],
+            "remote_block_ids": [
+              [
+                3,
+                2,
+                1
+              ]
+            ]
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.send_done_send_signal",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "1",
+          "begin_us": 12575.52,
+          "end_us": 14521.63,
+          "duration_us": 1925.51,
+          "trans_flag": true,
+          "req_meta": {
+            "prompt_len": 513,
+            "local_computed_tokens": 513,
+            "local_transed_tokens": 0,
+            "remote_cache_tokens": 0,
+            "chunk_finish": true,
+            "local_block_ids": [
+              [
+                1,
+                2
+              ]
+            ],
+            "remote_block_ids": [
+              [
+                3,
+                2
+              ]
+            ]
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.get_finished",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "0",
+          "begin_us": null,
+          "end_us": 14893.04,
+          "duration_us": 334.38,
+          "result": {
+            "finished_sending": [],
+            "finished_recving": [
+              "q4d1c1be2a674ca9a"
+            ]
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.get_finished",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "1",
+          "begin_us": null,
+          "end_us": 15233.4,
+          "duration_us": 365.58,
+          "result": {
+            "finished_sending": [],
+            "finished_recving": [
+              "q4d1c1be2a674ca9a"
+            ]
+          }
+        }
+      ],
+      "remote_kv_completion_handling": [
+        {
+          "event": "Scheduler._update_waiting_for_remote_kv",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 16912.84,
+          "end_us": 16971.96,
+          "duration_us": 43.55,
+          "request": {
+            "request_id": "q4d1c1be2a674ca9a",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 512,
+            "status": "WAITING_FOR_REMOTE_KVS",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        }
+      ],
+      "remote_wait_status_transitions": [
+        {
+          "event": "Scheduler._handle_blocked_waiting_request",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": null,
+          "end_us": 17020.85,
+          "duration_us": 145.96,
+          "before_status": "WAITING_FOR_REMOTE_KVS",
+          "request": {
+            "request_id": "q4d1c1be2a674ca9a",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 512,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          },
+          "result": {
+            "proceed": true
+          }
+        }
+      ],
+      "free_calls": [
+        {
+          "event": "Scheduler._free_blocks",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 16927.45,
+          "end_us": 17077.3,
+          "duration_us": 136.32,
+          "request": {
+            "request_id": "q1f4f2266e103ffed",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 513,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          }
+        },
+        {
+          "event": "Scheduler._free_blocks",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 58312.07,
+          "end_us": 58464.21,
+          "duration_us": 139.17,
+          "request": {
+            "request_id": "q4d1c1be2a674ca9a",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 516,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        }
+      ],
+      "source_free_vs_write": {
+        "source_free_observed": true,
+        "write_observed": true,
+        "observed_write_call_count": 4,
+        "observed_successful_write_call_count": 4,
+        "verdict": "source_free_call_began_after_all_observed_write_returns",
+        "scope": "observed host-side call boundaries; not proof that all expected writes were captured or that allocator reuse occurred",
+        "first_source_free_begin_us": 16927.45,
+        "first_source_free_end_us": 17077.3,
+        "last_observed_write_end_us": 12460.51,
+        "last_observed_successful_write_end_us": 12460.51,
+        "source_free_minus_last_observed_write_us": 4616.789999999999
+      },
+      "missing_observations": [],
+      "label": "prompt513-repetition0",
+      "prompt_length": 513,
+      "repetition": 0,
+      "selection_evidence": {
+        "method": "Exact HTTP response id expanded by official one-prompt /completions child-id convention; hash occurs in the recorded get_external_request_id/request_map alias graph. No internal-suffix guessing or ordinal P/D join.",
+        "response_json_sha256": "2344bb2aa0a4d580a2c784b12631dc4b0f1c0fe58ce1c2bca95de2374712e126"
+      }
+    },
+    {
+      "request_key": "q2458d2c982cce5bb",
+      "explicit_aliases": [
+        "q2458d2c982cce5bb",
+        "qab94799051065564",
+        "qdbefd2d5b4ac9121"
+      ],
+      "roles": [
+        "D",
+        "P"
+      ],
+      "ranks": {
+        "D": [
+          "0",
+          "1",
+          "S"
+        ],
+        "P": [
+          "0",
+          "1",
+          "S"
+        ]
+      },
+      "origin": "first associated observed call; unrelated request origins must not be overlaid",
+      "allocation": [
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.update_state_after_alloc",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 426.37,
+          "end_us": 681.95,
+          "duration_us": 236.07,
+          "num_external_tokens": 129,
+          "allocated_block_ids": [
+            [
+              1
+            ]
+          ],
+          "request": {
+            "request_id": "qab94799051065564",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 0,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.update_state_after_alloc",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 3425.87,
+          "end_us": 3490.54,
+          "duration_us": 48.12,
+          "num_external_tokens": 0,
+          "allocated_block_ids": [
+            [
+              3
+            ]
+          ],
+          "request": {
+            "request_id": "q2458d2c982cce5bb",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 0,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.update_state_after_alloc",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 16854.3,
+          "end_us": 16917.32,
+          "duration_us": 42.85,
+          "num_external_tokens": 0,
+          "allocated_block_ids": [
+            [
+              1
+            ]
+          ],
+          "request": {
+            "request_id": "qab94799051065564",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 128,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        }
+      ],
+      "delay_free_results": [
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.request_finished_all_groups",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 16179.89,
+          "end_us": 16241.88,
+          "duration_us": 45.54,
+          "block_ids": [
+            [
+              3
+            ]
+          ],
+          "request": {
+            "request_id": "q2458d2c982cce5bb",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 129,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        },
+        {
+          "event": "Scheduler._connector_finished",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 16109.11,
+          "end_us": 16289.16,
+          "duration_us": 164.68,
+          "request": {
+            "request_id": "q2458d2c982cce5bb",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 129,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.request_finished_all_groups",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 57225.94,
+          "end_us": 57291.47,
+          "duration_us": 47.77,
+          "block_ids": [
+            [
+              1
+            ]
+          ],
+          "request": {
+            "request_id": "qab94799051065564",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 132,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        },
+        {
+          "event": "Scheduler._connector_finished",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 57151.54,
+          "end_us": 57352.89,
+          "duration_us": 185.39,
+          "request": {
+            "request_id": "qab94799051065564",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 132,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        }
+      ],
+      "transfers": [
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "0",
+          "begin_us": 9403.12,
+          "end_us": 9648.34,
+          "duration_us": 215.95,
+          "transfer_bytes": 32768,
+          "transfer_ranges": 2,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 0,
+            "request_ids": [
+              "q2458d2c982cce5bb"
+            ]
+          }
+        },
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "1",
+          "begin_us": 9354.71,
+          "end_us": 9648.98,
+          "duration_us": 267.68,
+          "transfer_bytes": 32768,
+          "transfer_ranges": 2,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 0,
+            "request_ids": [
+              "q2458d2c982cce5bb"
+            ]
+          }
+        },
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "0",
+          "begin_us": 11714.77,
+          "end_us": 11948.66,
+          "duration_us": 215.38,
+          "transfer_bytes": 32768,
+          "transfer_ranges": 2,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 1,
+            "request_ids": [
+              "q2458d2c982cce5bb"
+            ]
+          }
+        },
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "1",
+          "begin_us": 11778.56,
+          "end_us": 11997.96,
+          "duration_us": 202.03,
+          "transfer_bytes": 32768,
+          "transfer_ranges": 2,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 1,
+            "request_ids": [
+              "q2458d2c982cce5bb"
+            ]
+          }
+        }
+      ],
+      "done_observations": [
+        {
+          "event": "KVCacheRecvingLayerThread.update_done_task",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "0",
+          "begin_us": 13308.29,
+          "end_us": 13434.11,
+          "duration_us": 73.31,
+          "trans_count": 1,
+          "done_source_count": 0
+        },
+        {
+          "event": "KVCacheRecvingLayerThread.update_done_task",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "1",
+          "begin_us": 13490.16,
+          "end_us": 13621.52,
+          "duration_us": 86.8,
+          "trans_count": 1,
+          "done_source_count": 0
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.send_done_send_signal",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "0",
+          "begin_us": 12075.12,
+          "end_us": 13999.8,
+          "duration_us": 1898.52,
+          "trans_flag": true,
+          "req_meta": {
+            "prompt_len": 129,
+            "local_computed_tokens": 129,
+            "local_transed_tokens": 0,
+            "remote_cache_tokens": 0,
+            "chunk_finish": true,
+            "local_block_ids": [
+              [
+                3
+              ]
+            ],
+            "remote_block_ids": [
+              [
+                1
+              ]
+            ]
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.send_done_send_signal",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "1",
+          "begin_us": 12118.82,
+          "end_us": 14165.92,
+          "duration_us": 2021.21,
+          "trans_flag": true,
+          "req_meta": {
+            "prompt_len": 129,
+            "local_computed_tokens": 129,
+            "local_transed_tokens": 0,
+            "remote_cache_tokens": 0,
+            "chunk_finish": true,
+            "local_block_ids": [
+              [
+                3
+              ]
+            ],
+            "remote_block_ids": [
+              [
+                1
+              ]
+            ]
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.get_finished",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "0",
+          "begin_us": null,
+          "end_us": 14814.08,
+          "duration_us": 331.74,
+          "result": {
+            "finished_sending": [],
+            "finished_recving": [
+              "qab94799051065564"
+            ]
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.get_finished",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "1",
+          "begin_us": null,
+          "end_us": 15013.61,
+          "duration_us": 336.46,
+          "result": {
+            "finished_sending": [],
+            "finished_recving": [
+              "qab94799051065564"
+            ]
+          }
+        }
+      ],
+      "remote_kv_completion_handling": [
+        {
+          "event": "Scheduler._update_waiting_for_remote_kv",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 16673.97,
+          "end_us": 16731.01,
+          "duration_us": 41.88,
+          "request": {
+            "request_id": "qab94799051065564",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 128,
+            "status": "WAITING_FOR_REMOTE_KVS",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        }
+      ],
+      "remote_wait_status_transitions": [
+        {
+          "event": "Scheduler._handle_blocked_waiting_request",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": null,
+          "end_us": 16780.06,
+          "duration_us": 143.78,
+          "before_status": "WAITING_FOR_REMOTE_KVS",
+          "request": {
+            "request_id": "qab94799051065564",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 128,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          },
+          "result": {
+            "proceed": true
+          }
+        }
+      ],
+      "free_calls": [
+        {
+          "event": "Scheduler._free_blocks",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 16332.24,
+          "end_us": 16492.1,
+          "duration_us": 146.62,
+          "request": {
+            "request_id": "q2458d2c982cce5bb",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 129,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          }
+        },
+        {
+          "event": "Scheduler._free_blocks",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 57407.52,
+          "end_us": 57562.37,
+          "duration_us": 140.76,
+          "request": {
+            "request_id": "qab94799051065564",
+            "num_prompt_tokens": 129,
+            "num_computed_tokens": 132,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        }
+      ],
+      "source_free_vs_write": {
+        "source_free_observed": true,
+        "write_observed": true,
+        "observed_write_call_count": 4,
+        "observed_successful_write_call_count": 4,
+        "verdict": "source_free_call_began_after_all_observed_write_returns",
+        "scope": "observed host-side call boundaries; not proof that all expected writes were captured or that allocator reuse occurred",
+        "first_source_free_begin_us": 16332.24,
+        "first_source_free_end_us": 16492.1,
+        "last_observed_write_end_us": 11997.96,
+        "last_observed_successful_write_end_us": 11997.96,
+        "source_free_minus_last_observed_write_us": 4494.139999999999
+      },
+      "missing_observations": [],
+      "label": "prompt129-repetition1",
+      "prompt_length": 129,
+      "repetition": 1,
+      "selection_evidence": {
+        "method": "Exact HTTP response id expanded by official one-prompt /completions child-id convention; hash occurs in the recorded get_external_request_id/request_map alias graph. No internal-suffix guessing or ordinal P/D join.",
+        "response_json_sha256": "3afc38722edafa1cd99e9764c5bf3e0d53eda6a81b02094397894d66188a706b"
+      }
+    },
+    {
+      "request_key": "q261a8a1d6dda6f7e",
+      "explicit_aliases": [
+        "q261a8a1d6dda6f7e",
+        "qa703c43e3e7e6b6b",
+        "qd8fb6049218577df"
+      ],
+      "roles": [
+        "D",
+        "P"
+      ],
+      "ranks": {
+        "D": [
+          "0",
+          "1",
+          "S"
+        ],
+        "P": [
+          "0",
+          "1",
+          "S"
+        ]
+      },
+      "origin": "first associated observed call; unrelated request origins must not be overlaid",
+      "allocation": [
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.update_state_after_alloc",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 432.21,
+          "end_us": 683.98,
+          "duration_us": 235.01,
+          "num_external_tokens": 513,
+          "allocated_block_ids": [
+            [
+              1,
+              2,
+              3
+            ]
+          ],
+          "request": {
+            "request_id": "q261a8a1d6dda6f7e",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 0,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.update_state_after_alloc",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 3709.91,
+          "end_us": 3775.3,
+          "duration_us": 49.06,
+          "num_external_tokens": 0,
+          "allocated_block_ids": [
+            [
+              3,
+              2,
+              1
+            ]
+          ],
+          "request": {
+            "request_id": "qd8fb6049218577df",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 0,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.update_state_after_alloc",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 17837.84,
+          "end_us": 17896.11,
+          "duration_us": 42.78,
+          "num_external_tokens": 0,
+          "allocated_block_ids": [
+            [
+              1,
+              2,
+              3
+            ]
+          ],
+          "request": {
+            "request_id": "q261a8a1d6dda6f7e",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 512,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        }
+      ],
+      "delay_free_results": [
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.request_finished_all_groups",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 17349.63,
+          "end_us": 17411.24,
+          "duration_us": 45.55,
+          "block_ids": [
+            [
+              3,
+              2,
+              1
+            ]
+          ],
+          "request": {
+            "request_id": "qd8fb6049218577df",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 513,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        },
+        {
+          "event": "Scheduler._connector_finished",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 17278.78,
+          "end_us": 17463.98,
+          "duration_us": 169.41,
+          "request": {
+            "request_id": "qd8fb6049218577df",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 513,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorScheduler.request_finished_all_groups",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 60267.28,
+          "end_us": 60332.06,
+          "duration_us": 48.05,
+          "block_ids": [
+            [
+              1,
+              2,
+              3
+            ]
+          ],
+          "request": {
+            "request_id": "q261a8a1d6dda6f7e",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 516,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        },
+        {
+          "event": "Scheduler._connector_finished",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 60191.18,
+          "end_us": 60381.65,
+          "duration_us": 174.4,
+          "request": {
+            "request_id": "q261a8a1d6dda6f7e",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 516,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          },
+          "result": {
+            "delay_free": false,
+            "has_transfer_params": false
+          }
+        }
+      ],
+      "transfers": [
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "0",
+          "begin_us": 9758.7,
+          "end_us": 10105.72,
+          "duration_us": 315.68,
+          "transfer_bytes": 98304,
+          "transfer_ranges": 6,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 0,
+            "request_ids": [
+              "qd8fb6049218577df"
+            ]
+          }
+        },
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "1",
+          "begin_us": 10340.61,
+          "end_us": 10592.05,
+          "duration_us": 227.29,
+          "transfer_bytes": 65536,
+          "transfer_ranges": 4,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 0,
+            "request_ids": [
+              "qd8fb6049218577df"
+            ]
+          }
+        },
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "0",
+          "begin_us": 12048.13,
+          "end_us": 12266.5,
+          "duration_us": 200.42,
+          "transfer_bytes": 98304,
+          "transfer_ranges": 6,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 1,
+            "request_ids": [
+              "qd8fb6049218577df"
+            ]
+          }
+        },
+        {
+          "event": "TransferEngine.batch_transfer_sync_write",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "1",
+          "begin_us": 13063.49,
+          "end_us": 13291.4,
+          "duration_us": 192.85,
+          "transfer_bytes": 65536,
+          "transfer_ranges": 4,
+          "result": {
+            "return_code": 0
+          },
+          "transfer_context": {
+            "layer_idx": 1,
+            "request_ids": [
+              "qd8fb6049218577df"
+            ]
+          }
+        }
+      ],
+      "done_observations": [
+        {
+          "event": "KVCacheRecvingLayerThread.update_done_task",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "0",
+          "begin_us": 13684.3,
+          "end_us": 13842.04,
+          "duration_us": 120.29,
+          "trans_count": 1,
+          "done_source_count": 0
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.send_done_send_signal",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "0",
+          "begin_us": 12391.12,
+          "end_us": 14226.22,
+          "duration_us": 1815.22,
+          "trans_flag": true,
+          "req_meta": {
+            "prompt_len": 513,
+            "local_computed_tokens": 513,
+            "local_transed_tokens": 0,
+            "remote_cache_tokens": 0,
+            "chunk_finish": true,
+            "local_block_ids": [
+              [
+                3,
+                2,
+                1
+              ]
+            ],
+            "remote_block_ids": [
+              [
+                1,
+                2,
+                3
+              ]
+            ]
+          }
+        },
+        {
+          "event": "KVCacheRecvingLayerThread.update_done_task",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "1",
+          "begin_us": 14527.42,
+          "end_us": 14638.26,
+          "duration_us": 80.55,
+          "trans_count": 1,
+          "done_source_count": 0
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.get_finished",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "0",
+          "begin_us": null,
+          "end_us": 15265.97,
+          "duration_us": 333.76,
+          "result": {
+            "finished_sending": [],
+            "finished_recving": [
+              "q261a8a1d6dda6f7e"
+            ]
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.send_done_send_signal",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "1",
+          "begin_us": 13442.39,
+          "end_us": 15301.89,
+          "duration_us": 1835.91,
+          "trans_flag": true,
+          "req_meta": {
+            "prompt_len": 513,
+            "local_computed_tokens": 513,
+            "local_transed_tokens": 0,
+            "remote_cache_tokens": 0,
+            "chunk_finish": true,
+            "local_block_ids": [
+              [
+                3,
+                2
+              ]
+            ],
+            "remote_block_ids": [
+              [
+                1,
+                2
+              ]
+            ]
+          }
+        },
+        {
+          "event": "MooncakeLayerwiseConnectorWorker.get_finished",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "1",
+          "begin_us": null,
+          "end_us": 15957.56,
+          "duration_us": 456.18,
+          "result": {
+            "finished_sending": [],
+            "finished_recving": [
+              "q261a8a1d6dda6f7e"
+            ]
+          }
+        }
+      ],
+      "remote_kv_completion_handling": [
+        {
+          "event": "Scheduler._update_waiting_for_remote_kv",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 17649.96,
+          "end_us": 17711.69,
+          "duration_us": 42.77,
+          "request": {
+            "request_id": "q261a8a1d6dda6f7e",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 512,
+            "status": "WAITING_FOR_REMOTE_KVS",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        }
+      ],
+      "remote_wait_status_transitions": [
+        {
+          "event": "Scheduler._handle_blocked_waiting_request",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": null,
+          "end_us": 17761.58,
+          "duration_us": 148.52,
+          "before_status": "WAITING_FOR_REMOTE_KVS",
+          "request": {
+            "request_id": "q261a8a1d6dda6f7e",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 512,
+            "status": "WAITING",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          },
+          "result": {
+            "proceed": true
+          }
+        }
+      ],
+      "free_calls": [
+        {
+          "event": "Scheduler._free_blocks",
+          "phase": "end",
+          "role": "P",
+          "tp_rank": "S",
+          "begin_us": 17507.85,
+          "end_us": 17656.14,
+          "duration_us": 134.99,
+          "request": {
+            "request_id": "qd8fb6049218577df",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 513,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": true,
+              "remote_tp_size": 2,
+              "remote_pcp_size": 1,
+              "remote_dcp_size": 2
+            }
+          }
+        },
+        {
+          "event": "Scheduler._free_blocks",
+          "phase": "end",
+          "role": "D",
+          "tp_rank": "S",
+          "begin_us": 60433.23,
+          "end_us": 60586.27,
+          "duration_us": 139.84,
+          "request": {
+            "request_id": "q261a8a1d6dda6f7e",
+            "num_prompt_tokens": 513,
+            "num_computed_tokens": 516,
+            "status": "FINISHED_LENGTH_CAPPED",
+            "transfer_flags": {
+              "do_remote_prefill": false,
+              "do_remote_decode": false
+            }
+          }
+        }
+      ],
+      "source_free_vs_write": {
+        "source_free_observed": true,
+        "write_observed": true,
+        "observed_write_call_count": 4,
+        "observed_successful_write_call_count": 4,
+        "verdict": "source_free_call_began_after_all_observed_write_returns",
+        "scope": "observed host-side call boundaries; not proof that all expected writes were captured or that allocator reuse occurred",
+        "first_source_free_begin_us": 17507.85,
+        "first_source_free_end_us": 17656.14,
+        "last_observed_write_end_us": 13291.4,
+        "last_observed_successful_write_end_us": 13291.4,
+        "source_free_minus_last_observed_write_us": 4364.74
+      },
+      "missing_observations": [],
+      "label": "prompt513-repetition1",
+      "prompt_length": 513,
+      "repetition": 1,
+      "selection_evidence": {
+        "method": "Exact HTTP response id expanded by official one-prompt /completions child-id convention; hash occurs in the recorded get_external_request_id/request_map alias graph. No internal-suffix guessing or ordinal P/D join.",
+        "response_json_sha256": "3f1cfd16927faa25d8e28e18fd01ffbcb0ac879f8d15d384ecce1aca321694b9"
+      }
+    }
+  ],
+  "source_retention_counterexample": {
+    "phase": "first_PD_warmup129, outside the four measured NPU request windows",
+    "request_key": "q692b73ec4d3ccf09",
+    "explicit_aliases": [
+      "q692b73ec4d3ccf09",
+      "q9d6f15b3ebd8360f",
+      "qadeb91f6d47f4d14"
+    ],
+    "greedy_tokens_match_colocated": true,
+    "source_free_vs_write": {
+      "source_free_observed": true,
+      "write_observed": true,
+      "observed_write_call_count": 4,
+      "observed_successful_write_call_count": 4,
+      "verdict": "source_free_call_finished_before_last_observed_write_return",
+      "scope": "observed host-side call boundaries; not proof that all expected writes were captured or that allocator reuse occurred",
+      "first_source_free_begin_us": 38449.13,
+      "first_source_free_end_us": 38614.12,
+      "last_observed_write_end_us": 229447.63,
+      "last_observed_successful_write_end_us": 229447.63,
+      "source_free_minus_last_observed_write_us": -190833.51
+    },
+    "free_calls": [
+      {
+        "event": "Scheduler._free_blocks",
+        "phase": "end",
+        "role": "P",
+        "tp_rank": "S",
+        "begin_us": 38449.13,
+        "end_us": 38614.12,
+        "duration_us": 151.69,
+        "request": {
+          "request_id": "q9d6f15b3ebd8360f",
+          "num_prompt_tokens": 129,
+          "num_computed_tokens": 129,
+          "status": "FINISHED_LENGTH_CAPPED",
+          "transfer_flags": {
+            "do_remote_prefill": false,
+            "do_remote_decode": true,
+            "remote_tp_size": 2,
+            "remote_pcp_size": 1,
+            "remote_dcp_size": 2
+          }
+        }
+      }
+    ],
+    "writes": [
+      {
+        "event": "TransferEngine.batch_transfer_sync_write",
+        "phase": "end",
+        "role": "P",
+        "tp_rank": "0",
+        "begin_us": 14185.76,
+        "end_us": 226753.36,
+        "duration_us": 212528.32,
+        "transfer_bytes": 32768,
+        "transfer_ranges": 2,
+        "result": {
+          "return_code": 0
+        },
+        "transfer_context": {
+          "layer_idx": 0,
+          "request_ids": [
+            "q9d6f15b3ebd8360f"
+          ]
+        }
+      },
+      {
+        "event": "TransferEngine.batch_transfer_sync_write",
+        "phase": "end",
+        "role": "P",
+        "tp_rank": "0",
+        "begin_us": 227534.9,
+        "end_us": 227808.35,
+        "duration_us": 252.65,
+        "transfer_bytes": 32768,
+        "transfer_ranges": 2,
+        "result": {
+          "return_code": 0
+        },
+        "transfer_context": {
+          "layer_idx": 1,
+          "request_ids": [
+            "q9d6f15b3ebd8360f"
+          ]
+        }
+      },
+      {
+        "event": "TransferEngine.batch_transfer_sync_write",
+        "phase": "end",
+        "role": "P",
+        "tp_rank": "1",
+        "begin_us": 14506.71,
+        "end_us": 228502.69,
+        "duration_us": 213968.26,
+        "transfer_bytes": 32768,
+        "transfer_ranges": 2,
+        "result": {
+          "return_code": 0
+        },
+        "transfer_context": {
+          "layer_idx": 0,
+          "request_ids": [
+            "q9d6f15b3ebd8360f"
+          ]
+        }
+      },
+      {
+        "event": "TransferEngine.batch_transfer_sync_write",
+        "phase": "end",
+        "role": "P",
+        "tp_rank": "1",
+        "begin_us": 229201.22,
+        "end_us": 229447.63,
+        "duration_us": 227.65,
+        "transfer_bytes": 32768,
+        "transfer_ranges": 2,
+        "result": {
+          "return_code": 0
+        },
+        "transfer_context": {
+          "layer_idx": 1,
+          "request_ids": [
+            "q9d6f15b3ebd8360f"
+          ]
+        }
+      }
+    ],
+    "interpretation": "The P request free call completed before the last observed write returned. The observed Scheduler request-free pathway returned before final write completion. The allocator may defer block-pool return and that branch was not instrumented. No concurrent overwrite or pool reuse was forced, so this does not establish early physical block reuse or a general safety guarantee."
+  }
+}

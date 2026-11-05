@@ -1,0 +1,59 @@
+{
+  "captured_date": "2026-11-05",
+  "hardware": "4 x Ascend950DT (A5), one Linux host",
+  "runner": "ModelRunnerV2, eager, multiprocessing; one P TP2 engine and one D TP2 engine",
+  "software": {
+    "python": "3.12.16",
+    "vllm_ascend_commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+    "vllm_commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0.post7",
+    "triton_ascend": "3.6.0.post2",
+    "CANN": "9.2.1",
+    "transformers": "5.19.0",
+    "mooncake_transfer_engine_distribution": "0.3.13"
+  },
+  "package_version_evidence": "Read-only importlib.metadata query of the target container; CANN and torch_npu also recorded by each profiler_info file. No torch/NPU model execution was started by this query.",
+  "native_installation_files_sha256": {
+    "engine.so": "e29b3e29379883050d2e6e925755fdf8c01da8f91ede2c026b2a6da3ff7335bc",
+    "libtransfer_engine.so": "7e4c3f73579a5e03dc4cbfa792e80464ab318567ad10fa25d9ef35b33796f145",
+    "ascend_transport.so": "823c0fe7bd0eabae362b770fb788f0aa894699d81763b7bb53d6b2301e1cb1c9"
+  },
+  "native_file_identity_scope": "Hashes cover the three named files in the installed package directory. They are not an exhaustive dlopen map and do not establish that the installed binary was built from the separate Mooncake reference tag.",
+  "checkpoint_model_safetensors_sha256": {
+    "pull_random_qwen2_gqa_kv2": "132b2e9692cc6a3b1bcc3aa81d4401bb85f3226a6987849f541d72f7156a281d",
+    "push_random_qwen2_mqa_kv1": "a7bc368ed48563ea9b22b99fe5044622f6e69bbd089fa6747837ef0afaedf0b3"
+  },
+  "checkpoint_hash_scope": "Each hash is the bytes of that checkpoint model.safetensors file, not a directory manifest. Random weights are not redistributed.",
+  "source_reference": "sources.json",
+  "layouts": {
+    "pull": {
+      "kv_heads": 2,
+      "P_tp": 2,
+      "D_tp": 2,
+      "P_dcp": 1,
+      "D_dcp": 1
+    },
+    "push": {
+      "kv_heads": 1,
+      "P_tp": 2,
+      "D_tp": 2,
+      "P_dcp": 2,
+      "D_dcp": 2
+    }
+  },
+  "configuration_boundary": "The two paths use different valid cache layouts and parallel settings; compare request/transfer mechanisms, not performance across these captures.",
+  "profiling": {
+    "activities": [
+      "CPU",
+      "NPU"
+    ],
+    "profiler_level": "Level1",
+    "daemon_capture_offline_analysis": true,
+    "background_python_TE_scopes": "not present in the NPU exports; use observer JSONL plus native CANN/HIXL attribution",
+    "host_clock": "same Linux host monotonic observations",
+    "device_clock_boundary": "No independently measured cross-device or Host-device error bound."
+  },
+  "scope": "Request handoff correctness, KV lifecycle observations and actual multi-rank viewer evidence. No pretrained quality, throughput or inter-host bandwidth claim.",
+  "privacy": "Boot identity, server identifiers, endpoints, credentials, raw logs, raw traces and checkpoint weights are omitted."
+}
