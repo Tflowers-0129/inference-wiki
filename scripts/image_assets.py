@@ -14,6 +14,8 @@ PAGE_MANUSCRIPTS = {
     'execution.html': '从一轮调度到一次前向.md',
     'speculation.html': '投机解码与流式指标.md',
     'load-balancing.html': '负载均衡与专家并行.md',
+    'ep-communication.html': 'EP通信与通算融合.md',
+    'context-parallel.html': '上下文并行与Attention归并.md',
     'sparse-offload.html': '稀疏KV卸载与HiSparse.md',
 }
 SOURCE_MANIFEST = 'profile-sources.json'

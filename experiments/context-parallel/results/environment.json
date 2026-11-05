@@ -1,0 +1,16 @@
+{
+  "captured_date": "2026-11-05",
+  "hardware": "2 x Ascend950DT (A5)",
+  "software": {
+    "vllm_ascend_commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+    "vllm_commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0.post7",
+    "triton_ascend": "3.6.0.post2",
+    "CANN": "9.2.1",
+    "npu_smi": "25.6.rc3"
+  },
+  "runner": "ModelRunnerV2, eager, multiprocessing",
+  "scope": "correctness and trace attribution; no production throughput claim",
+  "privacy": "host identifiers, credentials, raw logs, raw profiles and random weights omitted"
+}

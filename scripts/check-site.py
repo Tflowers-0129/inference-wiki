@@ -13,7 +13,15 @@ from image_assets import SOURCE_MANIFEST, image_dimensions, resolve_asset, sourc
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
-DOWNLOADS = {'LLM推理调度与执行.md':'source.md', '从一轮调度到一次前向.md':'execution.md', '投机解码与流式指标.md':'speculation.md', '负载均衡与专家并行.md':'load-balancing.md', '稀疏KV卸载与HiSparse.md':'sparse-offload.md', 'EP通信与通算融合.md':'ep-communication.md'}
+DOWNLOADS = {
+    'LLM推理调度与执行.md': 'source.md',
+    '从一轮调度到一次前向.md': 'execution.md',
+    '投机解码与流式指标.md': 'speculation.md',
+    '负载均衡与专家并行.md': 'load-balancing.md',
+    'EP通信与通算融合.md': 'ep-communication.md',
+    '上下文并行与Attention归并.md': 'context-parallel.md',
+    '稀疏KV卸载与HiSparse.md': 'sparse-offload.md',
+}
 
 
 class Page(HTMLParser):
@@ -59,9 +67,9 @@ def main():
             errors.append(f'缺少锚点：{target.name}#{parsed.fragment}')
 
     for path, page in pages.items():
-        expected_order = ['index', 'execution', 'speculation', 'load-balancing', 'ep-communication', 'sparse-offload']
+        expected_order = ['index', 'execution', 'speculation', 'load-balancing', 'ep-communication', 'context-parallel', 'sparse-offload']
         if page.chapter_order != expected_order:
-            errors.append(f'{path.name} 学习篇章顺序不一致，EP 应为第五章、稀疏 KV 为第六章')
+            errors.append(f'{path.name} 学习篇章顺序不一致，EP 应为第五章、上下文并行为第六章、稀疏 KV 为第七章')
         if page.expanded_chapters != [path.stem]:
             errors.append(f'{path.name} 应默认只展开当前章的目录')
         for identifier, count in Counter(page.ids).items():

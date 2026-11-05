@@ -1,0 +1,101 @@
+{
+  "audited_date": "2026-11-05",
+  "sources": [
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/attention/attention_v1.py",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/attention/attention_v1.py"
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/attention/mla_v1.py",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/attention/mla_v1.py"
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/attention/context_parallel/common_cp.py",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/attention/context_parallel/common_cp.py"
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/attention/context_parallel/attention_cp.py",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/attention/context_parallel/attention_cp.py"
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/worker/v2/model_runner.py",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/worker/v2/model_runner.py"
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/worker/v2/pcp_manager.py",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/worker/v2/pcp_manager.py"
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/worker/v2/block_table.py",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/worker/v2/block_table.py"
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/ops/triton/v2/block_table/compute_slot_mappings.py",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/ops/triton/v2/block_table/compute_slot_mappings.py"
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/ops/triton/dcp/dcp_a2a.py",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/ops/triton/dcp/dcp_a2a.py"
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/ops/triton/dcp/sfa_dcp_exchange.py",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/ops/triton/dcp/sfa_dcp_exchange.py"
+    },
+    {
+      "repository": "vllm-ascend",
+      "commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+      "path": "vllm_ascend/platform.py",
+      "url": "https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e/vllm_ascend/platform.py"
+    },
+    {
+      "repository": "vllm",
+      "commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "path": "vllm/model_executor/models/qwen2.py",
+      "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/model_executor/models/qwen2.py"
+    },
+    {
+      "repository": "vllm",
+      "commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "path": "vllm/model_executor/layers/linear.py",
+      "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/model_executor/layers/linear.py"
+    },
+    {
+      "repository": "vllm",
+      "commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "path": "vllm/config/model.py",
+      "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/config/model.py"
+    },
+    {
+      "repository": "vllm",
+      "commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "path": "vllm/v1/worker/gpu/pcp_manager.py",
+      "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/v1/worker/gpu/pcp_manager.py"
+    },
+    {
+      "repository": "vllm",
+      "commit": "5df63a7203cdb9328d824a27b682e77c7b9928be",
+      "path": "vllm/distributed/parallel_state.py",
+      "url": "https://github.com/vllm-project/vllm/blob/5df63a7203cdb9328d824a27b682e77c7b9928be/vllm/distributed/parallel_state.py"
+    }
+  ]
+}

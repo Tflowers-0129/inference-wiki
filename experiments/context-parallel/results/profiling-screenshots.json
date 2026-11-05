@@ -1,0 +1,93 @@
+{
+  "captured_date": "2026-11-05",
+  "viewer": "Perfetto UI v59.1-1e9c61e98",
+  "linux_parser": "official trace_processor_shell linux-arm64 v59.1",
+  "linux_binary_sha256": "a08e4836171c87be3ba5834eef3489aa8803476d35f292ed7feaccae252747d0",
+  "source_release": "https://github.com/google/perfetto/releases/tag/v59.1",
+  "images": [
+    {
+      "asset": "dist/assets/profile-cp-dcp1-rank0.png",
+      "scene": "TP2_DCP1",
+      "rank": 0,
+      "source_trace": "trace_view.json",
+      "source_trace_sha256": "5e48c66817bc7539277ce95f155f11f644b2e0cd72bcd276843ecf3b57f50e10",
+      "source_trace_bytes": 17491,
+      "selected_host_scope": "wiki/TP2_DCP1/length4096/iteration2",
+      "selected_occurrence": 1,
+      "scope_absolute_timestamp_us": "1793841298040829.970",
+      "scope_duration_us": "148.61",
+      "clock": "timestamps from per-rank Ascend exporter; not independently calibrated across Host/device or ranks",
+      "capture": "actual Perfetto UI browser screenshot over SSH-forwarded localhost native RPC; no uploaded trace",
+      "crop_pixels": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 560
+      },
+      "original_screenshot_format": "JPEG",
+      "original_screenshot_sha256": "306adbfa18eed55ab25b5dd06656428013d627637dda7e31ca576791dccee6bd",
+      "published_format": "PNG",
+      "conversion": "sips -s format png; no redraw, annotation, AI processing or event geometry change",
+      "published_sha256": "d2e2ce42955a3a1d98186113ba171393327ab8922237cbc979e56500ed0ea2c9"
+    },
+    {
+      "asset": "dist/assets/profile-cp-dcp2-rank0.png",
+      "scene": "TP2_DCP2",
+      "rank": 0,
+      "source_trace": "trace_view.json",
+      "source_trace_sha256": "c9e97356017ffafef3fb62c1826a781e656a05faecd956d1f0a1adbe12fe9e47",
+      "source_trace_bytes": 117109,
+      "selected_host_scope": "wiki/TP2_DCP2/length4096/iteration2",
+      "selected_occurrence": 1,
+      "scope_absolute_timestamp_us": "1793841302996571.210",
+      "scope_duration_us": "676.27",
+      "clock": "timestamps from per-rank Ascend exporter; not independently calibrated across Host/device or ranks",
+      "capture": "actual Perfetto UI browser screenshot over SSH-forwarded localhost native RPC; no uploaded trace",
+      "crop_pixels": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 760
+      },
+      "original_screenshot_format": "JPEG",
+      "original_screenshot_sha256": "2c79213500996bbf8480680f098472fa44213e4addd2ead5393c9b49ea5d6fa8",
+      "published_format": "PNG",
+      "conversion": "sips -s format png; no redraw, annotation, AI processing or event geometry change",
+      "published_sha256": "6ad752f666806e15e5083a21a2e0eab13873ec51d29c53aab26b98cb19b8c809"
+    },
+    {
+      "asset": "dist/assets/profile-cp-pcp2-runner-rank0.png",
+      "scene": "TP1_PCP2_DCP1",
+      "rank": 0,
+      "source_trace": "trace_view.json",
+      "source_trace_sha256": "ebc5f6f67d91ec8740fc6b6869dc203abd11222a66b04489d73feec96f311e68",
+      "source_trace_bytes": 9773917,
+      "selected_host_scope": "vllm::unified_attention_with_output",
+      "selected_occurrence": 1,
+      "scope_absolute_timestamp_us": "1793841724632449.900",
+      "scope_duration_us": "880.97",
+      "clock": "timestamps from per-rank Ascend exporter; not independently calibrated across Host/device or ranks",
+      "capture": "actual Perfetto UI browser screenshot over SSH-forwarded localhost native RPC; no uploaded trace",
+      "crop_pixels": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 930
+      },
+      "original_screenshot_format": "JPEG",
+      "original_screenshot_sha256": "6c9a50d5119c4e2797b27a72d6e01eda428302d3b3018363f9d4fb3969a25903",
+      "published_format": "PNG",
+      "conversion": "sips -s format png; no redraw, annotation, AI processing or event geometry change",
+      "published_sha256": "d598b165a38334d76d0f36a061af1a1fe654b7cddc15c966af9aa4b6fffe96e9"
+    }
+  ],
+  "limitations": [
+    "Each screenshot is zoomed to its own selected Host scope; picture widths are not a speedup comparison.",
+    "Source file and acquisition timestamps are independent for each rank and run.",
+    "Operator DCP1 trace has flow warnings; DCP2 trace has flow and slice-overlap warnings; some Host-to-device deltas are negative.",
+    "Full PCP rank0 JSON import reports 1044 slice_spill_overlapping_complete_event: overlapping complete events rendered on overflow tracks; not treated as discarded compute.",
+    "No calibrated cross-rank timeline, dispatch-latency measurement, NPU internal pipeline reconstruction or throughput conclusion.",
+    "PCP screenshot is one actual Attention scope in a chunked/mixed model capture, not an entire 513-token request.",
+    "Raw traces and original environment logs are private; only selected viewer screenshots and sanitized results are published."
+  ]
+}

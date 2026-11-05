@@ -1,6 +1,6 @@
 # Wiki 实操实验
 
-这些脚本把第二、三、五章里的部分机制放到真实运行环境中核对。结果采集于 2026-11-04；固定源码身份、软件组合和量化条件保存在 [A5 结果](results/a5-moe.json)。公开目录只保留脚本、数值结果及选定设备事件，不包含服务器端点、凭据或整份原始 trace。
+这些脚本把第二、三、五、六章里的部分机制放到真实运行环境中核对。前四项结果采集于 2026-11-04；固定源码身份、软件组合和量化条件保存在 [A5 结果](results/a5-moe.json)。上下文并行实验采集于 2026-11-05，另有[独立环境与复现说明](context-parallel/README.md)。公开目录只保留脚本、数值结果及选定设备事件，不包含服务器端点、凭据或整份原始 trace。
 
 | 实验 | 实际执行内容 | 已确认的范围 |
 | --- | --- | --- |
@@ -8,6 +8,7 @@
 | [batch-change.py](batch-change.py) | 目标安装版本的进度修正辅助函数 | 请求重排、新请求和旧候选参与条件；6 次检查通过，未运行完整 Runner |
 | [sse-buffering.py](sse-buffering.py) | Linux loopback 的真实 HTTP/SSE 服务、缓冲代理和客户端 | 4 场景 ×2 轮，输出内容与计数保持，实际事件间隔和 TPOT 口径通过 |
 | [a5-moe.py](a5-moe.py) | 相同 W4A8MXFP 权重、输入和路由下的 MC2 拆分链与 CANN MegaMoE | EP2，8/32 行，两个 rank 输出逐元素一致；独立专家计数通过，8 份 NPU trace 已采 |
+| [上下文并行](context-parallel/README.md) | PCP 源码方法回放、实际 Q 交换/FIA/DCP 归并、三种双卡 ModelRunnerV2 拓扑 | 16 组布局回放、12 条算子检查通过；三拓扑两轮 greedy tokens 一致，保留 logprob 差异；真实 Perfetto 截图另列来源 |
 
 ## 运行条件与命令
 
@@ -51,7 +52,8 @@ Linux 上解析与浏览器查看的完整步骤见 [第五章实操](https://tf
 | 3 投机解码 | 完整 Draft→Target→提交回退→下一轮的模型执行 | 模型与 proposer 配对；接受结果及 KV 边界取证 |
 | 4 负载均衡 | 实际 DPLB 选择回放、EPLB 整数副本映射及同容量关键路径 | 固定入口和遥测；多卡同权重、路由与布局对照 |
 | 5 EP 通信 | 完整选择函数、AllGather/AllToAll 容量边界、graph 与服务级指标 | 支持的模型／量化／拓扑和同条件负载 |
-| 6 稀疏 KV | LI+Manage、Copy+SFA 阈值和 HiSparse 页生命周期 | 对应编译产物、合法 backing、Core/Ascend ABI 配对 |
+| 6 上下文并行 | 预训练长上下文精度、PCP+DCP 叠加、MLA/SFA 与投机侧流、graph 和服务吞吐 | 对应权重、合法拓扑、Attention 后端与同条件负载 |
+| 7 稀疏 KV | LI+Manage、Copy+SFA 阈值和 HiSparse 页生命周期 | 对应编译产物、合法 backing、Core/Ascend ABI 配对 |
 
 正文明确声明的教学时长、四十 token 路由、缩比缓存和捕获档位不属于设备复现目标。实测采用目标实现合法参数；上述表格不会因为播放器运行正确就改为通过。
 

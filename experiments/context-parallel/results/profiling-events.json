@@ -1,0 +1,314 @@
+{
+  "method": "exact torch_to_npu flow ID; CPU source point inside same-thread record_function scope; exact device pid/tid/ts task match; no Host interval used to assign device time",
+  "clock_caveat": "independent per-rank exports; endpoint microsecond differences not latency; rank timelines not aligned",
+  "overlap_caveat": "HCCL AICPU parent events and transport subtasks overlap; do not add their durations into one kernel time sum",
+  "selected_operator_windows": [
+    {
+      "scene_rank": "TP2_DCP1/rank0",
+      "source_sha256": "5e48c66817bc7539277ce95f155f11f644b2e0cd72bcd276843ecf3b57f50e10",
+      "scope": "wiki/TP2_DCP1/length4096/iteration2",
+      "selected_scope_summary": {
+        "host_duration_us": "148.61",
+        "device_event_count": 1,
+        "events_by_name": {
+          "FusedInferAttentionScore": 1
+        },
+        "physical_streams": [
+          61
+        ],
+        "tracks": [
+          "Stream 61"
+        ],
+        "device_origin_us": "1793841298040905.415",
+        "task_span_us": "12.2879375"
+      },
+      "events": [
+        {
+          "scope": "wiki/TP2_DCP1/length4096/iteration2",
+          "flow_id": "1793841298040905415",
+          "host_operator": "aclnnFusedInferAttentionScoreV5",
+          "kernel": "FusedInferAttentionScore",
+          "stream": 61,
+          "track_name": "Stream 61",
+          "trace_thread_id": 61,
+          "task_type": "KERNEL_MIX_AIC",
+          "start_us": "1793841298040905.415",
+          "duration_us": "12.2879375",
+          "flow_endpoint_delta_us": "-0.545",
+          "relative_start_us": "0.000"
+        }
+      ]
+    },
+    {
+      "scene_rank": "TP2_DCP2/rank0",
+      "source_sha256": "c9e97356017ffafef3fb62c1826a781e656a05faecd956d1f0a1adbe12fe9e47",
+      "scope": "wiki/TP2_DCP2/length4096/iteration2",
+      "selected_scope_summary": {
+        "host_duration_us": "676.27",
+        "device_event_count": 17,
+        "events_by_name": {
+          "EVENT RECORD": 6,
+          "EVENT WAIT": 4,
+          "hcom_allGather_AicpuKernel_503_2_1": 1,
+          "aclnnInplaceCopy_TransposeAiCore_Transpose": 1,
+          "FusedInferAttentionScore": 1,
+          "_pack_token_peer": 1,
+          "hcom_alltoall_AicpuKernel_503_3_1": 1,
+          "_fused_merge_kernel": 1,
+          "aclnnInplaceCopy_CastAiCore_Cast": 1
+        },
+        "physical_streams": [
+          59,
+          61
+        ],
+        "tracks": [
+          "Group group_name_3 Communication",
+          "Stream 59",
+          "Stream 61"
+        ],
+        "device_origin_us": "1793841302996625.741",
+        "task_span_us": "542.320"
+      },
+      "events": [
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302996625741",
+          "host_operator": "record_event",
+          "kernel": "EVENT RECORD",
+          "stream": 61,
+          "track_name": "Stream 61",
+          "trace_thread_id": 61,
+          "task_type": "EVENT RECORD",
+          "start_us": "1793841302996625.741",
+          "duration_us": "0.028",
+          "flow_endpoint_delta_us": "-7.489",
+          "relative_start_us": "0.000"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302996632002",
+          "host_operator": "wait_event",
+          "kernel": "EVENT WAIT",
+          "stream": 59,
+          "track_name": "Stream 59",
+          "trace_thread_id": 59,
+          "task_type": "EVENT WAIT",
+          "start_us": "1793841302996632.002",
+          "duration_us": "0.027",
+          "flow_endpoint_delta_us": "-7.538",
+          "relative_start_us": "6.261"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302996685268",
+          "host_operator": "HcclAllGather",
+          "kernel": "hcom_allGather_AicpuKernel_503_2_1",
+          "stream": null,
+          "track_name": "Group group_name_3 Communication",
+          "trace_thread_id": 0,
+          "task_type": "HCCL parent/AICPU",
+          "start_us": "1793841302996685.268",
+          "duration_us": "43.565",
+          "flow_endpoint_delta_us": "30.458",
+          "relative_start_us": "59.527"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302996728963",
+          "host_operator": "record_event",
+          "kernel": "EVENT RECORD",
+          "stream": 59,
+          "track_name": "Stream 59",
+          "trace_thread_id": 59,
+          "task_type": "EVENT RECORD",
+          "start_us": "1793841302996728.963",
+          "duration_us": "0.028",
+          "flow_endpoint_delta_us": "61.783",
+          "relative_start_us": "103.222"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302996729012",
+          "host_operator": "record_event",
+          "kernel": "EVENT RECORD",
+          "stream": 59,
+          "track_name": "Stream 59",
+          "trace_thread_id": 59,
+          "task_type": "EVENT RECORD",
+          "start_us": "1793841302996729.012",
+          "duration_us": "0.028",
+          "flow_endpoint_delta_us": "57.062",
+          "relative_start_us": "103.271"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302996718561",
+          "host_operator": "wait_event",
+          "kernel": "EVENT WAIT",
+          "stream": 61,
+          "track_name": "Stream 61",
+          "trace_thread_id": 61,
+          "task_type": "EVENT WAIT",
+          "start_us": "1793841302996718.561",
+          "duration_us": "10.9529375",
+          "flow_endpoint_delta_us": "37.501",
+          "relative_start_us": "92.820"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302996734612",
+          "host_operator": "aclnnInplaceCopy",
+          "kernel": "aclnnInplaceCopy_TransposeAiCore_Transpose",
+          "stream": 61,
+          "track_name": "Stream 61",
+          "trace_thread_id": 61,
+          "task_type": "KERNEL_AIVEC",
+          "start_us": "1793841302996734.612",
+          "duration_us": "3.074",
+          "flow_endpoint_delta_us": "-5.498",
+          "relative_start_us": "108.871"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302996839811",
+          "host_operator": "aclnnFusedInferAttentionScoreV5",
+          "kernel": "FusedInferAttentionScore",
+          "stream": 61,
+          "track_name": "Stream 61",
+          "trace_thread_id": 61,
+          "task_type": "KERNEL_MIX_AIC",
+          "start_us": "1793841302996839.811",
+          "duration_us": "11.3679375",
+          "flow_endpoint_delta_us": "6.931",
+          "relative_start_us": "214.070"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302996947905",
+          "host_operator": "_pack_token_peer",
+          "kernel": "_pack_token_peer",
+          "stream": 61,
+          "track_name": "Stream 61",
+          "trace_thread_id": 61,
+          "task_type": "KERNEL_AIVEC",
+          "start_us": "1793841302996947.905",
+          "duration_us": "1.947",
+          "flow_endpoint_delta_us": "-4.955",
+          "relative_start_us": "322.164"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302996998427",
+          "host_operator": "record_event",
+          "kernel": "EVENT RECORD",
+          "stream": 61,
+          "track_name": "Stream 61",
+          "trace_thread_id": 61,
+          "task_type": "EVENT RECORD",
+          "start_us": "1793841302996998.427",
+          "duration_us": "0.028",
+          "flow_endpoint_delta_us": "-6.903",
+          "relative_start_us": "372.686"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302997003021",
+          "host_operator": "wait_event",
+          "kernel": "EVENT WAIT",
+          "stream": 59,
+          "track_name": "Stream 59",
+          "trace_thread_id": 59,
+          "task_type": "EVENT WAIT",
+          "start_us": "1793841302997003.021",
+          "duration_us": "0.027",
+          "flow_endpoint_delta_us": "-8.109",
+          "relative_start_us": "377.280"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302997048499",
+          "host_operator": "HcclAlltoAll",
+          "kernel": "hcom_alltoall_AicpuKernel_503_3_1",
+          "stream": null,
+          "track_name": "Group group_name_3 Communication",
+          "trace_thread_id": 0,
+          "task_type": "HCCL parent/AICPU",
+          "start_us": "1793841302997048.499",
+          "duration_us": "42.377",
+          "flow_endpoint_delta_us": "31.799",
+          "relative_start_us": "422.758"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302997090994",
+          "host_operator": "record_event",
+          "kernel": "EVENT RECORD",
+          "stream": 59,
+          "track_name": "Stream 59",
+          "trace_thread_id": 59,
+          "task_type": "EVENT RECORD",
+          "start_us": "1793841302997090.994",
+          "duration_us": "0.028",
+          "flow_endpoint_delta_us": "63.754",
+          "relative_start_us": "465.253"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302997091043",
+          "host_operator": "record_event",
+          "kernel": "EVENT RECORD",
+          "stream": 59,
+          "track_name": "Stream 59",
+          "trace_thread_id": 59,
+          "task_type": "EVENT RECORD",
+          "start_us": "1793841302997091.043",
+          "duration_us": "0.028",
+          "flow_endpoint_delta_us": "58.823",
+          "relative_start_us": "465.302"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302997084817",
+          "host_operator": "wait_event",
+          "kernel": "EVENT WAIT",
+          "stream": 61,
+          "track_name": "Stream 61",
+          "trace_thread_id": 61,
+          "task_type": "EVENT WAIT",
+          "start_us": "1793841302997084.817",
+          "duration_us": "6.776",
+          "flow_endpoint_delta_us": "45.487",
+          "relative_start_us": "459.076"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302997126493",
+          "host_operator": "_fused_merge_kernel",
+          "kernel": "_fused_merge_kernel",
+          "stream": 61,
+          "track_name": "Stream 61",
+          "trace_thread_id": 61,
+          "task_type": "KERNEL_AIVEC",
+          "start_us": "1793841302997126.493",
+          "duration_us": "2.892",
+          "flow_endpoint_delta_us": "-1.587",
+          "relative_start_us": "500.752"
+        },
+        {
+          "scope": "wiki/TP2_DCP2/length4096/iteration2",
+          "flow_id": "1793841302997166884",
+          "host_operator": "aclnnInplaceCopy",
+          "kernel": "aclnnInplaceCopy_CastAiCore_Cast",
+          "stream": 61,
+          "track_name": "Stream 61",
+          "trace_thread_id": 61,
+          "task_type": "KERNEL_AIVEC",
+          "start_us": "1793841302997166.884",
+          "duration_us": "1.177",
+          "flow_endpoint_delta_us": "-3.386",
+          "relative_start_us": "541.143"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1458 @@
+{
+  "schema": "wiki-cp-layout-source-replay/1",
+  "correctness": "passed",
+  "scope": "CPU source-method replay; not full Runner or NPU execution",
+  "source": {
+    "source_file": "vllm_ascend/worker/v2/pcp_manager.py",
+    "source_file_sha256": "118ebe4516ca365589005800b8ad0e985538a41837d8be5955ddc907db8d049c",
+    "qualified_name": "AscendPCPManager._iter_rank_chunks",
+    "node_source_sha256": "db5cb7be2dc1f512ae689d630ceb0d11dce5194ec2f1311facab0215e633f521",
+    "node_ast_sha256": "8c6f6d17c7d2e68cec273fc9d4dfc19109efc9b21ab828ddb115599262c5b612",
+    "node_start_line": 162,
+    "node_end_line": 198,
+    "method_body_modified": false,
+    "module_imported": false,
+    "controlled_receiver": {
+      "pcp_world_size": "set per case",
+      "is_decode_sharded": true
+    },
+    "repository": "https://github.com/vllm-project/vllm-ascend",
+    "revision": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e"
+  },
+  "repetitions": [
+    {
+      "repetition": 0,
+      "cases": [
+        {
+          "name": "L8_P2",
+          "pcp_world_size": 2,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            8
+          ],
+          "is_prefilling": [
+            true
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [
+                [
+                  0,
+                  0,
+                  2
+                ],
+                [
+                  0,
+                  6,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    0,
+                    1,
+                    6,
+                    7
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 18
+                }
+              ],
+              "query_count": 4
+            },
+            {
+              "rank": 1,
+              "chunks": [
+                [
+                  0,
+                  2,
+                  2
+                ],
+                [
+                  0,
+                  4,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    2,
+                    3,
+                    4,
+                    5
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 18
+                }
+              ],
+              "query_count": 4
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        },
+        {
+          "name": "L16_P4",
+          "pcp_world_size": 4,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            16
+          ],
+          "is_prefilling": [
+            true
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [
+                [
+                  0,
+                  0,
+                  2
+                ],
+                [
+                  0,
+                  14,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    0,
+                    1,
+                    14,
+                    15
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 34
+                }
+              ],
+              "query_count": 4
+            },
+            {
+              "rank": 1,
+              "chunks": [
+                [
+                  0,
+                  2,
+                  2
+                ],
+                [
+                  0,
+                  12,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    2,
+                    3,
+                    12,
+                    13
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 34
+                }
+              ],
+              "query_count": 4
+            },
+            {
+              "rank": 2,
+              "chunks": [
+                [
+                  0,
+                  4,
+                  2
+                ],
+                [
+                  0,
+                  10,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    4,
+                    5,
+                    10,
+                    11
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 34
+                }
+              ],
+              "query_count": 4
+            },
+            {
+              "rank": 3,
+              "chunks": [
+                [
+                  0,
+                  6,
+                  2
+                ],
+                [
+                  0,
+                  8,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    6,
+                    7,
+                    8,
+                    9
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 34
+                }
+              ],
+              "query_count": 4
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        },
+        {
+          "name": "L7_P2_nondivisible",
+          "pcp_world_size": 2,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            7
+          ],
+          "is_prefilling": [
+            true
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [
+                [
+                  0,
+                  0,
+                  2
+                ],
+                [
+                  0,
+                  6,
+                  1
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    0,
+                    1,
+                    6
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 10
+                }
+              ],
+              "query_count": 3
+            },
+            {
+              "rank": 1,
+              "chunks": [
+                [
+                  0,
+                  2,
+                  2
+                ],
+                [
+                  0,
+                  4,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    2,
+                    3,
+                    4,
+                    5
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 18
+                }
+              ],
+              "query_count": 4
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        },
+        {
+          "name": "L11_P3_nondivisible",
+          "pcp_world_size": 3,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            11
+          ],
+          "is_prefilling": [
+            true
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [
+                [
+                  0,
+                  0,
+                  2
+                ],
+                [
+                  0,
+                  10,
+                  1
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    0,
+                    1,
+                    10
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 14
+                }
+              ],
+              "query_count": 3
+            },
+            {
+              "rank": 1,
+              "chunks": [
+                [
+                  0,
+                  2,
+                  2
+                ],
+                [
+                  0,
+                  8,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    2,
+                    3,
+                    8,
+                    9
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 26
+                }
+              ],
+              "query_count": 4
+            },
+            {
+              "rank": 2,
+              "chunks": [
+                [
+                  0,
+                  4,
+                  2
+                ],
+                [
+                  0,
+                  6,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    4,
+                    5,
+                    6,
+                    7
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 26
+                }
+              ],
+              "query_count": 4
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        },
+        {
+          "name": "L1_P4_short",
+          "pcp_world_size": 4,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            1
+          ],
+          "is_prefilling": [
+            true
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [
+                [
+                  0,
+                  0,
+                  1
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    0
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 1
+                }
+              ],
+              "query_count": 1
+            },
+            {
+              "rank": 1,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            },
+            {
+              "rank": 2,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            },
+            {
+              "rank": 3,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        },
+        {
+          "name": "L3_P4_short",
+          "pcp_world_size": 4,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            3
+          ],
+          "is_prefilling": [
+            true
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [
+                [
+                  0,
+                  0,
+                  1
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    0
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 1
+                }
+              ],
+              "query_count": 1
+            },
+            {
+              "rank": 1,
+              "chunks": [
+                [
+                  0,
+                  1,
+                  1
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    1
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 2
+                }
+              ],
+              "query_count": 1
+            },
+            {
+              "rank": 2,
+              "chunks": [
+                [
+                  0,
+                  2,
+                  1
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    2
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 3
+                }
+              ],
+              "query_count": 1
+            },
+            {
+              "rank": 3,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        },
+        {
+          "name": "L0_P4_zero",
+          "pcp_world_size": 4,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            0
+          ],
+          "is_prefilling": [
+            true
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            },
+            {
+              "rank": 1,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            },
+            {
+              "rank": 2,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            },
+            {
+              "rank": 3,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        },
+        {
+          "name": "mixed_decode_prefill_zero",
+          "pcp_world_size": 2,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            1,
+            8,
+            1,
+            0,
+            3,
+            1
+          ],
+          "is_prefilling": [
+            false,
+            true,
+            false,
+            false,
+            false,
+            false
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [
+                [
+                  0,
+                  0,
+                  1
+                ],
+                [
+                  1,
+                  0,
+                  2
+                ],
+                [
+                  1,
+                  6,
+                  2
+                ],
+                [
+                  4,
+                  0,
+                  3
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    0
+                  ],
+                  "is_prefilling": false,
+                  "fresh_causal_query_key_pairs": null
+                },
+                {
+                  "request_index": 1,
+                  "query_offsets": [
+                    0,
+                    1,
+                    6,
+                    7
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 18
+                },
+                {
+                  "request_index": 4,
+                  "query_offsets": [
+                    0,
+                    1,
+                    2
+                  ],
+                  "is_prefilling": false,
+                  "fresh_causal_query_key_pairs": null
+                }
+              ],
+              "query_count": 8
+            },
+            {
+              "rank": 1,
+              "chunks": [
+                [
+                  1,
+                  2,
+                  2
+                ],
+                [
+                  1,
+                  4,
+                  2
+                ],
+                [
+                  2,
+                  0,
+                  1
+                ],
+                [
+                  5,
+                  0,
+                  1
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 1,
+                  "query_offsets": [
+                    2,
+                    3,
+                    4,
+                    5
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 18
+                },
+                {
+                  "request_index": 2,
+                  "query_offsets": [
+                    0
+                  ],
+                  "is_prefilling": false,
+                  "fresh_causal_query_key_pairs": null
+                },
+                {
+                  "request_index": 5,
+                  "query_offsets": [
+                    0
+                  ],
+                  "is_prefilling": false,
+                  "fresh_causal_query_key_pairs": null
+                }
+              ],
+              "query_count": 6
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "cases": [
+        {
+          "name": "L8_P2",
+          "pcp_world_size": 2,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            8
+          ],
+          "is_prefilling": [
+            true
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [
+                [
+                  0,
+                  0,
+                  2
+                ],
+                [
+                  0,
+                  6,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    0,
+                    1,
+                    6,
+                    7
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 18
+                }
+              ],
+              "query_count": 4
+            },
+            {
+              "rank": 1,
+              "chunks": [
+                [
+                  0,
+                  2,
+                  2
+                ],
+                [
+                  0,
+                  4,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    2,
+                    3,
+                    4,
+                    5
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 18
+                }
+              ],
+              "query_count": 4
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        },
+        {
+          "name": "L16_P4",
+          "pcp_world_size": 4,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            16
+          ],
+          "is_prefilling": [
+            true
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [
+                [
+                  0,
+                  0,
+                  2
+                ],
+                [
+                  0,
+                  14,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    0,
+                    1,
+                    14,
+                    15
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 34
+                }
+              ],
+              "query_count": 4
+            },
+            {
+              "rank": 1,
+              "chunks": [
+                [
+                  0,
+                  2,
+                  2
+                ],
+                [
+                  0,
+                  12,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    2,
+                    3,
+                    12,
+                    13
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 34
+                }
+              ],
+              "query_count": 4
+            },
+            {
+              "rank": 2,
+              "chunks": [
+                [
+                  0,
+                  4,
+                  2
+                ],
+                [
+                  0,
+                  10,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    4,
+                    5,
+                    10,
+                    11
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 34
+                }
+              ],
+              "query_count": 4
+            },
+            {
+              "rank": 3,
+              "chunks": [
+                [
+                  0,
+                  6,
+                  2
+                ],
+                [
+                  0,
+                  8,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    6,
+                    7,
+                    8,
+                    9
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 34
+                }
+              ],
+              "query_count": 4
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        },
+        {
+          "name": "L7_P2_nondivisible",
+          "pcp_world_size": 2,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            7
+          ],
+          "is_prefilling": [
+            true
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [
+                [
+                  0,
+                  0,
+                  2
+                ],
+                [
+                  0,
+                  6,
+                  1
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    0,
+                    1,
+                    6
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 10
+                }
+              ],
+              "query_count": 3
+            },
+            {
+              "rank": 1,
+              "chunks": [
+                [
+                  0,
+                  2,
+                  2
+                ],
+                [
+                  0,
+                  4,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    2,
+                    3,
+                    4,
+                    5
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 18
+                }
+              ],
+              "query_count": 4
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        },
+        {
+          "name": "L11_P3_nondivisible",
+          "pcp_world_size": 3,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            11
+          ],
+          "is_prefilling": [
+            true
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [
+                [
+                  0,
+                  0,
+                  2
+                ],
+                [
+                  0,
+                  10,
+                  1
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    0,
+                    1,
+                    10
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 14
+                }
+              ],
+              "query_count": 3
+            },
+            {
+              "rank": 1,
+              "chunks": [
+                [
+                  0,
+                  2,
+                  2
+                ],
+                [
+                  0,
+                  8,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    2,
+                    3,
+                    8,
+                    9
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 26
+                }
+              ],
+              "query_count": 4
+            },
+            {
+              "rank": 2,
+              "chunks": [
+                [
+                  0,
+                  4,
+                  2
+                ],
+                [
+                  0,
+                  6,
+                  2
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    4,
+                    5,
+                    6,
+                    7
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 26
+                }
+              ],
+              "query_count": 4
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        },
+        {
+          "name": "L1_P4_short",
+          "pcp_world_size": 4,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            1
+          ],
+          "is_prefilling": [
+            true
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [
+                [
+                  0,
+                  0,
+                  1
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    0
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 1
+                }
+              ],
+              "query_count": 1
+            },
+            {
+              "rank": 1,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            },
+            {
+              "rank": 2,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            },
+            {
+              "rank": 3,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        },
+        {
+          "name": "L3_P4_short",
+          "pcp_world_size": 4,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            3
+          ],
+          "is_prefilling": [
+            true
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [
+                [
+                  0,
+                  0,
+                  1
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    0
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 1
+                }
+              ],
+              "query_count": 1
+            },
+            {
+              "rank": 1,
+              "chunks": [
+                [
+                  0,
+                  1,
+                  1
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    1
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 2
+                }
+              ],
+              "query_count": 1
+            },
+            {
+              "rank": 2,
+              "chunks": [
+                [
+                  0,
+                  2,
+                  1
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    2
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 3
+                }
+              ],
+              "query_count": 1
+            },
+            {
+              "rank": 3,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        },
+        {
+          "name": "L0_P4_zero",
+          "pcp_world_size": 4,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            0
+          ],
+          "is_prefilling": [
+            true
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            },
+            {
+              "rank": 1,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            },
+            {
+              "rank": 2,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            },
+            {
+              "rank": 3,
+              "chunks": [],
+              "requests": [],
+              "query_count": 0
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        },
+        {
+          "name": "mixed_decode_prefill_zero",
+          "pcp_world_size": 2,
+          "dcp_size_condition": 1,
+          "query_lengths": [
+            1,
+            8,
+            1,
+            0,
+            3,
+            1
+          ],
+          "is_prefilling": [
+            false,
+            true,
+            false,
+            false,
+            false,
+            false
+          ],
+          "ranks": [
+            {
+              "rank": 0,
+              "chunks": [
+                [
+                  0,
+                  0,
+                  1
+                ],
+                [
+                  1,
+                  0,
+                  2
+                ],
+                [
+                  1,
+                  6,
+                  2
+                ],
+                [
+                  4,
+                  0,
+                  3
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 0,
+                  "query_offsets": [
+                    0
+                  ],
+                  "is_prefilling": false,
+                  "fresh_causal_query_key_pairs": null
+                },
+                {
+                  "request_index": 1,
+                  "query_offsets": [
+                    0,
+                    1,
+                    6,
+                    7
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 18
+                },
+                {
+                  "request_index": 4,
+                  "query_offsets": [
+                    0,
+                    1,
+                    2
+                  ],
+                  "is_prefilling": false,
+                  "fresh_causal_query_key_pairs": null
+                }
+              ],
+              "query_count": 8
+            },
+            {
+              "rank": 1,
+              "chunks": [
+                [
+                  1,
+                  2,
+                  2
+                ],
+                [
+                  1,
+                  4,
+                  2
+                ],
+                [
+                  2,
+                  0,
+                  1
+                ],
+                [
+                  5,
+                  0,
+                  1
+                ]
+              ],
+              "requests": [
+                {
+                  "request_index": 1,
+                  "query_offsets": [
+                    2,
+                    3,
+                    4,
+                    5
+                  ],
+                  "is_prefilling": true,
+                  "fresh_causal_query_key_pairs": 18
+                },
+                {
+                  "request_index": 2,
+                  "query_offsets": [
+                    0
+                  ],
+                  "is_prefilling": false,
+                  "fresh_causal_query_key_pairs": null
+                },
+                {
+                  "request_index": 5,
+                  "query_offsets": [
+                    0
+                  ],
+                  "is_prefilling": false,
+                  "fresh_causal_query_key_pairs": null
+                }
+              ],
+              "query_count": 6
+            }
+          ],
+          "coverage_and_unique_ownership": "passed"
+        }
+      ]
+    }
+  ],
+  "case_count_per_repetition": 8,
+  "causal_pair_count_boundary": "Prefill counts assume a fresh standard causal sequence without a cached prefix. Pair counts are arithmetic, not device durations.",
+  "teaching_tp_memory": {
+    "scope": "Independent teaching arithmetic; does not execute a TP class",
+    "conditions": {
+      "query_heads": 16,
+      "kv_heads": 2,
+      "head_dim": 128,
+      "batch": 1,
+      "sequence_length": 16384,
+      "dtype": "BF16",
+      "dtype_bytes": 2,
+      "layers": 1,
+      "ordinary_separate_k_and_v": true,
+      "excludes": [
+        "block padding",
+        "scales",
+        "pool reserve",
+        "weights"
+      ]
+    },
+    "formula": "B * S * local_kv_heads * head_dim * dtype_bytes * 2",
+    "rows": [
+      {
+        "tp_size": 1,
+        "query_heads_per_rank": 16,
+        "kv_heads_per_rank": 2,
+        "kv_head_replicas": 1,
+        "per_rank_valid_kv_bytes_one_layer": 16777216,
+        "per_rank_valid_kv_mib_one_layer": 16.0,
+        "group_valid_kv_bytes_one_layer": 16777216
+      },
+      {
+        "tp_size": 2,
+        "query_heads_per_rank": 8,
+        "kv_heads_per_rank": 1,
+        "kv_head_replicas": 1,
+        "per_rank_valid_kv_bytes_one_layer": 8388608,
+        "per_rank_valid_kv_mib_one_layer": 8.0,
+        "group_valid_kv_bytes_one_layer": 16777216
+      },
+      {
+        "tp_size": 4,
+        "query_heads_per_rank": 4,
+        "kv_heads_per_rank": 1,
+        "kv_head_replicas": 2,
+        "per_rank_valid_kv_bytes_one_layer": 8388608,
+        "per_rank_valid_kv_mib_one_layer": 8.0,
+        "group_valid_kv_bytes_one_layer": 33554432
+      }
+    ]
+  },
+  "limits": [
+    "The controlled receiver fixes the decode-sharded PCP-only branch.",
+    "No assertion is made about PCP+DCP replicated-short-prefill policy.",
+    "No imports, metadata construction, cache writes, or collectives of the source module execute.",
+    "Coverage success does not establish full-model PCP correctness or speedup."
+  ]
+}

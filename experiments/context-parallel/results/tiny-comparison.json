@@ -1,0 +1,139 @@
+{
+  "schema": "wiki-cp-tiny-runner-comparison/1",
+  "baseline": "TP2_PCP1_DCP1",
+  "checkpoint_sha256": "a7bc368ed48563ea9b22b99fe5044622f6e69bbd089fa6747837ef0afaedf0b3",
+  "prompts": [
+    64,
+    129,
+    256,
+    513
+  ],
+  "generation": "Greedy, 4 output tokens per prompt, 2 recorded repetitions per configuration",
+  "all_recorded_tokens_match_baseline": true,
+  "comparison": [
+    {
+      "configuration": "TP1_PCP2_DCP1",
+      "topology": {
+        "tp": 1,
+        "pcp": 2,
+        "dcp": 1
+      },
+      "local_kv_heads": 1,
+      "cache_configuration": {
+        "block_size": 128,
+        "num_gpu_blocks": 512,
+        "effective_attention_block_size": 128,
+        "kv_cache_size_tokens": 65536,
+        "kv_cache_max_concurrency": 32.0,
+        "kv_cache_memory_bytes": 33554432,
+        "enable_prefix_caching": false,
+        "cache_dtype": "auto"
+      },
+      "within_configuration": {
+        "generated_token_ids_match_first_repetition": true,
+        "chosen_logprob_max_abs_difference_from_first_repetition": 0.007948875427246094
+      },
+      "repetitions": [
+        {
+          "repetition": 0,
+          "generated_token_ids_match_baseline": true,
+          "chosen_logprob_max_abs_difference": 0.0077381134033203125,
+          "chosen_logprob_bitwise_equal": false,
+          "reason_if_logprob_comparison_omitted": null
+        },
+        {
+          "repetition": 1,
+          "generated_token_ids_match_baseline": true,
+          "chosen_logprob_max_abs_difference": 0.007603168487548828,
+          "chosen_logprob_bitwise_equal": false,
+          "reason_if_logprob_comparison_omitted": null
+        }
+      ]
+    },
+    {
+      "configuration": "TP2_PCP1_DCP1",
+      "topology": {
+        "tp": 2,
+        "pcp": 1,
+        "dcp": 1
+      },
+      "local_kv_heads": 1,
+      "cache_configuration": {
+        "block_size": 128,
+        "num_gpu_blocks": 512,
+        "effective_attention_block_size": 128,
+        "kv_cache_size_tokens": 65536,
+        "kv_cache_max_concurrency": 32.0,
+        "kv_cache_memory_bytes": 33554432,
+        "enable_prefix_caching": false,
+        "cache_dtype": "auto"
+      },
+      "within_configuration": {
+        "generated_token_ids_match_first_repetition": true,
+        "chosen_logprob_max_abs_difference_from_first_repetition": 0.0
+      },
+      "repetitions": [
+        {
+          "repetition": 0,
+          "generated_token_ids_match_baseline": true,
+          "chosen_logprob_max_abs_difference": 0.0,
+          "chosen_logprob_bitwise_equal": true,
+          "reason_if_logprob_comparison_omitted": null
+        },
+        {
+          "repetition": 1,
+          "generated_token_ids_match_baseline": true,
+          "chosen_logprob_max_abs_difference": 0.0,
+          "chosen_logprob_bitwise_equal": true,
+          "reason_if_logprob_comparison_omitted": null
+        }
+      ]
+    },
+    {
+      "configuration": "TP2_PCP1_DCP2",
+      "topology": {
+        "tp": 2,
+        "pcp": 1,
+        "dcp": 2
+      },
+      "local_kv_heads": 1,
+      "cache_configuration": {
+        "block_size": 128,
+        "num_gpu_blocks": 512,
+        "effective_attention_block_size": 256,
+        "kv_cache_size_tokens": 131072,
+        "kv_cache_max_concurrency": 64.0,
+        "kv_cache_memory_bytes": 33554432,
+        "enable_prefix_caching": false,
+        "cache_dtype": "auto"
+      },
+      "within_configuration": {
+        "generated_token_ids_match_first_repetition": true,
+        "chosen_logprob_max_abs_difference_from_first_repetition": 0.0
+      },
+      "repetitions": [
+        {
+          "repetition": 0,
+          "generated_token_ids_match_baseline": true,
+          "chosen_logprob_max_abs_difference": 0.01552438735961914,
+          "chosen_logprob_bitwise_equal": false,
+          "reason_if_logprob_comparison_omitted": null
+        },
+        {
+          "repetition": 1,
+          "generated_token_ids_match_baseline": true,
+          "chosen_logprob_max_abs_difference": 0.01552438735961914,
+          "chosen_logprob_bitwise_equal": false,
+          "reason_if_logprob_comparison_omitted": null
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "Matching greedy token IDs does not establish bitwise numerical equality.",
+    "Chosen-token logprobs compare only the reported token positions, not full vocabulary logits.",
+    "Random tiny-model execution does not assess pretrained model quality.",
+    "Recorded wall times include profiler effects and are not a throughput or latency benchmark.",
+    "Cache capacity fields are configured logical capacity, not measured maximum concurrent requests."
+  ]
+}

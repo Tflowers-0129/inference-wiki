@@ -1,0 +1,206 @@
+{
+  "scope": "installed ModelRunnerV2, two-layer random Qwen2; correctness only, not pretrained quality or service throughput",
+  "topology": {
+    "tp": 2,
+    "pcp": 1,
+    "dcp": 1
+  },
+  "checkpoint_sha256": "a7bc368ed48563ea9b22b99fe5044622f6e69bbd089fa6747837ef0afaedf0b3",
+  "model_config": {
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ],
+    "attention_dropout": 0.0,
+    "bos_token_id": 1,
+    "dtype": "bfloat16",
+    "eos_token_id": 2,
+    "hidden_act": "silu",
+    "hidden_size": 512,
+    "initializer_range": 0.02,
+    "intermediate_size": 1024,
+    "layer_types": [
+      "full_attention",
+      "full_attention"
+    ],
+    "max_position_embeddings": 8192,
+    "max_window_layers": 28,
+    "model_type": "qwen2",
+    "num_attention_heads": 8,
+    "num_hidden_layers": 2,
+    "num_key_value_heads": 1,
+    "pad_token_id": null,
+    "rms_norm_eps": 1e-06,
+    "rope_parameters": {
+      "rope_theta": 10000.0,
+      "rope_type": "default"
+    },
+    "sliding_window": null,
+    "tie_word_embeddings": false,
+    "transformers_version": "5.19.0",
+    "use_cache": true,
+    "use_sliding_window": false,
+    "vocab_size": 256
+  },
+  "local_kv_heads": 1,
+  "results": [
+    {
+      "repetition": 0,
+      "wall_seconds": 0.03422356001101434,
+      "outputs": [
+        {
+          "prompt_length": 64,
+          "token_ids": [
+            136,
+            108,
+            174,
+            136
+          ],
+          "chosen_logprobs": [
+            -4.0342512130737305,
+            -4.287081241607666,
+            -4.3986992835998535,
+            -4.247188568115234
+          ]
+        },
+        {
+          "prompt_length": 129,
+          "token_ids": [
+            116,
+            189,
+            116,
+            189
+          ],
+          "chosen_logprobs": [
+            -4.2916998863220215,
+            -4.4000396728515625,
+            -4.371898651123047,
+            -4.420227527618408
+          ]
+        },
+        {
+          "prompt_length": 256,
+          "token_ids": [
+            56,
+            164,
+            56,
+            164
+          ],
+          "chosen_logprobs": [
+            -4.013642311096191,
+            -4.353148937225342,
+            -4.025158405303955,
+            -4.412825584411621
+          ]
+        },
+        {
+          "prompt_length": 513,
+          "token_ids": [
+            75,
+            144,
+            242,
+            54
+          ],
+          "chosen_logprobs": [
+            -4.545246124267578,
+            -4.212976932525635,
+            -4.296613693237305,
+            -4.365893363952637
+          ]
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "wall_seconds": 0.029668960021808743,
+      "outputs": [
+        {
+          "prompt_length": 64,
+          "token_ids": [
+            136,
+            108,
+            174,
+            136
+          ],
+          "chosen_logprobs": [
+            -4.0342512130737305,
+            -4.287081241607666,
+            -4.3986992835998535,
+            -4.247188568115234
+          ]
+        },
+        {
+          "prompt_length": 129,
+          "token_ids": [
+            116,
+            189,
+            116,
+            189
+          ],
+          "chosen_logprobs": [
+            -4.2916998863220215,
+            -4.4000396728515625,
+            -4.371898651123047,
+            -4.420227527618408
+          ]
+        },
+        {
+          "prompt_length": 256,
+          "token_ids": [
+            56,
+            164,
+            56,
+            164
+          ],
+          "chosen_logprobs": [
+            -4.013642311096191,
+            -4.353148937225342,
+            -4.025158405303955,
+            -4.412825584411621
+          ]
+        },
+        {
+          "prompt_length": 513,
+          "token_ids": [
+            75,
+            144,
+            242,
+            54
+          ],
+          "chosen_logprobs": [
+            -4.545246124267578,
+            -4.212976932525635,
+            -4.296613693237305,
+            -4.365893363952637
+          ]
+        }
+      ]
+    }
+  ],
+  "correctness": "deterministic within configuration; compare across configurations separately",
+  "cache_configuration": {
+    "block_size": 128,
+    "num_gpu_blocks": 512,
+    "effective_attention_block_size": 128,
+    "kv_cache_size_tokens": 65536,
+    "kv_cache_max_concurrency": 32.0,
+    "kv_cache_memory_bytes": 33554432,
+    "enable_prefix_caching": false,
+    "cache_dtype": "auto"
+  },
+  "capture_date": "2026-11-05",
+  "model_runner": "V2",
+  "engine_limits": {
+    "max_model_len": 2048,
+    "max_num_batched_tokens": 512,
+    "max_num_seqs": 4,
+    "enforce_eager": true,
+    "enable_chunked_prefill": true,
+    "enable_prefix_caching": false
+  },
+  "limits": [
+    "This random checkpoint is for plumbing/correctness; it has not been trained or evaluated for model quality.",
+    "Only greedy token IDs are asserted deterministic within a configuration; chosen logprobs may differ.",
+    "Wall time includes profiling effects and is not a serving-performance comparison.",
+    "KV capacity fields describe configured logical capacity and fixed reservations; concurrency is not a load-test result."
+  ]
+}
