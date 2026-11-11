@@ -1,6 +1,6 @@
 # LLM 推理调度与执行 Wiki
 
-[在线演示](https://tflowers-0129.github.io/inference-wiki/) · [混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler) · [PD 播放器](https://tflowers-0129.github.io/inference-wiki/#pdPlayer) · [一次前向](https://tflowers-0129.github.io/inference-wiki/execution.html) · [Triton 输入准备图解](https://tflowers-0129.github.io/inference-wiki/execution.html#fusion-lab) · [投机解码实验室](https://tflowers-0129.github.io/inference-wiki/speculation.html#spec-player) · [DPLB 与 EPLB](https://tflowers-0129.github.io/inference-wiki/load-balancing.html) · [EP 通信与计算重叠](https://tflowers-0129.github.io/inference-wiki/ep-communication.html) · [上下文并行与 Attention 归并](https://tflowers-0129.github.io/inference-wiki/context-parallel.html) · [PD 分离系统与 KV 生命周期](https://tflowers-0129.github.io/inference-wiki/pd-disaggregation.html) · [Decode Offload 与 HiSparse](https://tflowers-0129.github.io/inference-wiki/sparse-offload.html) · [KV 缓存布局与递归状态](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html)
+[在线演示](https://tflowers-0129.github.io/inference-wiki/) · [混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler) · [PD 播放器](https://tflowers-0129.github.io/inference-wiki/#pdPlayer) · [一次前向](https://tflowers-0129.github.io/inference-wiki/execution.html) · [Triton 输入准备图解](https://tflowers-0129.github.io/inference-wiki/execution.html#fusion-lab) · [投机解码实验室](https://tflowers-0129.github.io/inference-wiki/speculation.html#spec-player) · [DPLB 与 EPLB](https://tflowers-0129.github.io/inference-wiki/load-balancing.html) · [EP 通信与计算重叠](https://tflowers-0129.github.io/inference-wiki/ep-communication.html) · [上下文并行与 Attention 归并](https://tflowers-0129.github.io/inference-wiki/context-parallel.html) · [PD 分离系统与 KV 生命周期](https://tflowers-0129.github.io/inference-wiki/pd-disaggregation.html) · [KV 缓存布局与递归状态](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html) · [Decode Offload 与 HiSparse](https://tflowers-0129.github.io/inference-wiki/sparse-offload.html)
 
 [![Pages deployment](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml/badge.svg)](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml)
 
@@ -22,9 +22,9 @@
 
 第七章《PD 分离系统：请求交接与 KV 生命周期》承接单引擎内部的 KV 分片，沿 vLLM-Ascend 与 Mooncake 源码说明拉取式、逐层推送式的请求交接，追踪目标块分配、传输、就绪与源引用释放。A5 实操分别运行合法的 GQA 拉取与 MQA+DCP2 逐层推送，核对两个来源／接收 rank 的原生 HIXL 任务，并用真实 Host 观察追踪完成和释放；首次预热中释放调用早于后台写返回的记录单独保留，避免把测量中的先后当作实现保证。
 
-第八章《稀疏 KV 卸载与 HiSparse》沿完整历史、逻辑 TopK 与设备工作集讲解 Decode Offload；五张 SVG 展示地址空间、A3 泳道、A5 两段融合以及 HiSparse 页生命周期和跨层 gather。缓存实验室可切换 CPU LRU 与 Resident/Hot/Source 解析，逐步查看命中、Host miss 与 Attention 槽位。正文区分已合入框架、待合入算子和 RFC 方向，性能表保留作者报告及测量边界。
+第八章《KV 缓存布局与递归状态》从形状和步幅读 BLHNC、LBHNC，并用 GQA、MLA、Indexer 和 Mamba 算例解释缓存容量。模型对照追到 Kimi K3 的 KDA 与 MLA、两种 GLM-5.3 的 IndexShare 与 KeyPool，以及两代 DeepSeek Flash 的压缩页和共享缓存。
 
-第九章《KV 缓存布局与递归状态》从形状和步幅读 BLHNC、LBHNC，并用 GQA、MLA、Indexer 和 Mamba 算例解释缓存容量。模型对照追到 Kimi K3 的 KDA 与 MLA、两种 GLM-5.3 的 IndexShare 与 KeyPool，以及两代 DeepSeek Flash 的压缩页和共享缓存。
+第九章《稀疏 KV 卸载与 HiSparse》沿完整历史、逻辑 TopK 与设备工作集讲解 Decode Offload；五张 SVG 展示地址空间、A3 泳道、A5 两段融合以及 HiSparse 页生命周期和跨层 gather。缓存实验室可切换 CPU LRU 与 Resident/Hot/Source 解析，逐步查看命中、Host miss 与 Attention 槽位。正文区分已合入框架、待合入算子和 RFC 方向，性能表保留作者报告及测量边界。
 
 第二、三篇按字段和执行现场展开：先走通五 Token 的输入与 KV 地址，再查 Host/Device 对账、CPU 输入缓冲复用和跨轮提交；投机章沿 K=3、a=2 的同一份账本追到 padded 输入和客户端指标。metadata 部分从投机候选数追到验证后的有效 KV，再切换下一轮 K=0/1/3，对照 query 边界、位置和块寻址；Host / Device 的等待分别解释数据冲突与消费者依赖。每处源码片段注明调用路径，Trace 排查给出可区分的证据，不把机制示例写成实测经验。
 
@@ -76,8 +76,8 @@ python3 scripts/serve.py --port 4174
 - `content/EP通信与通算融合.md`：EP 通信路径、算子选择与融合执行。
 - `content/上下文并行与Attention归并.md`：TP 的 KV 切分、PCP／DCP 与 Attention 结果归并。
 - `content/PD分离系统与KV生命周期.md`：拉取式、逐层推送式请求交接与 KV 生命周期。
-- `content/稀疏KV卸载与HiSparse.md`：Decode Offload、A3/A5 算子与社区 HiSparse 接入。
 - `content/KV缓存布局与递归状态.md` 讲解 KV 形状与物理布局、Indexer 缓存和 Mamba 状态。
+- `content/稀疏KV卸载与HiSparse.md`：Decode Offload、A3/A5 算子与社区 HiSparse 接入。
 - `dist/ep-model.js`、`dist/ep-app.js`、`dist/ep.css`：专家任务、目标 rank 去重与 Dispatch 逻辑 payload 教学模型；`scripts/ep-lab.html` 为面板源片段。
 - `dist/ep-timeline-model.js`、`dist/ep-timeline-app.js`、`dist/ep-timeline.css`：MC2 / Fused-MC2 的源码依赖模拟与 profiling 泳道；`scripts/ep-timeline.html` 为面板源片段。
 - `dist/offload-model.js`、`dist/offload-app.js`、`dist/offload.css`：TopK 缓存和地址教学模型；`scripts/offload-lab.html` 为面板源片段。
@@ -101,9 +101,9 @@ python3 scripts/sync-content.py
 
 EP 静态泳道与交互模拟共用模型。修改 `dist/ep-timeline-model.js` 后，先运行 `node scripts/render-ep-profile.cjs` 重建 `dist/assets/ep-overlap-swimlanes.svg`，再同步正文；普通正文编辑不需要这一步。
 
-脚本默认读取本仓库的 `content/`，生成 `dist/source.md`、`dist/execution.md`、`dist/speculation.md`、`dist/load-balancing.md`、`dist/ep-communication.md`、`dist/context-parallel.md`、`dist/pd-disaggregation.md`、`dist/sparse-offload.md`、`dist/kv-cache-layouts.md` 和 `dist/technical-wiki-source.zip`，供页面上的下载链接使用。这些下载生成文件由 `.gitignore` 排除，部署前会重新生成。压缩包正文引用 `figures/`，解压后可直接连图阅读。也可使用 `--manuscript /绝对路径/文稿.md`，图源仍需保存在本仓库 `dist/assets/`。
+脚本默认读取本仓库的 `content/`，生成 `dist/source.md`、`dist/execution.md`、`dist/speculation.md`、`dist/load-balancing.md`、`dist/ep-communication.md`、`dist/context-parallel.md`、`dist/pd-disaggregation.md`、`dist/kv-cache-layouts.md`、`dist/sparse-offload.md` 和 `dist/technical-wiki-source.zip`，供页面上的下载链接使用。这些下载生成文件由 `.gitignore` 排除，部署前会重新生成。压缩包正文引用 `figures/`，解压后可直接连图阅读。也可使用 `--manuscript /绝对路径/文稿.md`，图源仍需保存在本仓库 `dist/assets/`。
 
-同步脚本会从第二章起的 Markdown 重建 `execution.html`、`speculation.html`、`load-balancing.html`、`ep-communication.html`、`context-parallel.html`、`pd-disaggregation.html`、`sparse-offload.html` 与 `kv-cache-layouts.html`。这些生成网页随仓库提交便于直接浏览，应修改 Markdown 和模板后重建；原有 `index.html` 仍按手工图文维护。渲染支持本文使用的段落、标题、平面列表、表格、代码块和 SVG / PNG 图片，不是任意 Markdown 的通用转换器。涉及模型假设时也需检查播放器。
+同步脚本会从第二章起的 Markdown 重建 `execution.html`、`speculation.html`、`load-balancing.html`、`ep-communication.html`、`context-parallel.html`、`pd-disaggregation.html`、`kv-cache-layouts.html` 与 `sparse-offload.html`。这些生成网页随仓库提交便于直接浏览，应修改 Markdown 和模板后重建；原有 `index.html` 仍按手工图文维护。渲染支持本文使用的段落、标题、平面列表、表格、代码块和 SVG / PNG 图片，不是任意 Markdown 的通用转换器。涉及模型假设时也需检查播放器。
 
 ## 检查与测试
 

@@ -59,7 +59,7 @@ Linux 上解析与浏览器查看的完整步骤见 [第五章实操](https://tf
 | 5 EP 通信 | 完整选择函数、AllGather/AllToAll 容量边界、graph 与服务级指标 | 支持的模型／量化／拓扑和同条件负载 |
 | 6 上下文并行 | 预训练长上下文精度、PCP+DCP 叠加、MLA/SFA 与投机侧流、graph 和服务吞吐 | 对应权重、合法拓扑、Attention 后端与同条件负载 |
 | 7 PD 分离 | 多主机网络、同配置 pull/push 对比、取消／失败注入、并发块覆盖复用与稳态服务指标 | 匹配缓存布局与 transport、完整生命周期取证、受控多实例负载 |
-| 8 稀疏 KV | LI+Manage、Copy+SFA 阈值和 HiSparse 页生命周期 | 对应编译产物、合法 backing、Core/Ascend ABI 配对 |
+| 9 稀疏 KV | LI+Manage、Copy+SFA 阈值和 HiSparse 页生命周期 | 对应编译产物、合法 backing、Core/Ascend ABI 配对 |
 
 正文明确声明的教学时长、四十 token 路由、缩比缓存和捕获档位不属于设备复现目标。实测采用目标实现合法参数；上述表格不会因为播放器运行正确就改为通过。
 

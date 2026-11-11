@@ -1,6 +1,6 @@
 # 稀疏 KV：从 Decode Offload 到 HiSparse
 
-前面算过 Lightning Indexer 与 DSA 的缓存：Indexer 每轮只选 TopK，不代表其余历史 KV 可以丢掉。下一轮选中的位置可能完全不同，完整历史仍要保存。长上下文把主 KV 撑大后，一个直接的办法是把历史放到 Host，每轮只把需要的行搬回 Device。
+第八章用 DeepSeek-V3.2 算过主 KV 与 Lightning Indexer 的历史缓存。每轮 TopK 只选出本轮 Attention 要读的位置，下一轮还可能访问其余历史，所以完整历史仍要保存。长上下文把主 KV 撑大后，可以把历史放到 Host，每轮把需要的行搬回 Device。[KV 缓存布局与递归状态](KV缓存布局与递归状态.md)
 
 这样做把问题从“HBM 能否装下”推进到了“一轮 Decode 要等多久”。TopK 是逻辑位置，搬运需要物理地址；缓存命中需要知道这行属于哪个请求、内容是否仍然有效；Attention 则必须等本次需要的数据可读。框架、索引管理、拷贝算子和 Attention 的边界，正是在这里接起来的。
 

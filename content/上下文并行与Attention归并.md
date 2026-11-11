@@ -322,8 +322,8 @@ ssh -N -L 127.0.0.1:9001:127.0.0.1:9001 your-a5-alias
 
 打开 [Perfetto UI](https://ui.perfetto.dev/)，选择使用已经加载的 native Trace Processor；在 Timeline 展开 Host、Ascend Hardware、通信行，搜索实验 scope，再缩放到选中的区间。原始 trace 留在 Linux，分析不需要公开 trace 文件或服务端口。若只需表格归因，也可在 Linux 用 MindIE profiler 显式选择 full-range 或目标窗口，先核对 scene、rank、warmup 与时钟告警，再看耗时统计。[Perfetto native accelerator 说明](https://perfetto.dev/docs/visualization/large-traces)
 
-## 11. 下一步才是让 KV 离开设备
+## 11. 从多卡 Attention 到 P/D 交接
 
 前五章一直追踪 token 何时被调度、如何进入前向、怎样被验证、专家放在哪里以及数据怎样往返。本章补上长历史的卡间布局：TP 先决定本地有哪些 heads，PCP 分摊本轮 query，DCP 分摊 KV 历史，再通过正确的 Attention 数值归并接回前向。
 
-这仍然是在设备间组织 KV。若工作集继续增大，所有设备的 HBM 合起来仍放不下，或者稀疏 Attention 每轮只访问其中一部分，才接着讨论哪些 KV 留在设备、哪些放到 Host、怎样把选中的页按时带回来。下一章的[稀疏 KV 卸载与 HiSparse](稀疏KV卸载与HiSparse.md)会沿着这些地址与依赖继续展开。
+分成两套引擎后，同一请求的 P 端与 D 端各有自己的块池。D 先确定目标块，再接收自己需要的 KV。第七章沿请求交接追踪这些块的分配、传输和释放。[PD 分离系统与 KV 生命周期](PD分离系统与KV生命周期.md)
