@@ -1,75 +1,81 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="350" height="448" viewBox="0 0 350 448" role="img" aria-labelledby="title desc">
-  <title id="title">B1 的两层数据在内存里怎样排？</title>
-  <desc id="desc">同组稠密缓存，逻辑轴 L、B、H、N、C 的长度依次是 2、3、2、4、2。每个层与物理块组合占 16 个元素，无页填充。两列都从上到下按元素偏移排列。LBHNC 先排列第 0 层的三个页，再排列第 1 层的三个页，块 B1 的两页分开。BLHNC 按物理块排列，每块内按层排列，块 B1 的两页相邻。逻辑坐标 (1,1,1,2,0) 在页内偏移 12，两个布局的元素偏移分别为 76 和 60。</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="350" height="488" viewBox="0 0 350 488" role="img" aria-labelledby="title desc">
+  <title id="title">B1 的两层数据怎样排？</title>
+  <desc id="desc">同组稠密缓存的 L、B、H、N、C 分别为 2、3、2、4、2。每页 16 个元素，无填充。两列均按元素偏移递增排列。LBHNC 先排列 L0 的三个块，再排列 L1 的三个块，B1 的两页分开。BLHNC 按 B0、B1、B2 排列，每个块内的两层相邻。橙框标出的目标坐标 (l,b,h,n,c)=(1,1,1,2,0)，页内偏移为 12 个元素。LBHNC 中目标页从 64 开始，元素偏移为 76。BLHNC 中目标页从 48 开始，元素偏移为 60。</desc>
   <defs>
     <style>
       text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
-      .title{font-size:20px;font-weight:700}
-      .head{font-size:16px;font-weight:700}
-      .note{font-size:15px;fill:#475569}
-      .page{font-size:16px;font-weight:650}
-      .range{font-size:15px;fill:#475569;text-anchor:end}
-      .formula{font-size:15px}
+      .title{font-size:22px;font-weight:700}
+      .heading{font-size:18px;font-weight:700}
+      .body{font-size:18px}
+      .detail{font-size:16px;fill:#475569}
+      .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:15px}
+      .page{font-size:18px;font-weight:650}
+      .range{fill:#475569;text-anchor:end}
+      .center{text-anchor:middle}
       .blue{fill:#1d4ed8}
       .orange{fill:#9a3412}
+      .page-list{fill:#fff;stroke:#64748b}
+      .division{fill:none;stroke:#64748b}
+      .b1{fill:#eff6ff;stroke:#1d4ed8;stroke-width:1.5}
+      .target{fill:#fff7ed;stroke:#b45309;stroke-width:1.8}
     </style>
   </defs>
 
-  <rect width="350" height="448" rx="12" fill="#f8fafc"/>
-  <text x="16" y="32" class="title">B1 的两层数据在内存里怎样排？</text>
-  <text x="16" y="57" class="note">[L, B, H, N, C] = [2, 3, 2, 4, 2]</text>
-  <text x="16" y="80" class="note">每页 16 个元素，无填充。元素偏移 ↓</text>
+  <rect width="350" height="488" rx="12" fill="#f8fafc"/>
+  <text x="16" y="32" class="title">B1 的两层数据怎样排？</text>
+  <text x="16" y="57" class="mono">[L,B,H,N,C] = [2,3,2,4,2]</text>
+  <text x="16" y="81" class="detail">每页 16 个元素，无填充 · 元素偏移 ↓</text>
 
-  <text x="16" y="109" class="head">LBHNC · 按层</text>
-  <rect x="16" y="122" width="147" height="192" rx="5" fill="#fff" stroke="#64748b"/>
-  <rect x="16" y="154" width="147" height="32" fill="#eff6ff" stroke="#1d4ed8"/>
-  <rect x="16" y="250" width="147" height="32" fill="#eff6ff"/>
-  <path d="M16 218H163" stroke="#64748b"/>
-  <rect x="16" y="250" width="147" height="32" fill="none" stroke="#b45309" stroke-width="2.2"/>
+  <text x="16" y="111" class="heading blue">LBHNC · 按层</text>
+  <rect x="16" y="126" width="148" height="204" rx="7" class="page-list"/>
+  <path d="M16 160H164M16 194H164M16 228H164M16 262H164M16 296H164" class="division"/>
+  <rect x="16" y="160" width="148" height="34" class="b1"/>
+  <rect x="16" y="262" width="148" height="34" class="target"/>
   <g class="page">
-    <text x="28" y="144">L0 B0</text>
-    <text x="28" y="176" class="blue">L0 B1</text>
-    <text x="28" y="208">L0 B2</text>
-    <text x="28" y="240">L1 B0</text>
-    <text x="28" y="272" class="blue">L1 B1</text>
-    <text x="28" y="304">L1 B2</text>
+    <text x="28" y="149">L0 B0</text>
+    <text x="28" y="183" class="blue">L0 B1</text>
+    <text x="28" y="217">L0 B2</text>
+    <text x="28" y="251">L1 B0</text>
+    <text x="28" y="285" class="orange">L1 B1</text>
+    <text x="28" y="319">L1 B2</text>
   </g>
-  <g class="range">
-    <text x="151" y="144">0–15</text>
-    <text x="151" y="176">16–31</text>
-    <text x="151" y="208">32–47</text>
-    <text x="151" y="240">48–63</text>
-    <text x="151" y="272" class="orange">64–79</text>
-    <text x="151" y="304">80–95</text>
+  <g class="mono range">
+    <text x="152" y="149">0–15</text>
+    <text x="152" y="183" class="blue">16–31</text>
+    <text x="152" y="217">32–47</text>
+    <text x="152" y="251">48–63</text>
+    <text x="152" y="285" class="orange">64–79</text>
+    <text x="152" y="319">80–95</text>
   </g>
-  <text x="16" y="339" class="note blue">B1 的两页分开</text>
+  <text x="90" y="358" class="body center blue">B1 两页分开</text>
 
-  <text x="187" y="109" class="head">BLHNC · 按块</text>
-  <rect x="187" y="122" width="147" height="192" rx="5" fill="#fff" stroke="#64748b"/>
-  <rect x="187" y="186" width="147" height="64" fill="#eff6ff" stroke="#1d4ed8"/>
-  <path d="M187 154H334M187 282H334" stroke="#64748b"/>
-  <rect x="187" y="218" width="147" height="32" fill="none" stroke="#b45309" stroke-width="2.2"/>
+  <text x="186" y="111" class="heading blue">BLHNC · 按块</text>
+  <rect x="186" y="126" width="148" height="204" rx="7" class="page-list"/>
+  <path d="M186 160H334M186 194H334M186 228H334M186 262H334M186 296H334" class="division"/>
+  <rect x="186" y="194" width="148" height="68" class="b1"/>
+  <rect x="186" y="228" width="148" height="34" class="target"/>
   <g class="page">
-    <text x="199" y="144">B0 L0</text>
-    <text x="199" y="176">B0 L1</text>
-    <text x="199" y="208" class="blue">B1 L0</text>
-    <text x="199" y="240" class="blue">B1 L1</text>
-    <text x="199" y="272">B2 L0</text>
-    <text x="199" y="304">B2 L1</text>
+    <text x="198" y="149">B0 L0</text>
+    <text x="198" y="183">B0 L1</text>
+    <text x="198" y="217" class="blue">B1 L0</text>
+    <text x="198" y="251" class="orange">B1 L1</text>
+    <text x="198" y="285">B2 L0</text>
+    <text x="198" y="319">B2 L1</text>
   </g>
-  <g class="range">
-    <text x="322" y="144">0–15</text>
-    <text x="322" y="176">16–31</text>
-    <text x="322" y="208">32–47</text>
-    <text x="322" y="240" class="orange">48–63</text>
-    <text x="322" y="272">64–79</text>
-    <text x="322" y="304">80–95</text>
+  <g class="mono range">
+    <text x="322" y="149">0–15</text>
+    <text x="322" y="183">16–31</text>
+    <text x="322" y="217" class="blue">32–47</text>
+    <text x="322" y="251" class="orange">48–63</text>
+    <text x="322" y="285">64–79</text>
+    <text x="322" y="319">80–95</text>
   </g>
-  <text x="187" y="339" class="note blue">B1 的两页相邻</text>
+  <text x="260" y="358" class="body center blue">B1 两页相邻</text>
 
-  <rect x="16" y="354" width="318" height="80" rx="7" fill="#fff7ed" stroke="#b45309"/>
-  <text x="27" y="377" class="formula">橙框内目标 (l,b,h,n,c) = (1,1,1,2,0)</text>
-  <text x="27" y="399" class="formula">页内偏移 12 个元素</text>
-  <text x="27" y="421" class="formula orange">LBHNC 64 + 12 = 76</text>
-  <text x="186" y="421" class="formula orange">BLHNC 48 + 12 = 60</text>
+  <rect x="16" y="376" width="318" height="96" rx="8" fill="#fff7ed" stroke="#b45309"/>
+  <text x="28" y="402" class="heading orange">橙框中的同一元素</text>
+  <text x="28" y="425" class="mono">(l,b,h,n,c) = (1,1,1,2,0)</text>
+  <text x="28" y="447" class="detail">页内偏移 12 个元素</text>
+  <text x="28" y="465" class="mono orange">LBHNC 64+12=76</text>
+  <text x="198" y="465" class="mono orange">BLHNC 48+12=60</text>
 </svg>

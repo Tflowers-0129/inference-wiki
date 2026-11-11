@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="350" height="478" viewBox="0 0 350 478" role="img" aria-labelledby="title desc">
+  <title id="title">写入 a8，再按块读历史</title>
+  <desc id="desc">请求 A 的 a0 到 a7 已有 KV，本轮只处理 a8。管理块与 kernel 块各有四个槽，块表为 7、2、9。位置 8 属于逻辑块 2，块内偏移 0，写入物理块 9 的第 0 行，槽号为 36。写入后，Attention 依块表次序从物理块 7、2、9 分别读取 4、4、1 个有效位置。块 9 余下三个槽不计入本轮有效长度。</desc>
+  <defs>
+    <style>
+      text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
+      .title{font-size:22px;font-weight:700}
+      .heading{font-size:18px;font-weight:700}
+      .body{font-size:18px}
+      .detail{font-size:16px;fill:#475569}
+      .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:15px}
+      .center{text-anchor:middle}
+      .blue{fill:#1d4ed8}
+      .orange{fill:#9a3412}
+      .teal{fill:#0f766e}
+      .token{fill:#eff6ff;stroke:#64748b}
+      .empty{fill:#f1f5f9;stroke:#64748b;stroke-dasharray:2 2}
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M1 1L8 5L1 9" fill="none" stroke="#1d4ed8" stroke-width="1.7"/>
+    </marker>
+  </defs>
+
+  <rect width="350" height="478" rx="12" fill="#f8fafc"/>
+  <text x="16" y="32" class="title">写入 a8，再按块读历史</text>
+  <text x="16" y="57" class="body">请求 A 的 a0–a7 已有 KV</text>
+  <text x="16" y="80" class="detail">管理块和 kernel 块均为 4 槽 · 教学示意</text>
+
+  <rect x="16" y="98" width="318" height="106" rx="8" fill="#fff7ed" stroke="#b45309"/>
+  <text x="28" y="123" class="heading orange">写入 · 本轮只处理 a8</text>
+  <text x="28" y="149" class="body">位置 8 → 逻辑块 2，偏移 0</text>
+  <text x="28" y="174" class="body">查表得块 9，槽 9 × 4 + 0 = 36</text>
+  <text x="28" y="194" class="mono orange">slot_mapping = [36]</text>
+
+  <text x="16" y="234" class="heading blue">读取 · 按请求 A 的块表找页</text>
+  <text x="16" y="257" class="mono blue">block_table[A] = [7, 2, 9]</text>
+
+  <g class="body center">
+    <text x="66" y="284">逻辑块 0</text>
+    <text x="175" y="284">逻辑块 1</text>
+    <text x="284" y="284">逻辑块 2</text>
+  </g>
+  <g fill="none" stroke="#1d4ed8" stroke-width="1.5" marker-end="url(#arrow)">
+    <path d="M66 290V307"/>
+    <path d="M175 290V307"/>
+    <path d="M284 290V307"/>
+  </g>
+
+  <g fill="#fff" stroke="#64748b">
+    <rect x="16" y="314" width="100" height="86" rx="6"/>
+    <rect x="125" y="314" width="100" height="86" rx="6"/>
+    <rect x="234" y="314" width="100" height="86" rx="6"/>
+  </g>
+  <g class="body center">
+    <text x="66" y="337">物理块 7</text>
+    <text x="175" y="337">物理块 2</text>
+    <text x="284" y="337">物理块 9</text>
+  </g>
+  <g>
+    <rect x="23" y="347" width="20" height="25" rx="3" class="token"/>
+    <rect x="45" y="347" width="20" height="25" rx="3" class="token"/>
+    <rect x="67" y="347" width="20" height="25" rx="3" class="token"/>
+    <rect x="89" y="347" width="20" height="25" rx="3" class="token"/>
+    <rect x="132" y="347" width="20" height="25" rx="3" class="token"/>
+    <rect x="154" y="347" width="20" height="25" rx="3" class="token"/>
+    <rect x="176" y="347" width="20" height="25" rx="3" class="token"/>
+    <rect x="198" y="347" width="20" height="25" rx="3" class="token"/>
+    <rect x="241" y="347" width="20" height="25" rx="3" fill="#fff7ed" stroke="#b45309" stroke-width="1.7"/>
+    <rect x="263" y="347" width="20" height="25" rx="3" class="empty"/>
+    <rect x="285" y="347" width="20" height="25" rx="3" class="empty"/>
+    <rect x="307" y="347" width="20" height="25" rx="3" class="empty"/>
+  </g>
+  <g class="mono center">
+    <text x="33" y="365">a0</text><text x="55" y="365">a1</text><text x="77" y="365">a2</text><text x="99" y="365">a3</text>
+    <text x="142" y="365">a4</text><text x="164" y="365">a5</text><text x="186" y="365">a6</text><text x="208" y="365">a7</text>
+    <text x="251" y="365" class="orange">a8</text>
+  </g>
+  <g class="body center">
+    <text x="66" y="391" class="teal">读 4 行</text>
+    <text x="175" y="391" class="teal">读 4 行</text>
+    <text x="284" y="391" class="teal">读 1 行</text>
+  </g>
+
+  <rect x="16" y="414" width="318" height="48" rx="7" fill="#f0fdfa" stroke="#0f766e"/>
+  <text x="28" y="435" class="mono teal">seq_lens = [9]</text>
+  <text x="28" y="454" class="body">4 + 4 + 1 行有效，虚线槽不计</text>
+</svg>

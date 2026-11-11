@@ -22,7 +22,7 @@
 
 第七章《PD 分离系统：请求交接与 KV 生命周期》承接单引擎内部的 KV 分片，沿 vLLM-Ascend 与 Mooncake 源码说明拉取式、逐层推送式的请求交接，追踪目标块分配、传输、就绪与源引用释放。A5 实操分别运行合法的 GQA 拉取与 MQA+DCP2 逐层推送，核对两个来源／接收 rank 的原生 HIXL 任务，并用真实 Host 观察追踪完成和释放；首次预热中释放调用早于后台写返回的记录单独保留，避免把测量中的先后当作实现保证。
 
-第八章《KV 缓存布局与递归状态》从形状和步幅读 BLHNC、LBHNC，并用 GQA、MLA、Indexer 和 Mamba 算例解释缓存容量。模型对照追到 Kimi K3 的 KDA 与 MLA、两种 GLM-5.3 的 IndexShare 与 KeyPool，以及两代 DeepSeek Flash 的压缩页和共享缓存。
+第八章《KV 缓存布局与递归状态》从一次 Decode 的写槽与分页读取出发，追踪缓存组、块大小和 BLHNC／LBHNC 步幅。按 GQA、MLA、稀疏与压缩 Attention、递归状态对照 Kimi K3、GLM-5.3 系列和 DeepSeek 系列，最后在 vLLM 与 vLLM-Ascend 的算子入口核对块表和缓存视图。
 
 第九章《稀疏 KV 卸载与 HiSparse》沿完整历史、逻辑 TopK 与设备工作集讲解 Decode Offload；五张 SVG 展示地址空间、A3 泳道、A5 两段融合以及 HiSparse 页生命周期和跨层 gather。缓存实验室可切换 CPU LRU 与 Resident/Hot/Source 解析，逐步查看命中、Host miss 与 Attention 槽位。正文区分已合入框架、待合入算子和 RFC 方向，性能表保留作者报告及测量边界。
 
