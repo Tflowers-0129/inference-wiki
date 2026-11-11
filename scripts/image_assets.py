@@ -17,6 +17,7 @@ PAGE_MANUSCRIPTS = {
     'ep-communication.html': 'EP通信与通算融合.md',
     'context-parallel.html': '上下文并行与Attention归并.md',
     'sparse-offload.html': '稀疏KV卸载与HiSparse.md',
+    'kv-cache-layouts.html': 'KV缓存布局与递归状态.md',
 }
 SOURCE_MANIFEST = 'profile-sources.json'
 

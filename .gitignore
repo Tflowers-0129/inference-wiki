@@ -31,3 +31,4 @@ node_modules/
 /dist/ep-communication.md
 /dist/context-parallel.md
 /dist/pd-disaggregation.md
+/dist/kv-cache-layouts.md

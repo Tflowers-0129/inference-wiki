@@ -17,3 +17,12 @@
 .wiki-chapter-current>.chapter-nav a.active{background:#edf3ff;color:#1e40af;font-weight:600}
 .wiki-chapter-current>summary:focus-visible,.wiki-chapters a:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
 .sidebar:has(.wiki-chapters){overscroll-behavior-y:contain}
+
+.technical-figure.compact-figure img {
+  display: block;
+  width: min(100%, 430px);
+  min-width: 0;
+  height: auto;
+  margin-inline: auto;
+}
+.compact-figure figcaption { min-width: 0; }

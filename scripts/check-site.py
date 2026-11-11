@@ -22,6 +22,7 @@ DOWNLOADS = {
     '上下文并行与Attention归并.md': 'context-parallel.md',
     'PD分离系统与KV生命周期.md': 'pd-disaggregation.md',
     '稀疏KV卸载与HiSparse.md': 'sparse-offload.md',
+    'KV缓存布局与递归状态.md': 'kv-cache-layouts.md',
 }
 
 
@@ -68,9 +69,9 @@ def main():
             errors.append(f'缺少锚点：{target.name}#{parsed.fragment}')
 
     for path, page in pages.items():
-        expected_order = ['index', 'execution', 'speculation', 'load-balancing', 'ep-communication', 'context-parallel', 'pd-disaggregation', 'sparse-offload']
+        expected_order = ['index', 'execution', 'speculation', 'load-balancing', 'ep-communication', 'context-parallel', 'pd-disaggregation', 'sparse-offload', 'kv-cache-layouts']
         if page.chapter_order != expected_order:
-            errors.append(f'{path.name} 学习篇章顺序不一致，EP 应为第五章、上下文并行为第六章、PD 分离为第七章、稀疏 KV 为第八章')
+            errors.append(f'{path.name} 学习篇章顺序不一致，预期为 {", ".join(expected_order)}')
         if page.expanded_chapters != [path.stem]:
             errors.append(f'{path.name} 应默认只展开当前章的目录')
         for identifier, count in Counter(page.ids).items():
