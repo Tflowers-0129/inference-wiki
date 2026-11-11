@@ -92,6 +92,7 @@ def render_markdown(source, key):
     offload_lab = (ROOT / 'scripts' / 'offload-lab.html').read_text(encoding='utf-8') if key == 'sparse-offload' else ''
     ep_lab = (ROOT / 'scripts' / 'ep-lab.html').read_text(encoding='utf-8') if key == 'ep-communication' else ''
     ep_timeline = (ROOT / 'scripts' / 'ep-timeline.html').read_text(encoding='utf-8') if key == 'ep-communication' else ''
+    kv_decode_player = (ROOT / 'scripts' / 'kv-decode-player.html').read_text(encoding='utf-8') if key == 'kv-cache-layouts' else ''
     figure_summary = None
     if key == 'speculation':
         fragment = (ROOT / 'scripts' / 'spec-player.html').read_text(encoding='utf-8')
@@ -111,6 +112,8 @@ def render_markdown(source, key):
             flush(); i += 1; continue
         if line == '<!-- SPEC_PLAYER -->':
             flush(); parts.append(spec_player); i += 1; continue
+        if line == '<!-- KV_DECODE_PLAYER -->':
+            flush(); parts.append(kv_decode_player); i += 1; continue
         if line == '<!-- EXECUTION_LAB -->':
             flush(); parts.append(execution_lab); i += 1; continue
         if line == '<!-- OFFLOAD_LAB -->':
@@ -227,10 +230,10 @@ def build_chapters():
             next_link = '<a href="kv-cache-layouts.html">继续：KV 缓存布局与递归状态 →</a>'
             action = '<a class="primary-button" href="#pd-disaggregation-1">从请求交接开始 →</a>'
         elif key == 'kv-cache-layouts':
-            player_links = ''
-            extra = ''
+            player_links = '<a href="#kv-decode-player">KV 寻址播放器</a>'
+            extra = f'<link rel="stylesheet" href="{asset_url("kv-decode.css")}"><script defer src="{asset_url("kv-decode-model.js")}"></script><script defer src="{asset_url("kv-decode-app.js")}"></script>'
             next_link = '<a href="sparse-offload.html">继续：稀疏 KV 卸载与 HiSparse →</a>'
-            action = '<a class="primary-button" href="#kv-cache-layouts-1">跟一次 Decode 的 KV 地址 →</a><a class="text-button" href="#kv-cache-layouts-5">按后端查缓存形状 ↓</a>'
+            action = '<a class="primary-button" href="#kv-decode-player">播放一次 Decode 的 KV 寻址 →</a><a class="text-button" href="#kv-cache-layouts-5">按后端查缓存形状 ↓</a>'
         else:
             raise ValueError(f'Unknown chapter: {key}')
         chapter_nav = chapter_navigation(key, player_links + local_nav)

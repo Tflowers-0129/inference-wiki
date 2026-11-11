@@ -22,7 +22,7 @@
 
 第七章《PD 分离系统：请求交接与 KV 生命周期》承接单引擎内部的 KV 分片，沿 vLLM-Ascend 与 Mooncake 源码说明拉取式、逐层推送式的请求交接，追踪目标块分配、传输、就绪与源引用释放。A5 实操分别运行合法的 GQA 拉取与 MQA+DCP2 逐层推送，核对两个来源／接收 rank 的原生 HIXL 任务，并用真实 Host 观察追踪完成和释放；首次预热中释放调用早于后台写返回的记录单独保留，避免把测量中的先后当作实现保证。
 
-第八章《KV 缓存布局与递归状态》从一次 Decode 的写槽与分页读取出发，追踪缓存组、块大小和 BLHNC／LBHNC 步幅。按 GQA、MLA、稀疏与压缩 Attention、递归状态对照 Kimi K3、GLM-5.3 系列和 DeepSeek 系列，最后在 vLLM 与 vLLM-Ascend 的算子入口核对块表和缓存视图。
+第八章《KV 缓存布局与递归状态》从一次 Decode 的写槽与分页读取出发，追踪缓存组、块大小和 BLHNC／LBHNC 步幅。按 GQA、MLA、稀疏与压缩 Attention、递归状态对照 Kimi K3、GLM-5.3 系列和 DeepSeek 系列，最后在 vLLM 与 vLLM-Ascend 的算子入口核对块表和缓存视图。播放器演示分配物理页、写入槽 36，以及从三个物理页读取九个有效位置。[KV 寻址播放器](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html#kv-decode-player)
 
 第九章《稀疏 KV 卸载与 HiSparse》沿完整历史、逻辑 TopK 与设备工作集讲解 Decode Offload；五张 SVG 展示地址空间、A3 泳道、A5 两段融合以及 HiSparse 页生命周期和跨层 gather。缓存实验室可切换 CPU LRU 与 Resident/Hot/Source 解析，逐步查看命中、Host miss 与 Attention 槽位。正文区分已合入框架、待合入算子和 RFC 方向，性能表保留作者报告及测量边界。
 
@@ -80,6 +80,7 @@ python3 scripts/serve.py --port 4174
 - `content/稀疏KV卸载与HiSparse.md`：Decode Offload、A3/A5 算子与社区 HiSparse 接入。
 - `dist/ep-model.js`、`dist/ep-app.js`、`dist/ep.css`：专家任务、目标 rank 去重与 Dispatch 逻辑 payload 教学模型；`scripts/ep-lab.html` 为面板源片段。
 - `dist/ep-timeline-model.js`、`dist/ep-timeline-app.js`、`dist/ep-timeline.css`：MC2 / Fused-MC2 的源码依赖模拟与 profiling 泳道；`scripts/ep-timeline.html` 为面板源片段。
+- `dist/kv-decode-model.js`、`dist/kv-decode-app.js`、`dist/kv-decode.css` 维护 KV 寻址播放器，面板源为 `scripts/kv-decode-player.html`。
 - `dist/offload-model.js`、`dist/offload-app.js`、`dist/offload.css`：TopK 缓存和地址教学模型；`scripts/offload-lab.html` 为面板源片段。
 - `scripts/build-chapters.py`：用标准库渲染第二章起的受控 Markdown；修改正文后运行同步命令即可更新网页。
 - `dist/spec-model.js`、`dist/spec-app.js`、`dist/spec.css`：投机验证与流式指标实验室。

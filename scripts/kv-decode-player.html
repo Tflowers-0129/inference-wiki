@@ -1,0 +1,36 @@
+<section class="kv-decode-player" id="kv-decode-player" aria-labelledby="kv-decode-title">
+  <div data-region="interactive" hidden>
+    <header class="kv-decode-heading">
+      <h3 id="kv-decode-title">一次 Decode 的 KV 寻址</h3>
+      <span>请求 A · 单层 · 每页 4 槽</span>
+    </header>
+    <div class="kv-decode-caption" role="status" aria-atomic="true">
+      <strong data-field="step-title"></strong>
+      <p data-field="step-note"></p>
+    </div>
+    <div class="kv-decode-controls" role="group" aria-label="KV 寻址播放">
+      <div class="kv-decode-buttons">
+        <button type="button" data-control="prev">上一步</button>
+        <button type="button" data-control="play">播放</button>
+        <button type="button" data-control="next">下一步</button>
+      </div>
+      <div class="kv-decode-seek">
+        <input data-control="seek" type="range" min="0" max="6" step="1" value="0" aria-label="播放进度">
+        <span data-field="progress" aria-hidden="true"></span>
+      </div>
+    </div>
+    <div class="kv-decode-map">
+      <div class="kv-decode-map-label">块表 <span>按逻辑块号</span></div>
+      <div class="kv-decode-columns" data-region="table" role="list" aria-label="块表"></div>
+      <svg class="kv-decode-routes" data-region="routes" viewBox="0 0 300 44" preserveAspectRatio="none" aria-hidden="true" focusable="false"></svg>
+      <div class="kv-decode-columns" data-region="pages" role="list" aria-label="设备页，按物理块号排列"></div>
+    </div>
+    <dl class="kv-decode-values">
+      <div><dt>写入槽号</dt><dd data-field="write-slot"></dd></div>
+      <div><dt>有效 KV</dt><dd data-field="kv-length"></dd></div>
+      <div><dt>已读位置</dt><dd data-field="read-count"></dd></div>
+    </dl>
+    <p class="kv-decode-footnote">读页动画沿块表逐项展开。播放顺序和间隔用于讲解寻址。</p>
+  </div>
+  <noscript><p>可展开下方的写槽与读页静态图。</p></noscript>
+</section>

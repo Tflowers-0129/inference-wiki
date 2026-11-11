@@ -86,7 +86,7 @@ def main():
             for identifier in re.findall(r"(?:\$|byId)\(['\"]([^'\"]+)['\"]\)",js.read_text(encoding='utf-8')):
                 if identifier not in page.ids:
                     errors.append(f'{path.name} 的 {script} 引用缺失 DOM：{identifier}')
-    for filename, anchors in {'index.html':['scheduler','pdPlayer'],'speculation.html':['spec-player','spec-stream'],'load-balancing.html':['dplb-lab','eplb-lab'],'sparse-offload.html':['offload-lab'],'ep-communication.html':['ep-lab','ep-timeline']}.items():
+    for filename, anchors in {'index.html':['scheduler','pdPlayer'],'speculation.html':['spec-player','spec-stream'],'load-balancing.html':['dplb-lab','eplb-lab'],'sparse-offload.html':['offload-lab'],'kv-cache-layouts.html':['kv-decode-player'],'ep-communication.html':['ep-lab','ep-timeline']}.items():
         page = pages.get((DIST/filename).resolve())
         if not page or any(anchor not in page.ids for anchor in anchors):
             errors.append(f'{filename} 缺少播放器入口')

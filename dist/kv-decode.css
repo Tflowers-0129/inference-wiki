@@ -1,0 +1,390 @@
+.kv-decode-player[data-step] {
+  --kv-ink: #19334e;
+  --kv-muted: #4f657e;
+  --kv-rule: #b2c1d2;
+  --kv-blue: #234ea0;
+  --kv-blue-fill: #eaf1fd;
+  --kv-write: #9a4b18;
+  --kv-write-fill: #fff0e3;
+  --kv-read: #116b5e;
+  --kv-read-fill: #e0f3ed;
+  --kv-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  margin: 24px 0 12px;
+  padding: clamp(13px, 2.6vw, 28px);
+  border: 1px solid var(--kv-rule);
+  border-top: 3px solid var(--kv-blue);
+  border-radius: 6px;
+  color: var(--kv-ink);
+  background: #fff;
+}
+
+.kv-decode-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 3px 16px;
+}
+
+.kv-decode-heading h3 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--kv-ink);
+}
+
+.kv-decode-heading > span,
+.kv-decode-map-label > span {
+  font-size: 13px;
+  color: var(--kv-muted);
+}
+
+.kv-decode-caption {
+  min-height: 67px;
+  margin-top: 16px;
+  border-left: 3px solid var(--kv-rule);
+  padding: 3px 0 4px 12px;
+  font-size: 16px;
+}
+
+.kv-decode-player[data-step="1"] .kv-decode-caption,
+.kv-decode-player[data-step="2"] .kv-decode-caption {
+  border-color: var(--kv-write);
+}
+
+.kv-decode-player[data-step="3"] .kv-decode-caption,
+.kv-decode-player[data-step="4"] .kv-decode-caption,
+.kv-decode-player[data-step="5"] .kv-decode-caption,
+.kv-decode-player[data-output-ready="true"] .kv-decode-caption {
+  border-color: var(--kv-read);
+}
+
+.kv-decode-player .kv-decode-caption p {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--kv-muted);
+}
+
+.kv-decode-controls,
+.kv-decode-buttons,
+.kv-decode-seek {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kv-decode-controls {
+  gap: 10px 20px;
+  flex-wrap: wrap;
+  margin: 15px 0 17px;
+}
+
+.kv-decode-buttons button {
+  min-height: 44px;
+  padding: 5px 12px;
+  border: 1px solid var(--kv-rule);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--kv-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.kv-decode-buttons button:not(:disabled):hover {
+  border-color: var(--kv-blue);
+  background: var(--kv-blue-fill);
+}
+
+.kv-decode-buttons button[data-control="play"] {
+  min-width: 68px;
+  border-color: var(--kv-blue);
+  background: var(--kv-blue);
+  color: #fff;
+}
+
+.kv-decode-buttons button[data-control="play"]:hover {
+  background: #193c81;
+}
+
+.kv-decode-buttons button:disabled {
+  color: #647487;
+  background: #f4f6f9;
+  opacity: 1;
+  cursor: default;
+}
+
+.kv-decode-player :focus-visible {
+  outline: 2px solid var(--kv-blue);
+  outline-offset: 3px;
+}
+
+.kv-decode-seek {
+  flex: 1 1 175px;
+  min-width: 0;
+  max-width: 340px;
+  color: var(--kv-muted);
+  font: 13px var(--kv-mono);
+}
+
+.kv-decode-seek input {
+  min-width: 0;
+  flex: 1;
+  height: 30px;
+  margin: 0;
+  accent-color: var(--kv-blue);
+}
+
+.kv-decode-seek span {
+  min-width: 46px;
+  text-align: right;
+}
+
+.kv-decode-map {
+  padding: 16px;
+  border: 1px solid #d4dfeb;
+  background: #f4f7fb;
+}
+
+.kv-decode-map-label {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 7px;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.kv-decode-map-label > span {
+  font-weight: 400;
+}
+
+.kv-decode-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  /* Equal half-gutters keep each column centered on an SVG third. */
+  padding-inline: 5px;
+}
+
+.kv-decode-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 9px;
+  padding: 5px 2px;
+  border: 1px solid #8aa7d4;
+  background: var(--kv-blue-fill);
+  color: var(--kv-blue);
+  font-size: 14px;
+}
+
+.kv-decode-entry b,
+.kv-decode-page-label b {
+  font: 700 15px var(--kv-mono);
+}
+
+.kv-decode-entry[data-state="empty"],
+.kv-decode-page[data-allocated="false"] {
+  border-style: dashed;
+  background: transparent;
+  color: var(--kv-muted);
+}
+
+.kv-decode-routes {
+  display: block;
+  width: 100%;
+  height: 51px;
+  overflow: visible;
+}
+
+.kv-decode-routes g {
+  color: #587599;
+}
+
+.kv-decode-routes g[data-state="empty"] {
+  visibility: hidden;
+}
+
+.kv-decode-routes path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.45;
+  vector-effect: non-scaling-stroke;
+}
+
+.kv-decode-routes g[data-active]:not([data-active=""]) path {
+  stroke-width: 2.2;
+}
+
+.kv-decode-routes g[data-active="write"] {
+  color: var(--kv-write);
+}
+
+.kv-decode-routes g[data-active="read"] {
+  color: var(--kv-read);
+}
+
+.kv-decode-routes g[data-active]:not([data-active=""]) {
+  animation: kv-decode-trace 360ms cubic-bezier(.42, 0, .16, 1) both;
+}
+
+.kv-decode-page {
+  min-width: 0;
+  border: 1px solid #8299b2;
+  background: #fff;
+  color: var(--kv-ink);
+  text-align: center;
+}
+
+.kv-decode-page-label {
+  padding: 6px 2px;
+  font-size: 14px;
+}
+
+.kv-decode-player .kv-decode-slots {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-block: 1px solid #9eb0c5;
+}
+
+.kv-decode-player .kv-decode-slots > li {
+  display: grid;
+  place-items: center;
+  min-height: 35px;
+  margin: 0;
+  padding: 0;
+  border-right: 1px solid #9eb0c5;
+  color: var(--kv-blue);
+  background: var(--kv-blue-fill);
+  font: 650 15px var(--kv-mono);
+}
+
+.kv-decode-player .kv-decode-slots > li:last-child {
+  border-right: 0;
+}
+
+.kv-decode-player .kv-decode-slots > li[data-state="empty"] {
+  background: #f4f7fb;
+  color: #62758b;
+}
+
+.kv-decode-player .kv-decode-slots > li[data-state="new"] {
+  background: var(--kv-write-fill);
+  color: var(--kv-write);
+}
+
+.kv-decode-player .kv-decode-slots > li[data-state="read"] {
+  background: var(--kv-read-fill);
+  color: var(--kv-read);
+}
+
+.kv-decode-player[data-step="2"] .kv-decode-slots > li[data-state="new"] > span {
+  animation: kv-decode-write 300ms cubic-bezier(.22, .9, .3, 1) both;
+}
+
+.kv-decode-player [data-active="read"] .kv-decode-slots > li[data-state="read"] {
+  animation: kv-decode-settle 300ms 180ms cubic-bezier(.22, .9, .3, 1) both;
+}
+
+.kv-decode-page-state {
+  min-height: 28px;
+  padding: 3px 0;
+  color: var(--kv-muted);
+  font-size: 13px;
+}
+
+.kv-decode-entry[data-active="write"],
+.kv-decode-page[data-active="write"] {
+  border-color: var(--kv-write);
+  color: var(--kv-write);
+}
+
+.kv-decode-entry[data-active="write"] {
+  background: var(--kv-write-fill);
+}
+
+.kv-decode-entry[data-active="read"],
+.kv-decode-page[data-active="read"] {
+  border-color: var(--kv-read);
+  color: var(--kv-read);
+}
+
+.kv-decode-entry[data-active="read"] {
+  background: var(--kv-read-fill);
+}
+
+.kv-decode-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border-bottom: 1px solid #d4dfeb;
+  text-align: center;
+}
+
+.kv-decode-values > div {
+  padding: 9px 1px 10px;
+}
+
+.kv-decode-values dt {
+  color: var(--kv-muted);
+  font-size: 13px;
+}
+
+.kv-decode-values dd {
+  margin: 1px 0 0;
+  color: var(--kv-ink);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.kv-decode-values dd[data-field="write-slot"] {
+  color: var(--kv-write);
+}
+
+.kv-decode-values dd[data-field="read-count"] {
+  color: var(--kv-read);
+}
+
+.kv-decode-player .kv-decode-footnote {
+  margin: 10px 0 0;
+  color: var(--kv-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@keyframes kv-decode-trace {
+  from { clip-path: inset(0 0 100%); }
+  to { clip-path: inset(0); }
+}
+
+@keyframes kv-decode-write {
+  from { transform: translateY(-7px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes kv-decode-settle {
+  from { opacity: .45; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 600px) {
+  .kv-decode-caption { min-height: 90px; }
+  .kv-decode-seek { flex-basis: 100%; max-width: none; }
+  .kv-decode-map { padding: 9px 5px 10px; }
+  .kv-decode-columns { gap: 6px; padding-inline: 3px; }
+  .kv-decode-routes { height: 41px; }
+  .kv-decode-entry { gap: 4px; font-size: 12px; }
+  .kv-decode-entry b, .kv-decode-page-label b { font-size: 14px; }
+  .kv-decode-player .kv-decode-slots > li { font-size: 13px; }
+  .kv-decode-page-label, .kv-decode-page-state { font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kv-decode-player * { animation: none !important; }
+}

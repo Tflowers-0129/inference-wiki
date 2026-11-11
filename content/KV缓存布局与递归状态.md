@@ -18,7 +18,10 @@
 
 块表 `[7,2,9]` 以 A 的逻辑块号为下标，给出页池里的物理块号。新行的 `position=8`，所以 `8 // 4=2`、`8 % 4=0`。Runner 从表里查到 9，给这行生成写入用的 `slot_mapping=9×4+0=36`。36 是本层缓存的扁平 token 槽号，真正的字节地址还要用该层视图的 stride 计算。这里的 `block_size=4` 在管理侧和 kernel 侧相同。[GPU 写槽计算](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/block_table.py#L308-L353)
 
-![请求 A 按块表 7、2、9 定位三页。a8 写到物理块 9 第 0 行，Attention 读取 4+4+1 个有效位置。](../dist/assets/kv-cache-decode-address.svg)
+<!-- KV_DECODE_PLAYER -->
+
+<!-- COLLAPSIBLE_FIGURE: 查看写槽与读页静态图 -->
+![请求 A 按块表 7、2、9 定位三页。a8 写到物理块 9 第 0 槽，Attention 读取 4+4+1 个有效位置。](../dist/assets/kv-cache-decode-address.svg)
 
 写完 A 的新 K、V 后，这次因果 Attention 的有效长度是 9。它按逻辑顺序看物理块 7、2、9，三块分别有 4、4、1 个位置参与计算。块 9 的其余 3 行已经留在分配范围里，等后续位置写入。本轮 Attention 只用当前 Q 和这九个位置的 K、V 计算输出。
 
