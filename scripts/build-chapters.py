@@ -230,7 +230,7 @@ def build_chapters():
             player_links = ''
             extra = ''
             next_link = '<a href="sparse-offload.html">← 回看稀疏 KV 卸载与 HiSparse</a>'
-            action = '<a class="primary-button" href="#kv-cache-layouts-1">从 KV 张量的轴开始 →</a>'
+            action = '<a class="primary-button" href="#kv-cache-layouts-1">从 KV 张量的轴开始 →</a><a class="text-button" href="#kv-cache-layouts-8">看模型对照 ↓</a>'
         else:
             raise ValueError(f'Unknown chapter: {key}')
         chapter_nav = chapter_navigation(key, player_links + local_nav)

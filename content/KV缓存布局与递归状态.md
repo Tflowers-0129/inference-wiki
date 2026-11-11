@@ -4,7 +4,7 @@
 
 读一个 cache shape 时，先确定它在哪个 worker 和缓存组里，再问哪个轴随请求历史增长、下一步的算子实际读什么。
 
-> 正文选取 vLLM 的 FlashAttention、FlashInfer、FlashMLA，以及 vLLM-Ascend 的普通 Attention、MLA、SFA 和混合状态路径。形状对应各节所链接的实现和缓存格式。显存数字按给定配置推导，图中缩小了维度便于手算。
+> 正文选取 vLLM 和 vLLM-Ascend 的实际缓存路径。第 8–10 节展开 Kimi K3、两种 GLM-5.3 与两代 DeepSeek Flash，按主干层统计。形状和字节数对应各节链接的实现与配置，图中缩小了维度便于手算。
 
 ## 1. BLHNC 和 LBHNC 的五个字母
 
@@ -101,11 +101,7 @@ Ascend SFA 用 `additional_config.enable_sparse_sfa_c8` 开启主 KV C8，并从
 
 这笔账计的是 512 个物理位置的容量。实际写入多少、哪些位置属于同一个请求，由序列长度与块表确定。完整主 KV 卸载后还有另外一层地址映射。[稀疏 KV 卸载与 HiSparse](稀疏KV卸载与HiSparse.md)
 
-### DeepSeek-V4-Flash 一个块里有多少条压缩记录？
-
-V4-Flash 的 43 个主干层都有 128 位置的滑窗缓存。其中 2 层只用滑窗，21 层额外按每 4 个原始位置保存一条压缩主 KV，20 层按每 128 个位置保存一条。压缩率为 4 的层还保存独立 Indexer K，用来选压缩历史。[V4-Flash 模型配置](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/main/config.json) · [滑窗、压缩缓存与 Indexer](https://github.com/vllm-project/vllm/blob/ced6857/vllm/models/deepseek_v4/attention.py#L274-L359)
-
-取 vLLM CUDA FlashMLA 的 `fp8_ds_mla` 路径。覆盖 256 个原始位置的压缩率 4 页面只存 `N=64` 条压缩记录。每条对应 448 B 的 NoPE、128 B 的 BF16 RoPE 和 8 B 的尺度区。整页先放 64 条数据，再放 64 份尺度区，合计 `64×(576+8)=37,376 B`，然后按后端要求对齐。这里计算的是压缩主 KV 那一页，滑窗和 Indexer 各自有分配。[逻辑块大小](https://github.com/vllm-project/vllm-project.github.io/blob/main/_posts/2026-04-24-deepseek-v4.md#1-a-single-logical-block-size) · [FlashMLA 的页格式](https://github.com/vllm-project/vllm/blob/ced6857/vllm/v1/attention/backends/mla/flashmla_sparse.py#L88) · [插入与读取地址](https://github.com/vllm-project/vllm/blob/ced6857/vllm/models/deepseek_v4/common/ops/cache_utils.py#L67)
+换到 GLM 或 DeepSeek-V4 系列，还要查哪层写入 Indexer、一个存储槽代表几个原始位置。第 9、10 节分别沿这两条线展开。
 
 ## 6. Mamba 层的 block 里保存什么？
 
@@ -167,3 +163,84 @@ def describe_cache(name, cache):
 ```
 
 拿到记录后，可以用 `storage_offset + Σ(坐标 × stride)` 算出已知槽位相对 backing storage 起点的元素偏移。`numel() × element_size()` 算这个 view 中的逻辑载荷。看设备分配时，沿 cache plan 核对每页字节、块数和共享 backing storage。同一块 backing 可以被多个层、组件或组引用，统计占用时按实际分配去重。[上游页容量与视图构造](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/kv_cache_interface.py) · [Ascend 非连续页说明](https://docs.vllm.ai/projects/ascend/en/latest/developer_guide/Design_Documents/non_contiguous_kv_cache.html)
+
+## 8. Kimi K3 怎样同时保存 MLA 历史和 KDA 状态？
+
+取公开的 `moonshotai/Kimi-K3` 文本主干。配置中的 93 层分为 24 层带输出门的全量 MLA 和 69 层 Kimi Delta Attention（KDA）。Ascend 部署指南选用 `Eco-Tech/Kimi-K3-w4a8`，该权重的配置保留相同的层型与维度。统计缓存时，先按层型分开，MLA 按保留的历史位置计，KDA 按保留的续算边界计。[Moonshot 模型配置](https://huggingface.co/moonshotai/Kimi-K3/blob/main/config.json) · [Ascend W4A8 模型配置](https://www.modelscope.cn/models/Eco-Tech/Kimi-K3-w4a8/resolve/master/config.json) · [Ascend 部署指南](https://docs.vllm.ai/projects/ascend/en/main/tutorials/models/Kimi-K3.html)
+
+**MLA 每位置保存一份 576 维记录。** 其中 512 维是 KV latent，另有 64 维共享 Key。主干走 NoPE，64 维 Key 保存在缓存中，计算时跳过旋转。CUDA 的 K3 MLA 以 `use_sparse=False` 选取兼容后端，KV cache 的 `H=1`，绑定时压掉这条轴。BF16 的视图是 `[B,N,576]`，每位置 `1152 B`。普通 FP8 的形状相同，每位置 `576 B`。主干的 MLA 直接读历史，持久缓存分为 MLA 历史与 KDA 状态两组。[CUDA 主干选层](https://github.com/vllm-project/vllm/blob/ced6857afa0e/vllm/models/kimi_k3/nvidia/model.py#L909-L959) · [CUDA MLA 后端选择](https://github.com/vllm-project/vllm/blob/ced6857afa0e/vllm/models/kimi_k3/nvidia/mla.py#L316-L349) · [缓存 spec 与绑定视图](https://github.com/vllm-project/vllm/blob/ced6857afa0e/vllm/models/kimi_k3/nvidia/mla.py#L412-L434)
+
+**KDA 每个续算边界保存卷积历史与递归矩阵。** 模型配置给出 96 个头、每头宽 128、短卷积核宽 4。沿第 6 节的 `SD` 布局，取 TP=8，关闭投机与额外状态记录。每个 rank 的本地 KDA 头数为 12，卷积把 Q、K、V 的投影通道排在一起，递归矩阵为每个本地头保留一份。按该路径的自动 dtype，卷积使用模型的 BF16，递归状态使用 FP32。[K3 状态入口](https://github.com/vllm-project/vllm/blob/ced6857afa0e/vllm/models/kimi_k3/nvidia/kda.py#L540-L574) · [KDA dtype 与 shape 计算](https://github.com/vllm-project/vllm/blob/ced6857afa0e/vllm/model_executor/layers/mamba/mamba_utils.py)
+
+| 单层、单 rank、单个续算边界 | shape | 有效载荷 |
+| --- | --- | --- |
+| BF16 卷积状态 | `[4−1,3×12×128] = [3,4608]` | 27,648 B |
+| FP32 递归状态 | `[12,128,128]` | 786,432 B |
+
+一份 KDA 状态合计 `814,080 B = 795 KiB`。分配多个状态页后，两个 view 分别带上页轴 `B`。这个页轴枚举续算边界。前缀匹配配置和投机模式会改变保留的状态页或页内字段，计算分配量时还要核对两类缓存的 block size 与页步长。[vLLM K3 前缀缓存实现说明](https://github.com/vllm-project/vllm-project.github.io/blob/main/_posts/2026-07-27-k3.md) · [MambaSpec 页容量](https://github.com/vllm-project/vllm/blob/ced6857afa0e/vllm/v1/kv_cache_interface.py#L993-L1057)
+
+vLLM 的 K3 部署配方在 Hopper 的一条路径上选择 `FLASHMLA`，Blackwell 的 FP8 路径则给出 `TOKENSPEED_MLA`，并在 `mla_prefill_backend` 指定 Prefill 实现。混合分配中，物理状态页和前缀匹配粒度也分别记账。配方中的 `--prefix-match-unit 128` 细化匹配边界，KDA 每份状态的 shape 仍由本地头数、卷积核宽和 dtype 决定。[vLLM K3 部署配方](https://github.com/vllm-project/recipes/blob/main/models/moonshotai/Kimi-K3.yaml)
+
+vLLM-Ascend 的 ModelRunnerV2 在层构造时分别选 `AscendKimiMLAAttention` 和 `AscendKimiK3DeltaAttention`。若 MLA 走 BF16 拆分视图，两份缓存是 `[B,N,1,512]` 和 `[B,N,1,64]`。满足 FlashMLA 条件时可直接绑定合并视图。KDA 使用 Ascend 的 metadata 与计算入口，继承 KDA 的状态 shape，MRv2 再按页步长绑定卷积和递归视图。[Ascend 主干选层](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/models/kimi_k3.py#L514-L554) · [FlashMLA 选择条件](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/mla_v1.py#L1067-L1087) · [Ascend KDA 入口](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/ops/kimi_kda.py#L179) · [MRv2 缓存视图](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/attn_utils.py#L2010-L2070)
+
+## 9. GLM-5.3 与 GLM-5.3-Flash 的缓存为什么不同？
+
+### GLM-5.3 的 78 层都读 MLA，21 层计算 TopK
+
+`zai-org/GLM-5.3` 走 `GlmMoeDsaForCausalLM`。只计主模型，78 层均用稀疏 MLA。主缓存每个历史位置存 `512` 维 latent 和 `64` 维 RoPE Key，BF16 一条 `1152 B`。Indexer 给每条 query 生成 `32×128` 的索引 Q，历史每位置存一条 128 维索引 K，每条 query 取至多 `2048` 个位置。[GLM-5.3 配置](https://huggingface.co/zai-org/GLM-5.3/blob/main/config.json) · [vLLM 模型注册](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/model_executor/models/registry.py#L119-L124)
+
+用 0 起始层号看，0、1、2、6、10，直到 74，共 21 层创建 Indexer 并算 TopK。其余 57 层复用前面 `full` 层选出的索引，随后仍从**各自**的 MLA 历史缓存读取所选位置。在 vLLM 的常规 DSA 分支和 Ascend MRv2 对应缓存分支，Indexer K 只在这 21 个 `full` 层分配。按 Ascend BF16 主 KV 与 BF16 Indexer 的有效载荷计，主模型每保留一个历史位置的逻辑载荷为 `78×1152 + 21×256 = 95,232 B`。[vLLM 创建 Indexer 的条件](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/model_executor/models/deepseek_v2.py#L1134-L1184) · [Ascend Indexer 分配条件](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/worker/v2/attn_utils.py#L347-L383)
+
+在普通 Ascend SFA 的 BF16 路径，主缓存视图为 `[B,N,1,512]` 和 `[B,N,1,64]`，有 Indexer 的层另有 `[B_i,N_i,1,128]`。打包 C8 路径把主缓存合成 `[B,N,1,656]`，其中一条含 512 B latent、128 B RoPE 和 16 B 尺度。Indexer 量化另用 `--attention-config.indexer_kv_dtype` 选择。当前 Ascend 指南在 950DT 示例中对主 KV 与 Indexer 各选 FP8，在 A3 W8A8C8 示例中各选 INT8。上游 CUDA 选到兼容的 `FLASHMLA_SPARSE` 或 `FLASHINFER_MLA_SPARSE` 时，BF16 主 KV 绑定为 `[B,N,576]`，常规 FP8 Indexer 使用 `[B_i,N_i,132]` 字节视图。[Ascend 部署与参数](https://docs.vllm.ai/projects/ascend/en/main/tutorials/models/GLM5.2.html) · [SFA C8 字节计算](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/attention/utils.py#L184-L195) · [CUDA Indexer 规格](https://github.com/vllm-project/vllm/blob/ced6857/vllm/model_executor/models/deepseek_v2.py#L637) · [vLLM 后端支持矩阵](https://docs.vllm.ai/en/latest/design/attention_backends/)
+
+### GLM-5.3-Flash 的 11 层稀疏 MLA 旁边还有 34 层 KDA
+
+`zai-org/GLM-5.3-Flash` 走 `Glm5NextForConditionalGeneration`。它的 45 个文本主模型层由 11 层稀疏 MLA 和 34 层 Kimi Delta Attention（KDA）组成。稀疏层的 `qk_rope_head_dim=0`，主缓存每个历史位置只存 512 维 latent，BF16 为 `1024 B`。上游 NoPE MLA 绑定 `[B,N,512]` 的 BF16 视图。Ascend SFA 的 NoPE C8 用 `[B,N,1,528]`，每条有 512 B latent 和 16 B 尺度。两种路径的主缓存都按 token 位置寻址。[Flash 配置](https://huggingface.co/zai-org/GLM-5.3-Flash/blob/main/config.json) · [vLLM MLA 投影](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/models/glm5next/nvidia/attention.py#L425-L460) · [Ascend NoPE SFA](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/attention/sfa_v1.py#L1722-L1757)
+
+KeyPool 的索引 Q 仍为每 query `32×128`，`index_kpool=4` 则把每四个连续历史位置的索引 K 汇成一条 128 维 Key。完整 pool 上按 `2048/4=512` 个 pool 的预算选取，再展开成主 Attention 消费的 token 位置。未满的最后一个 pool 还有最多三条因果可见的尾部位置。比如当前 query 已到位置 10，两个完整 pool 都能入选，分别展开为 0–3 和 4–7，追加尾部的 8–10 后，Attention 读的是这 11 个位置对应的主 MLA 记录。[vLLM KeyPool 规格](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/models/glm5next/nvidia/attention.py#L78-L156) · [选 pool 后展开位置](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/model_executor/layers/sparse_attn_indexer_kpool.py#L534-L590) · [Ascend 追加尾部位置](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/glm5next/sparse_attn_indexer_kpool.py#L26-L50)
+
+| 稀疏层的状态 | 每个逻辑块或请求存什么 | 什么时候增长 |
+| --- | --- | --- |
+| NoPE MLA | BF16 下每位置 512 维。一页的 `N` 是主缓存的 token 槽数 | 随保留历史逐位置增长 |
+| 完整 KeyPool | 一页覆盖 128 个原始位置时，实际存 `N_i=32` 条。上游 FP8 视图是 `[B_i,N_i,132]`，每条含 128 B Key 和 4 B 尺度。Ascend BF16 的 Key 是 `[B_i,N_i,1,128]`，FP8 路径另有 `[B_i,N_i,1,1]` 尺度视图 | 每攒满四个位置写入一条 |
+| 尚未完成的 KeyPool | 每请求留一份原始 K 和 gate 向量。上游所查 NVIDIA 实现用 BF16 `[B,2,4,128]`，Ascend 主线用 FP32 `[B,R,256]`，`R=4+投机 lookahead` | 按请求和投机预算留固定 ring |
+
+表中 `B`、`B_i` 取各自的组，尾部 view 的 `B` 对应请求状态槽。一个逻辑块可对应多张 Indexer kernel 页，核对 shape 时用每张页实际覆盖的原始位置数除以 4。单请求关闭投机时，尾部状态为 `2×4×128×2=2048 B`（所查 NVIDIA 实现），或 `4×256×4=4096 B`（Ascend 主线）。尾部用来续攒下一条完整 pool，和本轮交给 Attention 的位置编号各有自己的生命周期。[上游完整池与尾部视图](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/models/glm5next/nvidia/attention.py#L159-L205) · [上游 FP8 Indexer](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/models/glm5next/nvidia/attention.py#L273-L298) · [Ascend 完整池与尾部规格](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/glm5next/kv_cache.py#L28-L42) · [Ascend dtype 与组件](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/glm5next/attention.py#L111-L127)
+
+KDA 层则沿第 6 节的续算边界记账。配置为 64 个 KDA heads、head dim 128、短卷积宽 4。用 TP4、`SD`、无投机、BF16 卷积和 FP32 递归状态举例，每层每 rank 的卷积 shape 是 `[3,6144]`，递归状态是 `[16,128,128]`，合计 `3×6144×2 + 16×128×128×4 = 1,085,440 B`。三份卷积投影同属该层的状态视图，34 层单个续算边界合计约 `35.195 MiB/rank`，另计稀疏层的历史、tail、对齐与额外检查点。[Flash 配置](https://huggingface.co/zai-org/GLM-5.3-Flash/blob/main/config.json) · [vLLM KDA 形状接入](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/models/glm5next/nvidia/kda.py#L158-L180) · [Ascend KDA 形状与 dtype](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/glm5next/kda.py#L200-L250)
+
+vLLM 的 GLM-5.3-Flash 配方在 Hopper 用 BF16 主 KV，在 Blackwell 可用 FP8。上游所查的 Hopper 选择器会优先尝试支持 512 维 NoPE 的 `FLASHINFER_MLA_SPARSE_SM90`，还要通过安装环境和缓存格式的校验。Ascend 主线指南的 MRv2 单节点示例里，950DT 同时用 `--kv-cache-dtype fp8` 和 `--attention-config.indexer_kv_dtype fp8`。A3 则用 `--kv-cache-dtype int8`，保留默认 BF16 KeyPool，并显式设置 `--mamba-ssm-cache-dtype bfloat16`。可从这三个参数分别确认主 KV、完整池和 KDA 递归状态的精度，tail 则沿实际实现的 cache spec 读取。[vLLM 部署指南](https://github.com/vllm-project/vllm/blob/8d902b41/recipes/models/zai-org/GLM-5.3-Flash.yaml) · [CUDA 候选顺序](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/platforms/cuda.py#L82-L153) · [Ascend 主线 MRv2 部署与参数](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/docs/source/tutorials/models/GLM5.3-Flash.md#L240-L337)
+
+## 10. DeepSeek-V4-Flash 与 V4.1-Flash 怎么分配缓存？
+
+前面算 V3.2 的 Indexer 时，一条历史位置对应一条索引 K。到了 V4 系列，先要问这条记录覆盖多少原始位置，再问哪些层实际写入这份缓存。两次判断分别决定页里的行数和需要分配几份页。
+
+### DeepSeek-V4-Flash 的 C4、C128 和滑窗各存几行？
+
+V4-Flash 的 43 个主干层各用 128 位置的滑窗 KV（SWA）。其中 2 层只用滑窗，21 层另存 C4 历史，20 层另存 C128 历史。C4 每 4 个原始位置生成一条压缩主 KV 和一条 Indexer K。Indexer 最多选 512 条可见的压缩记录。C128 每 128 个原始位置生成一条压缩主 KV，Attention 读取可见的压缩历史。主 KV 的语义宽度是 512，包括 448 维 NoPE 和 64 维 RoPE。[V4-Flash 配置](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/60d8d707/config.json) · [上游缓存构造](https://github.com/vllm-project/vllm/blob/ced6857/vllm/models/deepseek_v4/attention.py#L281-L367) · [vLLM 的 V4 Attention 说明](https://vllm.ai/blog/2026-04-24-deepseek-v4)
+
+取 vLLM CUDA 的 FlashMLA 路径。主 KV 的逻辑块覆盖 256 个原始位置，所以 C4 页有 64 条记录，C128 页有 2 条。滑窗另用 64 个位置一页。FlashMLA 的 `fp8_ds_mla` 每条记录对应 448 B FP8 NoPE、128 B BF16 RoPE 和 8 B 尺度区。C4 页先放 64 条数据，再放 64 份尺度区，合计 `64×(576+8)=37,376 B`，随后按后端要求对齐。CUDA 绑定的 SWA、C4、C128 主 KV 视图依次是 `[B,64,584]`、`[B,64,584]`、`[B,2,584]`。C4 的 Indexer 另有 `[B,64,68]` 的 MXFP4 字节视图，或 `[B,64,132]` 的 FP8 字节视图，分别含 4 B 尺度。各组的 `B` 按该组分配读取。[CUDA 逻辑块长](https://github.com/vllm-project/vllm/blob/ced6857/vllm/models/deepseek_v4/sparse_mla.py#L47-L62) · [主 KV spec 与绑定](https://github.com/vllm-project/vllm/blob/ced6857/vllm/models/deepseek_v4/attention.py#L834-L903) · [滑窗 spec](https://github.com/vllm-project/vllm/blob/ced6857/vllm/v1/attention/backends/mla/sparse_swa.py#L72-L130) · [FlashMLA 的页内地址](https://github.com/vllm-project/vllm/blob/ced6857/vllm/models/deepseek_v4/common/ops/cache_utils.py#L67) · [Indexer 的两种格式](https://github.com/vllm-project/vllm/blob/ced6857/vllm/models/deepseek_v4/attention.py#L987-L1004)
+
+CUDA 的 FlashInfer 普通行格式直接把主 KV 和 SWA 暴露成 `[B,N,512]`。BF16 每行 1,024 B，per-tensor FP8 每行 512 B。格式由 backend 与 cache dtype 共同决定。[V4 的 CUDA 格式解析](https://github.com/vllm-project/vllm/blob/ced6857/vllm/models/deepseek_v4/attention.py#L94-L129)
+
+Ascend DSA 用自己的块几何。取部署指南里的 `--block-size 32`，SWA、C4 和 C128 的视图各有 `N=32` 个存储行。它们的页分别覆盖 32、128 和 4,096 个原始位置，C4 的 Indexer 页同样有 32 行。A5 选 FP8 KV 时，主 KV 和 SWA 的视图为 `[B,32,1,608]`，每行包含 448 B NoPE、128 B RoPE、14 B 尺度区和 18 B 填充。Indexer K 为 `[B,32,1,128]` FP8，另有 `[B,32,1,1]` FP32 scale，每行合计 132 B。A3 的 BF16 主 KV／SWA 为 `[B,32,1,512]`，每行 1,024 B，Indexer 的同形 K 和 scale 改用 INT8 与 FP16，每行 130 B。[Ascend 部署配置](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/docs/source/tutorials/models/DeepSeek-V4-Flash.md#L195-L258) · [块尺寸表](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/layer/attention/layer.py#L33-L57) · [压缩页与主 KV spec](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/layer/attention/layer.py#L208-L235) · [滑窗记录](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/deepseek_v4/model.py#L117-L153) · [Indexer dtype 与 shape](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/deepseek_v4/indexer.py#L98-L158)
+
+### DeepSeek-V4.1-Flash 的四份全局 KV 由谁写、由谁读？
+
+V4.1-Flash 的 40 个主干层都用 128 位置的滑窗。按从零开始的层号，0、1 层只用滑窗。全局主 KV 只由 2、8、14、20 层写入。前三个 source 每 2 个原始位置生成一条记录，20 层每个位置生成一条，并供后续 Decoder 层读取。Index 的计算有 8 个 source 层，但历史 Indexer K 仍由那 4 个 KV source 写入。比如 24 层可以用自己的索引 Query 和第 20 层的历史索引 K 重新选择位置，然后读取第 20 层的全局主 KV。模型在训练时采用这套跨层共享关系，推理按配置读取 source 层生成的数据。[V4.1-Flash 配置](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/blob/314113f8/config.json) · [vLLM 的 source 解析](https://github.com/vllm-project/vllm/blob/63ac0a4e/vllm/models/deepseek_v41/attention.py#L375-L422) · [Indexer K 的拥有者](https://github.com/vllm-project/vllm/blob/63ac0a4e/vllm/models/deepseek_v41/attention.py#L502-L544) · [CSA2 跨层共享](https://arxiv.org/html/2609.19969v1#S2.SS3.SSS1)
+
+论文给出的 NVFP4 主 KV 将 512 个值存成 256 B，再为每 16 个值存 1 B E4M3 scale，每条 288 B。MXFP4 Indexer 每条是 64 B 数据加 4 B 尺度。于是四个 source 的全局有效载荷平均为 `(288+68)×(3/2+1)=890 B` 每原始 token。这个口径计全局主 KV 和 Indexer K，活跃滑窗、压缩器状态、分配对齐和额外算子视图要按部署实现另算。[V4.1 技术报告](https://arxiv.org/html/2609.19969v1#S2.SS4.SSS4) · [vLLM 的全局 KV 与滑窗说明](https://vllm-project.github.io/2026/10/07/deepseek-v41-flash.html#swa-bounded-replay)
+
+对于全局页，`N=逻辑块覆盖位置数/压缩率`。V4.1 的 Ascend 部署示例用 `--block-size 128`，所以 C2 与 C1 的 `N` 分别是 64 和 128。表内形状是绑定给模型的视图，字节数是记录格式所占空间。[Ascend V4.1 部署参数](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/docs/source/tutorials/models/DeepSeek-V4.1-Flash.md#L271-L291)
+
+| V4.1 部署路径 | 滑窗 | 全局主 KV | Indexer K 与 scale |
+| --- | --- | --- | --- |
+| vLLM CUDA，SM100 FlashMLA `nvfp4_ds_mla`，MXFP4 Indexer | `[B,32,528]`，512 B FP8 加 16 B 尺度 | `[B,N,288]`，NVFP4 288 B | `[B,N,68]`，MXFP4 68 B |
+| Ascend A5 packed DSA | `[B,128,1,544]`，512 B FP8 加 32 B BF16 尺度 | `[B,N,1,320]`，256 B FP4 加 64 B BF16 尺度 | `[B,N,1,64]`、`[B,N,1,4]`，合计 68 B |
+| Ascend A3 DSA，SWA 选 BF16 | `[B,128,1,512]`，BF16 1,024 B | `[B,N,1,512]`，BF16 1,024 B | `[B,N,1,128]` INT8、`[B,N,1,1]` FP16，合计 130 B |
+
+CUDA 还提供 `fp8_ds_mla` 的全局记录和 FlashInfer 的普通 BF16／FP8 行。读到同一个 checkpoint 名，要结合所选 backend 和生效的 cache dtype 确定记录格式。[CUDA 格式解析](https://github.com/vllm-project/vllm/blob/63ac0a4e/vllm/models/deepseek_v41/attention.py#L181-L243) · [CUDA SWA 与全局规格](https://github.com/vllm-project/vllm/blob/63ac0a4e/vllm/models/deepseek_v41/attention.py#L568-L633)
+
+用 A5 的记录宽度复算四份全局 KV 和 Indexer K，得到 `(320+68)×(3/2+1)=970 B` 每原始 token。A5 的 packed DSA 还为第 20 层分配 `[B,16,1,544]` 的 folded Indexer 视图，按每 8 个位置重新排布已量化的 K 和 scale，供候选块选择消费。这份视图的空间要单独计入。[Ascend 格式定义](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/deepseek_v41/cache_config.py#L40-L129) · [Ascend 绑定与折叠视图的偏移](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/worker/v2/attn_utils.py#L1862-L1897)
+
+还要分清分配器里的复用。Ascend 将同一个 source 的全局 KV、Indexer 和可选 folded Indexer 放进同一物理页的不同区段。滑窗页或压缩器状态在持有别的物理块号时也可以使用这份 backing，页 stride 由这一槽可能装入的最大内容决定。模型的跨层复用按 source 层追，显存容量按物理槽、页 stride 和块数追。启用 SWA bounded replay 后，前缀命中可重算滑窗，运行中仍需给当前滑窗分配可写的页。[Ascend 分配器](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/deepseek_v41/cache_config.py#L154-L213) · [SWA bounded replay](https://vllm-project.github.io/2026/10/07/deepseek-v41-flash.html#swa-bounded-replay)
