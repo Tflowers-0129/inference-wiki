@@ -21,7 +21,7 @@ CHAPTERS = [
     ('context-parallel', '上下文并行与Attention归并.md', '上下文并行：KV 分片与 Attention 归并', '上下文并行<br><span>KV 分片与 Attention 归并</span>'),
     ('pd-disaggregation', 'PD分离系统与KV生命周期.md', 'PD 分离系统：请求交接与 KV 生命周期', 'PD 分离系统<br><span>请求交接与 KV 生命周期</span>'),
     ('sparse-offload', '稀疏KV卸载与HiSparse.md', '稀疏 KV：Decode Offload 与 HiSparse', '稀疏 KV 卸载<br><span>走向 HiSparse</span>'),
-    ('kv-cache-layouts', 'KV缓存布局与递归状态.md', 'KV 缓存布局、Indexer 与递归状态', 'KV 缓存布局<br><span>Indexer 与递归状态</span>'),
+    ('kv-cache-layouts', 'KV缓存布局与递归状态.md', 'KV 缓存布局与递归状态', 'KV 缓存布局<br><span>与递归状态</span>'),
 ]
 LINKS = {name: key + '.html' for key, name, *_ in CHAPTERS}
 LINKS['LLM推理调度与执行.md'] = 'index.html'
@@ -209,7 +209,7 @@ def build_chapters():
         elif key == 'sparse-offload':
             player_links = '<a href="#offload-lab">TopK 缓存与地址实验室</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("offload.css")}"><script defer src="{asset_url("offload-model.js")}"></script><script defer src="{asset_url("offload-app.js")}"></script>'
-            next_link = '<a href="kv-cache-layouts.html">继续：KV 缓存布局、Indexer 与递归状态 →</a>'
+            next_link = '<a href="kv-cache-layouts.html">继续：KV 缓存布局与递归状态 →</a>'
             action = '<a class="primary-button" href="#offload-lab">解析一次 TopK →</a><a class="text-button" href="#sparse-offload-8">看 HiSparse 依赖泳道 ↓</a>'
         elif key == 'ep-communication':
             player_links = '<a href="#ep-lab">专家任务与激活副本实验室</a><a href="#ep-timeline">MC2 / Fused-MC2 模拟 profiling</a>'

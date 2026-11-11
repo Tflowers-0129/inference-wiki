@@ -1,6 +1,6 @@
 # LLM 推理调度与执行 Wiki
 
-[在线演示](https://tflowers-0129.github.io/inference-wiki/) · [混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler) · [PD 播放器](https://tflowers-0129.github.io/inference-wiki/#pdPlayer) · [一次前向](https://tflowers-0129.github.io/inference-wiki/execution.html) · [Triton 输入准备图解](https://tflowers-0129.github.io/inference-wiki/execution.html#fusion-lab) · [投机解码实验室](https://tflowers-0129.github.io/inference-wiki/speculation.html#spec-player) · [DPLB 与 EPLB](https://tflowers-0129.github.io/inference-wiki/load-balancing.html) · [EP 通信与计算重叠](https://tflowers-0129.github.io/inference-wiki/ep-communication.html) · [上下文并行与 Attention 归并](https://tflowers-0129.github.io/inference-wiki/context-parallel.html) · [PD 分离系统与 KV 生命周期](https://tflowers-0129.github.io/inference-wiki/pd-disaggregation.html) · [Decode Offload 与 HiSparse](https://tflowers-0129.github.io/inference-wiki/sparse-offload.html) · [KV 缓存布局、Indexer 与递归状态](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html)
+[在线演示](https://tflowers-0129.github.io/inference-wiki/) · [混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler) · [PD 播放器](https://tflowers-0129.github.io/inference-wiki/#pdPlayer) · [一次前向](https://tflowers-0129.github.io/inference-wiki/execution.html) · [Triton 输入准备图解](https://tflowers-0129.github.io/inference-wiki/execution.html#fusion-lab) · [投机解码实验室](https://tflowers-0129.github.io/inference-wiki/speculation.html#spec-player) · [DPLB 与 EPLB](https://tflowers-0129.github.io/inference-wiki/load-balancing.html) · [EP 通信与计算重叠](https://tflowers-0129.github.io/inference-wiki/ep-communication.html) · [上下文并行与 Attention 归并](https://tflowers-0129.github.io/inference-wiki/context-parallel.html) · [PD 分离系统与 KV 生命周期](https://tflowers-0129.github.io/inference-wiki/pd-disaggregation.html) · [Decode Offload 与 HiSparse](https://tflowers-0129.github.io/inference-wiki/sparse-offload.html) · [KV 缓存布局与递归状态](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html)
 
 [![Pages deployment](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml/badge.svg)](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml)
 
@@ -24,7 +24,7 @@
 
 第八章《稀疏 KV 卸载与 HiSparse》沿完整历史、逻辑 TopK 与设备工作集讲解 Decode Offload；五张 SVG 展示地址空间、A3 泳道、A5 两段融合以及 HiSparse 页生命周期和跨层 gather。缓存实验室可切换 CPU LRU 与 Resident/Hot/Source 解析，逐步查看命中、Host miss 与 Attention 槽位。正文区分已合入框架、待合入算子和 RFC 方向，性能表保留作者报告及测量边界。
 
-第九章《KV 缓存布局、Indexer 与递归状态》从形状和步幅读 BLHNC、LBHNC，并用 GQA、MLA、Indexer 和 Mamba 算例解释缓存容量。模型对照追到 Kimi K3 的 KDA 与 MLA、两种 GLM-5.3 的 IndexShare 与 KeyPool，以及两代 DeepSeek Flash 的压缩页和共享缓存。
+第九章《KV 缓存布局与递归状态》从形状和步幅读 BLHNC、LBHNC，并用 GQA、MLA、Indexer 和 Mamba 算例解释缓存容量。模型对照追到 Kimi K3 的 KDA 与 MLA、两种 GLM-5.3 的 IndexShare 与 KeyPool，以及两代 DeepSeek Flash 的压缩页和共享缓存。
 
 第二、三篇按字段和执行现场展开：先走通五 Token 的输入与 KV 地址，再查 Host/Device 对账、CPU 输入缓冲复用和跨轮提交；投机章沿 K=3、a=2 的同一份账本追到 padded 输入和客户端指标。metadata 部分从投机候选数追到验证后的有效 KV，再切换下一轮 K=0/1/3，对照 query 边界、位置和块寻址；Host / Device 的等待分别解释数据冲突与消费者依赖。每处源码片段注明调用路径，Trace 排查给出可区分的证据，不把机制示例写成实测经验。
 

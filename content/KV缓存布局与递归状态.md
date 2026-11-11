@@ -1,4 +1,4 @@
-# KV 缓存布局、Indexer 与递归状态
+# KV 缓存布局与递归状态
 
 把同一个物理块交给另一个 Decode worker，有时要逐层取数，有时跨层数据就在同一个连续区间。差别从哪来？要先看层和物理块谁排在外面。到了 DeepSeek，主 Attention 读压缩 latent，Indexer 另存一份历史 Key。Mamba 层则从某个续算边界取递归状态。
 
