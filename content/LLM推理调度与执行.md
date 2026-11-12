@@ -6,7 +6,7 @@
 
 首先在这个混部场景下，我认为可以分阶段来看：第一批 P 请求怎么进来，后面怎么组装 P 和 D，再看请求结束后补入新 P 会发生什么。接着看每一轮怎样选择图执行，以及原来的两个问题：为什么输出短时 TPOT 可能很长、为什么要做稳态测试。之后再看 PD 分离、抢占与 KV Cache 的释放。
 
-> 本文中的数字是教学推演，不是实测结果。具体行为必须结合部署的引擎、Ascend 后端、AISBench 配置、模型和启动日志核对。
+> 混部播放器、选图和压测算例使用教学参数。工作坊截图和第 6 节 A5 拉取算例另有采集来源。核对实际服务时，以生效的引擎、后端、模型和 AISBench 配置为准。
 
 ## 1. 先约定教学模型
 
@@ -47,7 +47,7 @@ ms 与 mbt 是不同维度的约束；KV 是否足够还取决于模型结构、
 
 ### 2.1 一轮调度怎么真正进入模型执行？
 
-**资料参考｜GPU 单进程执行链。** `EngineCore.step()` 先调用 `Scheduler.schedule()`，拿到 `SchedulerOutput`，再交给执行器；调度器并不直接运行模型。输出结构包括各请求本轮调度的 Token 数、新请求数据与 KV 块编号等信息，因此它描述的是“本轮算哪些 Token、使用哪些状态”。[EngineCore](https://github.com/vllm-project/vllm/blob/main/vllm/v1/engine/core.py)、[SchedulerOutput](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/output.py)
+**资料参考｜GPU 单进程、ModelRunnerV1。** `EngineCore.step()` 先调用 `Scheduler.schedule()`，拿到 `SchedulerOutput`，再交给执行器；调度器并不直接运行模型。输出结构包括各请求本轮调度的 Token 数、新请求数据与 KV 块编号等信息，因此它描述的是“本轮算哪些 Token、使用哪些状态”。[EngineCore](https://github.com/vllm-project/vllm/blob/main/vllm/v1/engine/core.py)、[SchedulerOutput](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/output.py)
 
 ```text
 EngineCore.step()
@@ -66,7 +66,7 @@ EngineCore.step()
 
 **教学推导。** “先分配 D 的预算”与“D 在设备上先独立执行完、立刻返回”不是同一件事；本轮调度输出仍可能组织成一个混合批次。调度顺序本身不能给出这轮的毫秒数。
 
-**待验证。** 当前项目没有提供实际部署配置；上述 GPU 类名不代表 Ascend 的 Worker/Runner 类名。要解释某次 NPU 实测，应核对执行器、后端、异步设置和相应实现路径，不能直接套用这里的调用链。
+**待验证。** 4K 输入、1K 输出的 200 并发混部算例没有对应的服务运行记录。Ascend 的 Worker 和 Runner 有自己的实现。第二章沿 Ascend ModelRunnerV1 追踪输入准备，解释 NPU Trace 时还需核对实际执行器、Runner 和异步设置。
 
 ## 3. 混部调度：沿着预算逐轮看
 
@@ -120,6 +120,24 @@ R1 D：1 + R2 D：1 + R3 P：4096 + R4 P：4094 = 8192
 ![前三轮调度的 Token 预算：先安排 D，再安排完整或分块 P](../dist/assets/scheduling-rounds.svg)
 
 图中每轮总预算都是 8192。R4 在第二轮留下的 2 个 Token 需要在第三轮接续；把请求画成完整色块时，也不能把它误读成已经完成整个 Prefill。
+
+#### 第二轮交给 Runner 的是什么？
+
+用上游 vLLM V1 Scheduler 的字段核对第二轮。它先遍历 `running`，这个列表既可以有 Decode，也可以有上轮留下的 Prefill chunk。对运行请求，待推进量从 `num_tokens_with_spec + num_output_placeholders - num_computed_tokens` 算起，再受本轮预算、长度上限等约束。轮到等待请求时，Scheduler 还要检查运行态准入、前缀命中和 KV 分配。所查实现允许用 `max_num_active_seqs` 单独收紧准入，用 `max_num_scheduled_tokens` 单独限制调度量。两者缺省时分别回落到 ms、mbt。[预算与准入配置](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L128-L141) · [运行请求的待推进量](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L657-L721) · [等待请求的准入](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L912-L929)
+
+按本例的同步、无投机、无前缀命中条件，第二轮输出的核心字段可以写成下面这样。R3、R4 首次被调度，Worker 收到它们的 prompt、块号和起始进度。R1、R2 已在 Worker 缓存请求状态，本轮带的是更新量。[调度输出结构](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/output.py#L41-L78) · [已缓存请求与本轮 Token 数](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/output.py#L232-L249)
+
+```text
+scheduled_new_reqs = [R3, R4]
+scheduled_cached_reqs = R1、R2 的增量
+num_scheduled_tokens =
+    {R1: 1, R2: 1, R3: 4096, R4: 4094}
+total_num_scheduled_tokens = 8192
+```
+
+R4 的 `NewRequestData.num_computed_tokens` 为 0，Runner 因此取位置 `[0,4094)`。生成调度输出后，Scheduler 自己的请求进度已加到 4094。此时设备还需要完成本轮前向，第三轮才能在同步算例中使用这段 KV。[调度输出构造](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L1417-L1447) · [Scheduler 推进进度的位置](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L1616-L1635)
+
+把条件只改一项。若 R4 已命中 2048 个位置的本地完整前缀块，Scheduler 给它的起始进度是 2048，只需安排 `[2048,4096)`。在块池足够、其余约束仍满足时，R5 可以用剩下的 2046 个新 Token 预算。第二轮仍是 8192 个新 Token，但参与请求从 4 条变为 5 条，R4 已能产生首 Token。这是用源码规则重算的对照，播放器保持原先的无命中条件。[前缀命中与块分配](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L1253-L1276) · [等待请求计算剩余工作](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L1125-L1169)
 
 ### 3.4 为什么会出现纯 D？会持续多久？
 

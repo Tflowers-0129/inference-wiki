@@ -48,6 +48,14 @@ Ascend 的 `PrepareAndFinalizeWithAllGather` 把跨 rank 的收集和收尾放�
 
 因此，两条路线要同时比较数据量和组织这些数据的成本。AllGather 的集合操作规整，但会让没有选中本地专家的行也到达本 rank；定向交换减少这类副本，却需要处理不规则路由。哪条更快，不能只凭通信名称下结论。
 
+### AllToAllV 交换哪张张量，怎样把结果送回原行？
+
+沿 Ascend 的 `TokenDispatcherWithAll2AllV`，设源 rank 的隐藏状态为 `[T,H]`，物理专家 ID 和路由权重均为 `[T,K]`。`_preprocess` 对专家 ID 做直方图，并按目标 rank 求和得到 `input_splits`。各源 rank 再 AllGather 这份直方图，形成 `[EP,E]` 的计数表，`E` 是本次路由使用的物理专家总数。接收者取本地专家的列，沿专家轴求和得到按来源排列的 `output_splits`，沿来源轴求和得到传给 grouped GEMM 的 `group_list`。[直方图与 split 数组](https://github.com/vllm-project/vllm-ascend/blob/1bf75989/vllm_ascend/ops/fused_moe/token_dispatcher.py#L643-L686)
+
+取下一节“选下一个 rank 的两位专家”的路由。rank 0 的十行都选 E2、E3，两个专家在 rank 1。rank 0 的 `input_splits=[0,20,0,0]`。rank 1 从 rank 0 接收二十行，所以 `output_splits=[20,0,0,0]`，本地专家计数为 `[10,10]`。`npu_moe_token_permute` 按 `topk_ids.numel()` 生成二十行，原来的每行激活在两个专家的区间各出现一次。[源端重排与 dispatch](https://github.com/vllm-project/vllm-ascend/blob/1bf75989/vllm_ascend/ops/fused_moe/token_dispatcher.py#L502-L584) · [展开行数与排序参数](https://github.com/vllm-project/vllm-ascend/blob/1bf75989/vllm_ascend/ops/fused_moe/token_dispatcher.py#L607-L647)
+
+接收缓冲按来源 rank 分段。多个来源命中同一位专家时，接收侧用第二次重排把它们归到同一个连续专家段，供 grouped GEMM 读取。Combine 先撤销这次重排，再交换 `input_splits` 与 `output_splits` 的收发角色做反向 AllToAll。每个源 rank 最后用自己保存的逆重排索引和 `topk_weights` 归并，恢复 `[T,H]`。这条路径由源 rank 保存权重，并在回收结果时消费。[接收端专家重排](https://github.com/vllm-project/vllm-ascend/blob/1bf75989/vllm_ascend/ops/fused_moe/token_dispatcher.py#L688-L725) · [反向交换](https://github.com/vllm-project/vllm-ascend/blob/1bf75989/vllm_ascend/ops/fused_moe/token_dispatcher.py#L586-L605) · [还原原行和加权](https://github.com/vllm-project/vllm-ascend/blob/1bf75989/vllm_ascend/ops/fused_moe/token_dispatcher.py#L727-L749)
+
 ## 3. 同样八十次专家任务，为什么通信量还会变？
 
 把八个专家固定为 `rank 0: E0/E1`、`rank 1: E2/E3`，依次类推。每个源 rank 有十个 token。下面三组构造始终有四十个 token、八十次专家任务，而且每个 rank 都承担二十次任务：
@@ -72,6 +80,8 @@ AllGather 对照：       120 × 8 KiB = 960 KiB
 <!-- EP_LAB -->
 
 这本账只数输入激活送达远端目的地的逻辑副本。不含路由元数据、量化尺度、padding、协议、ReduceScatter、Combine 或链路跳数；集合通信的中转也可能使实际链路字节不同。本地使用同样需要设备访存。因此 `960/320=3` 只能比较这个给定口径的数据量，不能写成三倍加速。
+
+按第 2 节的 Ascend AllToAllV 实现，同一远端 rank 上的双专家各有一行。沿用 BF16、`H=4096`，关闭传输量化，这组路由的 Dispatch 激活量应按 `40×2×8 KiB = 640 KiB` 推导。若专家输出也为 BF16、宽度仍为 4096，源端在归并前还会接回同等大小的结果。这个数对应传输描述的行数，实测链路流量还需计入计数收集与通信实现。[Dispatch 与 Combine 的实际调用](https://github.com/vllm-project/vllm-ascend/blob/1bf75989/vllm_ascend/ops/fused_moe/token_dispatcher.py#L522-L605)
 
 专家任务数相同，目的 rank 的分布仍可能不同。回到第四章，EPLB 解决的计算分布，与这里要比较的源到目的通信分布，已经是两张需要对齐的账。
 
@@ -298,7 +308,9 @@ event 包围的是 Python 函数提交的整条链，可能包含设备等待 Ho
 | CANN MegaMoE | 0 | 71 | 1 | 32.52 µs |
 | CANN MegaMoE | 1 | 57 | 1 | 299.76 µs |
 
-71 与 57 是 token-expert assignment 数，不是两卡原始输入行数。rank 0 的四位本地专家分别收到 `[15,18,24,14]`，rank 1 为 `[14,15,13,15]`，仍满足 `71+57=2×32×2=128`；它们也不是接收缓冲的预留容量。两实现分别对每个源 rank 的输出做正确性比较，不要求 rank 0 的输出与 rank 1 相等。
+71 与 57 是 token-expert assignment 数。rank 0 的四位本地专家分别收到 `[15,18,24,14]`，rank 1 为 `[14,15,13,15]`，满足 `71+57=2×32×2=128`。拆分链把这些计数作为 `group_list` 传给两次 grouped GEMM。以 rank 0 第一个专家为例，GMM1 对 15 个有效行做 `[15,1024] × [1024,2048] → [15,2048]`，2048 列包含 gate 与 up 两部分。SwiGLU/量化生成 1024 列供 GMM2 使用，最终仍产生 15 行 1024 维的专家贡献。这里写的是有效计算形状，量化权重和尺度采用脚本中各算子需要的存储布局。[拆分参考链的权重与调用](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/a5-moe.py#L86-L225)
+
+本次脚本为 MegaMoE 配置每 rank 32 个原始输入行和 128 个接收行的上限。后者按两个源各 32 行、每行至多两份送到同一目标 rank 预留，实际收到的仍是 71、57。两条实现最终按各自的原始输入行归还 `[32,1024]`，脚本在同一源 rank 上比较输出。[输入和接收容量的配置](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/a5-moe.py#L106-L128)
 
 表中的单次设备跨度与第 11.2 节的 NPU event 中位数是两种口径。rank 0 的 32.52 µs 不能代表整个 EP 组；rank 1 的 Dispatch、Combine 区间较长，也不能仅凭较长矩形断言对端迟到、链路慢或本卡专家计算更慢。通信和内部同步包含在这些设备任务里，本采集没有恢复每条 peer 消息、producer-ready 或消费者等待的完整因果链。上述数值不用于计算稳态或服务级加速比。
 

@@ -63,14 +63,15 @@ rank 1：positions 4,5,6,7 → 可见 query-key 对数 5+6+7+8 = 26</code></pre>
 <section class="lesson observed" id="context-parallel-5" data-title="5. DCP 把哪几个位置写进本地 KV？"><h2>5. DCP 把哪几个位置写进本地 KV？</h2>
 <p>回到 TP4、两个 KV heads 的例子。对保存 KV head 0 的 rank 0、1 组成 DCP2 组，让它们保存不同历史位置，原来的两份完整历史便可以去重。它们仍需要共同完成各自 Q heads 对完整历史的 Attention。</p>
 <p>地址怎么对应？ModelRunnerV2 的 slot mapping 使用虚拟块：若每 rank 物理块容纳 b 个 token，DCP 大小为 C，一个虚拟块覆盖 <code>b×C</code> 个全局位置。块内再按 interleave 粒度轮转 owner。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v2/block_table.py" target="_blank" rel="noopener">块表调用</a> · <a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/v2/block_table/compute_slot_mappings.py" target="_blank" rel="noopener">slot mapping 内核</a></p>
-<p>用 b=4、C=2、interleave=2，取第一个虚拟块，全局 position 0…7 的映射如下。假设 rank 0 的本地物理 block ID 为 7，rank 1 为 5，kernel block size 也为 4：</p>
+<p>同一引擎的 Scheduler 将每个请求的各组块号随同一个 <code>SchedulerOutput</code> 发给 Worker。ModelRunnerV2 在各 rank 把 <code>NewRequestData.block_ids</code> 加入本地块表。用 b=4、C=2、interleave=2，假设第一个虚拟块的块号是 7，kernel 块长也为 4。两个 rank 都用 7 查询各自的缓存池。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/executor/multiproc_executor.py#L341-L352" target="_blank" rel="noopener">Worker 接收 SchedulerOutput</a> · <a class="inline-source" href="https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/model_runner.py#L1181-L1219" target="_blank" rel="noopener">Runner 填写本地块表</a></p>
 <div class="comparison-table"><table><thead><tr><th>全局 position</th><th>owner</th><th>owner 内的块内偏移</th><th>rank 0 slot</th><th>rank 1 slot</th></tr></thead><tbody>
 <tr><td>0、1</td><td>0</td><td>0、1</td><td>28、29</td><td>−1、−1</td></tr>
-<tr><td>2、3</td><td>1</td><td>0、1</td><td>−1、−1</td><td>20、21</td></tr>
+<tr><td>2、3</td><td>1</td><td>0、1</td><td>−1、−1</td><td>28、29</td></tr>
 <tr><td>4、5</td><td>0</td><td>2、3</td><td>30、31</td><td>−1、−1</td></tr>
-<tr><td>6、7</td><td>1</td><td>2、3</td><td>−1、−1</td><td>22、23</td></tr>
+<tr><td>6、7</td><td>1</td><td>2、3</td><td>−1、−1</td><td>30、31</td></tr>
 </tbody></table></div>
-<p>例如 position 4 的本地 slot 是 <code>7×4+2=30</code>。非 owner 得到 PAD slot，不写入那一行本地缓存。物理 block ID 由各自块表提供，两个 rank 不必相同；下一虚拟块要继续查块表，不能一直把全局 position 当成本地连续地址。这是简化地址算例，实操使用的块与 interleave 更大。</p>
+<p>例如 position 4 在 rank 0 写入 <code>7×4+2=30</code>，position 6 在 rank 1 也写入 slot 30。两个 Worker 有各自的缓存基址，这两个槽保存不同位置。对同一个全局位置，只有 owner 得到可写 slot，其他 rank 得到 PAD slot。下一虚拟块继续查表。</p>
+<p>读取还要给 FIA 本地有效长度。设全局有效长度为 <code>L</code>，interleave 为 <code>I</code>，一个周期 <code>C×I</code> 给每 rank 分配 <code>I</code> 行。rank <code>r</code> 的长度是 <code>floor(L/(C×I))×I + clamp(L%(C×I)−r×I,0,I)</code>。沿表中两位置轮转的算例，长度为 7 时，两边分别读取 4 行和 3 行。普通 paged Decode 把本地长度和块表交给 FIA，尾页还有多少槽可写由分配和 slot mapping 另行确定。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/attention/backends/utils.py#L1115-L1160" target="_blank" rel="noopener">本地长度的计算</a> · <a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/context_parallel/attention_cp.py#L341-L371" target="_blank" rel="noopener">FIA 消费本地长度与块表</a></p>
 <p>PCP 收集“本轮需要写的 K/V”与 DCP 决定“这个位置归谁写”在这里衔接。前者不等于每 rank 最终都保留这个位置，最终还要经过本地 slot 所有权。</p>
 </section>
 <section class="lesson observed" id="context-parallel-6" data-title="6. 两份局部 Attention，为什么不能取平均？"><h2>6. 两份局部 Attention，为什么不能取平均？</h2>
@@ -90,7 +91,7 @@ rank 1：positions 4,5,6,7 → 可见 query-key 对数 5+6+7+8 = 26</code></pre>
 w_j = exp(LSE_j - m)
 O_global = sum_j(w_j × O_j) / sum_j(w_j)
 LSE_global = m + log(sum_j(w_j))</code></pre>
-<p>这就是局部归一化结果重新按全局质量加权。mask 后没有有效项等边界还需由内核处理。真实 Attention 的每个 query、每个 head 都有相应的输出向量和 LSE，并非整条请求只有一个权重。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/dcp/dcp_a2a.py" target="_blank" rel="noopener">DCP 输出交换与归并</a></p>
+<p>归并权重按 query 和 head 单独计算。以第 7 节的融合内核为例，LSE 非有限值的分片将权重和输出贡献都置零，以免 <code>0×NaN</code> 传到最终结果。对所有分片都无效的行，内核用安全分母返回零向量。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/ops/triton/dcp/sfa_dcp_merge.py#L46-L75" target="_blank" rel="noopener">归并内核的无效分片处理</a></p>
 <p>至此有三种不同的结果处理：TP 的行并行线性层对局部贡献求和，PCP 按 token 行身份恢复顺序，DCP 对同一 query 的局部 Attention 按 LSE 归并。它们可能都出现 collective，数学含义却不同，不能只凭“AllGather 或 AllReduce”这个名称互相替代。</p>
 </section>
 <section class="lesson observed" id="context-parallel-7" data-title="7. 源码里，Q 交换与输出交换如何接起来？"><h2>7. 源码里，Q 交换与输出交换如何接起来？</h2>
@@ -105,6 +106,14 @@ LSE_global = m + log(sum_j(w_j))</code></pre>
 <p>这里还有一个计算量上的陷阱。后面实操使用 TP2、MQA、总 Q heads=8：普通 TP 每卡四个 Q heads 读取完整 L；DCP2 后每卡收集八个 Q heads，读取 L/2。仅按 query-key 对数算，<code>4×L</code> 与 <code>8×L/2</code> 相等。KV 去重有明确的容量意义，却不能据此宣称这条分支的 Attention 计算量也减半；还新增了交换、打包与归并。</p>
 <h3>“融合归并”里面仍然有通信</h3>
 <p>注册接口会选择具体实现。核查代码在 BF16、按 head 交换、无额外 PCP 收集、不要求返回 LSE 或延后归并，并满足形状与对齐检查时，可以走 <code>sfa_dcp_exchange</code> 路线：打包 output 与 LSE，经 HCCL AllToAll 后由融合内核归并。LSE 的 FP32 位模式装进整数 payload，不能把它描述为先量化成 BF16。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/dcp/dcp_a2a.py" target="_blank" rel="noopener">分支选择</a> · <a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/dcp/sfa_dcp_exchange.py" target="_blank" rel="noopener">打包、交换与融合内核</a></p>
+<p>按后面 A5 单 query 实验的实测形状走一遍。batch 有四个请求，TP2、DCP2，每个 rank 初始持有四个 Q heads，head dim 为 128。历史长 4096，按 128 个位置轮转，FIA 在每个 rank 上读取 2048 个历史位置／请求。这组算子实验把 K/V 存为连续的 TND 输入。完整 Runner 的 paged 路径使用第 5 节的本地长度和块表。<a class="inline-source" href="https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/context-parallel/cp_attention_lab.py" target="_blank" rel="noopener">实测输入与 FIA 调用</a></p>
+<div class="comparison-table"><table><thead><tr><th>阶段</th><th>每 rank 的张量形状</th><th>行和 head 的归属</th></tr></thead><tbody>
+<tr><td>Q AllGather</td><td><code>[4,4,128] → [4,8,128]</code></td><td>每个历史分片获得两边的 Q heads</td></tr>
+<tr><td>本地 FIA</td><td>输出 BF16 <code>[4,8,128]</code>，LSE FP32 <code>[4,8,1]</code></td><td>八个 heads 的结果都只来自本 rank 历史</td></tr>
+<tr><td>AllToAll</td><td><code>send</code>、<code>recv</code> 各为 INT32 <code>[2,1040]</code></td><td><code>send</code> 按目标 head owner 分段，<code>recv</code> 按历史来源分段</td></tr>
+<tr><td>归并</td><td>输出 BF16 <code>[4,4,128]</code></td><td>两份历史结果按 LSE 合并，归还本 rank 的四个 heads</td></tr>
+</tbody></table></div>
+<p>Q AllGather 的每 rank 输入为 <code>4×4×128=2048</code> 个 BF16 元素。打包时，每个目标 rank 的段有 <code>4×4×(128/2+1)=1040</code> 个 INT32 word，其中每两个 BF16 输出元素合占一 word，每个 FP32 LSE 单占一 word。接收端从同一缓冲分别取 <code>[2,4,4,128]</code> 的 BF16 输出视图和 <code>[2,4,4]</code> 的 FP32 LSE 视图，再沿第一个轴归并。两次通信的元素数分别与 trace 的 BF16 <code>count=2048</code>、INT32 <code>count=1040</code> 对上。这里对账的是输入张量和每目标段长，链路流量还取决于 collective 如何执行。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/ops/triton/dcp/sfa_dcp_exchange.py#L155-L201" target="_blank" rel="noopener">打包与接收视图</a> · <a class="inline-source" href="https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/context-parallel/results/rank-comparison.json" target="_blank" rel="noopener">实测通信字段</a></p>
 <p>需要返回 LSE、延后归并或不满足条件时，还有通用打包与 combine 路线。因此图上一个 <code>dcp_a2a_fused</code> Host scope，不代表设备上只有一个 kernel，更不代表 HCCL 通信消失了。第 10 节截图会把这层展开。</p>
 <h3>历史 KV 与本轮 KV，不能重复计入</h3>
 <p>多 query 的 causal/投机分支还可能把历史 KV 与本轮新增 KV 分开：历史各分片先产生局部贡献，当前 K/V 按相应因果范围计算，随后在约定的归并点加入一次。核查实现包含侧流执行、事件等待与延后 combine。若把复制的本轮 K/V 当成每个历史分片的一份独立贡献反复加进去，softmax 质量就会重复计数。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/attention/context_parallel/attention_cp.py" target="_blank" rel="noopener">历史与当前 KV 的执行依赖</a></p>

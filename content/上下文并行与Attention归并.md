@@ -104,16 +104,18 @@ rank 0 算出 position 0、1、6、7 的 hidden states，rank 1 算出 2、3、4
 
 地址怎么对应？ModelRunnerV2 的 slot mapping 使用虚拟块：若每 rank 物理块容纳 b 个 token，DCP 大小为 C，一个虚拟块覆盖 `b×C` 个全局位置。块内再按 interleave 粒度轮转 owner。[块表调用](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v2/block_table.py) · [slot mapping 内核](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/v2/block_table/compute_slot_mappings.py)
 
-用 b=4、C=2、interleave=2，取第一个虚拟块，全局 position 0…7 的映射如下。假设 rank 0 的本地物理 block ID 为 7，rank 1 为 5，kernel block size 也为 4：
+同一引擎的 Scheduler 将每个请求的各组块号随同一个 `SchedulerOutput` 发给 Worker。ModelRunnerV2 在各 rank 把 `NewRequestData.block_ids` 加入本地块表。用 b=4、C=2、interleave=2，假设第一个虚拟块的块号是 7，kernel 块长也为 4。两个 rank 都用 7 查询各自的缓存池。[Worker 接收 SchedulerOutput](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/executor/multiproc_executor.py#L341-L352) · [Runner 填写本地块表](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/model_runner.py#L1181-L1219)
 
 | 全局 position | owner | owner 内的块内偏移 | rank 0 slot | rank 1 slot |
 | --- | --- | --- | --- | --- |
 | 0、1 | 0 | 0、1 | 28、29 | −1、−1 |
-| 2、3 | 1 | 0、1 | −1、−1 | 20、21 |
+| 2、3 | 1 | 0、1 | −1、−1 | 28、29 |
 | 4、5 | 0 | 2、3 | 30、31 | −1、−1 |
-| 6、7 | 1 | 2、3 | −1、−1 | 22、23 |
+| 6、7 | 1 | 2、3 | −1、−1 | 30、31 |
 
-例如 position 4 的本地 slot 是 `7×4+2=30`。非 owner 得到 PAD slot，不写入那一行本地缓存。物理 block ID 由各自块表提供，两个 rank 不必相同；下一虚拟块要继续查块表，不能一直把全局 position 当成本地连续地址。这是简化地址算例，实操使用的块与 interleave 更大。
+例如 position 4 在 rank 0 写入 `7×4+2=30`，position 6 在 rank 1 也写入 slot 30。两个 Worker 有各自的缓存基址，这两个槽保存不同位置。对同一个全局位置，只有 owner 得到可写 slot，其他 rank 得到 PAD slot。下一虚拟块继续查表。
+
+读取还要给 FIA 本地有效长度。设全局有效长度为 `L`，interleave 为 `I`，一个周期 `C×I` 给每 rank 分配 `I` 行。rank `r` 的长度是 `floor(L/(C×I))×I + clamp(L%(C×I)−r×I,0,I)`。沿表中两位置轮转的算例，长度为 7 时，两边分别读取 4 行和 3 行。普通 paged Decode 把本地长度和块表交给 FIA，尾页还有多少槽可写由分配和 slot mapping 另行确定。[本地长度的计算](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/attention/backends/utils.py#L1115-L1160) · [FIA 消费本地长度与块表](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/context_parallel/attention_cp.py#L341-L371)
 
 PCP 收集“本轮需要写的 K/V”与 DCP 决定“这个位置归谁写”在这里衔接。前者不等于每 rank 最终都保留这个位置，最终还要经过本地 slot 所有权。
 
@@ -145,7 +147,7 @@ O_global = sum_j(w_j × O_j) / sum_j(w_j)
 LSE_global = m + log(sum_j(w_j))
 ```
 
-这就是局部归一化结果重新按全局质量加权。mask 后没有有效项等边界还需由内核处理。真实 Attention 的每个 query、每个 head 都有相应的输出向量和 LSE，并非整条请求只有一个权重。[DCP 输出交换与归并](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/dcp/dcp_a2a.py)
+归并权重按 query 和 head 单独计算。以第 7 节的融合内核为例，LSE 非有限值的分片将权重和输出贡献都置零，以免 `0×NaN` 传到最终结果。对所有分片都无效的行，内核用安全分母返回零向量。[归并内核的无效分片处理](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/ops/triton/dcp/sfa_dcp_merge.py#L46-L75)
 
 至此有三种不同的结果处理：TP 的行并行线性层对局部贡献求和，PCP 按 token 行身份恢复顺序，DCP 对同一 query 的局部 Attention 按 LSE 归并。它们可能都出现 collective，数学含义却不同，不能只凭“AllGather 或 AllReduce”这个名称互相替代。
 
@@ -169,6 +171,17 @@ LSE_global = m + log(sum_j(w_j))
 ### “融合归并”里面仍然有通信
 
 注册接口会选择具体实现。核查代码在 BF16、按 head 交换、无额外 PCP 收集、不要求返回 LSE 或延后归并，并满足形状与对齐检查时，可以走 `sfa_dcp_exchange` 路线：打包 output 与 LSE，经 HCCL AllToAll 后由融合内核归并。LSE 的 FP32 位模式装进整数 payload，不能把它描述为先量化成 BF16。[分支选择](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/dcp/dcp_a2a.py) · [打包、交换与融合内核](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/triton/dcp/sfa_dcp_exchange.py)
+
+按后面 A5 单 query 实验的实测形状走一遍。batch 有四个请求，TP2、DCP2，每个 rank 初始持有四个 Q heads，head dim 为 128。历史长 4096，按 128 个位置轮转，FIA 在每个 rank 上读取 2048 个历史位置／请求。这组算子实验把 K/V 存为连续的 TND 输入。完整 Runner 的 paged 路径使用第 5 节的本地长度和块表。[实测输入与 FIA 调用](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/context-parallel/cp_attention_lab.py)
+
+| 阶段 | 每 rank 的张量形状 | 行和 head 的归属 |
+| --- | --- | --- |
+| Q AllGather | `[4,4,128] → [4,8,128]` | 每个历史分片获得两边的 Q heads |
+| 本地 FIA | 输出 BF16 `[4,8,128]`，LSE FP32 `[4,8,1]` | 八个 heads 的结果都只来自本 rank 历史 |
+| AllToAll | `send`、`recv` 各为 INT32 `[2,1040]` | `send` 按目标 head owner 分段，`recv` 按历史来源分段 |
+| 归并 | 输出 BF16 `[4,4,128]` | 两份历史结果按 LSE 合并，归还本 rank 的四个 heads |
+
+Q AllGather 的每 rank 输入为 `4×4×128=2048` 个 BF16 元素。打包时，每个目标 rank 的段有 `4×4×(128/2+1)=1040` 个 INT32 word，其中每两个 BF16 输出元素合占一 word，每个 FP32 LSE 单占一 word。接收端从同一缓冲分别取 `[2,4,4,128]` 的 BF16 输出视图和 `[2,4,4]` 的 FP32 LSE 视图，再沿第一个轴归并。两次通信的元素数分别与 trace 的 BF16 `count=2048`、INT32 `count=1040` 对上。这里对账的是输入张量和每目标段长，链路流量还取决于 collective 如何执行。[打包与接收视图](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/ops/triton/dcp/sfa_dcp_exchange.py#L155-L201) · [实测通信字段](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/context-parallel/results/rank-comparison.json)
 
 需要返回 LSE、延后归并或不满足条件时，还有通用打包与 combine 路线。因此图上一个 `dcp_a2a_fused` Host scope，不代表设备上只有一个 kernel，更不代表 HCCL 通信消失了。第 10 节截图会把这层展开。
 

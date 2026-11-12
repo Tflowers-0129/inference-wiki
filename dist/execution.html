@@ -8,7 +8,7 @@
 <blockquote class="chapter-scope"><p>数字例子采用文本、稠密 Decoder、标准因果自注意力，先不加入投机。源码主线选 Ascend <code>worker/v1/NPUModelRunner</code> 及它继承的上游方法；涉及另一条 Runner 路径时单独标明。后半章加入异步调度与投机状态接续，图中的时间线表示依赖，不表示测得的耗时。</p></blockquote>
 <section class="lesson observed" id="execution-1" data-title="1. 从调度表找到五行输入"><h2>1. 从调度表找到五行输入</h2>
 <h3>1.1 调度数先变成请求边界</h3>
-<p>8192 行不便逐项核对，缩成三条请求，保留两条 Decode 加一条分块 Prefill 的关系：</p>
+<p>8192 行不便逐项核对，缩成三条请求，保留两条 Decode 加一条分块 Prefill 的关系。C 的 prompt 共 6 个位置，本轮结束后还剩位置 5：</p>
 <div class="comparison-table"><table><thead><tr><th>请求</th><th>本轮工作</th><th>已有 KV 长度</th><th>query 长度</th><th>本轮请求内位置</th></tr></thead><tbody>
 <tr><td>A</td><td>Decode</td><td>8</td><td>1</td><td>8</td></tr>
 <tr><td>B</td><td>Decode</td><td>5</td><td>1</td><td>5</td></tr>
@@ -32,9 +32,11 @@ seq_lens        = [ 9, 6, 5 ]</code></pre>
 <p>五行进入模型后，隐藏状态仍按展平的行排列。线性层可以让五行一起乘相同权重；Attention 需要请求边界、上下文长度和 KV 地址，把读取范围重新分开。</p>
 <p>沿一个层追数据：归一化和 QKV 投影产生本轮的 Q、K、V；位置编码使用各行的 <code>positions</code>；新 K、V 按 <code>slot_mapping</code> 写入缓存；Attention 的 Q 读取自己可见的历史与当前 KV；输出再经投影、残差与 MLP 进入下一层。实际后端会融合、拆分或交错执行这些工作，图中的方框表示依赖，不用于数 Kernel。</p>
 <figure class="diagram-figure technical-figure"><a class="diagram-expand" href="assets/forward-dataflow.svg?rev=1d65e754" target="_blank" rel="noopener" title="打开完整矢量图源（SVG）"><img width="1120" height="900" src="assets/forward-dataflow.svg?rev=1d65e754" alt="同一批隐藏状态共享线性层权重，Attention 按请求读取 KV" loading="lazy"></a><figcaption>同一批隐藏状态共享线性层权重，Attention 按请求读取 KV<em>矢量图源（SVG）；点击查看完整图源；窄屏可横向滚动 ↗</em></figcaption></figure>
-<p>在本例中，A 的位置 0～7 不再经过本轮所有层的 QKV 投影与 MLP，它们留下的 KV 被继续读取；只有位置 8 的隐藏状态向前推进。C 则有三行需要推进。把历史长度加进“本轮 Token 数”，会把线性层的工作量算错；完全忽略历史长度，又会低估 Attention 的工作量。</p>
+<p>在本例中，A 只有位置 8 的隐藏状态通过本轮 QKV 投影与 MLP，位置 0～7 由 Attention 读取已有 KV。取无并行的等宽 GQA 教学配置，4 个 Q heads、1 个 KV head、头宽 64。每层五行输入的 Q 是 <code>[5,4,64]</code>，新 K、V 各是 <code>[5,1,64]</code>。A 的一行 Q 可见 9 个位置，B 可见 6 个，C 的三行分别可见 3、4、5 个。每个 Q head 共计算 <code>9+6+3+4+5=27</code> 个有效 query–key 配对。C 的多行共享一部分历史，27 计的是因果掩码内的配对数。实际 HBM 读取量还取决于算子如何复用数据。<a class="inline-source" href="kv-cache-layouts.html">GQA 的查询头与 KV 头</a></p>
 <p>Runner 准备通用信息，Attention builder 再组织后端需要的参数、长度、工作区或 Device 任务。Python 可以先创建 metadata 对象，里面引用的 Tensor 值则可能仍在 Device 上计算；消费这些值前需要满足相应依赖。</p>
-<p>最后，Decode 和完成 Prefill 的请求按需选取隐藏状态、运行输出头并采样；C 若尚未完成 Prompt，本轮中间结果不会直接成为客户端输出。不要用客户端收到的 Token 个数反推这一轮一共计算了几行。</p>
+<h3>五行前向，怎样得到两个有效输出？</h3>
+<p>在所查的 Ascend <code>worker/v1/NPUModelRunner</code> 中，普通文本生成、无投机且无额外图填充时，<code>logits_indices = query_start_loc[1:] - 1</code>。边界 <code>[0,1,2,5]</code> 给出索引 <code>[0,1,4]</code>，分别选出 a8、b5、c4 的末层隐藏状态。LM Head 只把选中的三行投影到词表，无并行时 logits 的形状为 <code>[3,词表大小]</code>。前向一共处理五行，采样器看到其中三行的词表分数。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v1/model_runner.py#L1753-L1765" target="_blank" rel="noopener">末行索引</a> · <a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v1/model_runner.py#L2745-L2754" target="_blank" rel="noopener">选行与输出头</a></p>
+<p>输入准备还比较请求本轮结束的位置与已知 Token 数。C 本轮的 <code>seq_len=5</code> 小于 prompt 长度 6，因此 <code>discard_request_indices=[2]</code>。同步分支清掉 C 的采样输出，保留这三行已经写好的 KV，后续仍从 prompt 读取 c5。A、B 可以各确认一个输出（a9、b6）。这三个计数分别是前向行数 5、词表投影行数 3 和有效生成数 2，Trace 应按边界分别对齐。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v1/model_runner.py#L1581-L1595" target="_blank" rel="noopener">标记未完成的请求</a> · <a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v1/model_runner.py#L3150-L3165" target="_blank" rel="noopener">同步输出过滤</a></p>
 </section>
 <section class="lesson observed" id="execution-3" data-title="3. 设备确实在忙，再算权重与 KV 的账"><h2>3. 设备确实在忙，再算权重与 KV 的账</h2>
 <p>如果设备时间线连续、有工作在跑，继续缩短 Python 代码未必能缩短这一轮。先用实际矩阵形状和上下文长度，判断时间花在什么工作上。</p>
