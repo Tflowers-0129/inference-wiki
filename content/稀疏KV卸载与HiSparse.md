@@ -1,14 +1,14 @@
 # 稀疏 KV：从 Decode Offload 到 HiSparse
 
-第八章用 DeepSeek-V3.2 算过主 KV 与 Lightning Indexer 的历史缓存。每轮 TopK 只选出本轮 Attention 要读的位置，下一轮还可能访问其余历史，所以完整历史仍要保存。长上下文把主 KV 撑大后，可以把历史放到 Host，每轮把需要的行搬回 Device。[KV 缓存布局与递归状态](KV缓存布局与递归状态.md)
+DeepSeek-V3.2 的 Lightning Indexer 为本轮 Attention 选出少量历史位置。上下文拉长后，可以把主 KV 历史放到 Host，由 Device 每轮取回选中的行。[KV 缓存布局与递归状态](KV缓存布局与递归状态.md)
 
-这样做把问题从“HBM 能否装下”推进到了“一轮 Decode 要等多久”。TopK 是逻辑位置，搬运需要物理地址；缓存命中需要知道这行属于哪个请求、内容是否仍然有效；Attention 则必须等本次需要的数据可读。框架、索引管理、拷贝算子和 Attention 的边界，正是在这里接起来的。
+Indexer 给出的 TopK 是逻辑位置，搬运要用物理地址。检查缓存命中时要确认该行属于哪个请求、内容是否仍然有效。Attention 必须等选中的行可读后才能使用。
 
 > 本章用具体缓存算例解释地址与数据依赖。原理图和泳道均为教学示意，横轴没有实测时间含义。
 
-## 1. TopK 是 2048，为什么还要保存完整历史？
+## TopK 是 2048，为什么还要保存完整历史？
 
-先把一次稀疏 Attention 需要的数据分开：完整 Main MLA KV 保存在共享 Host pool；Indexer 的完整 K/scale cache 仍在 Device；Device 另有固定大小的主 KV 工作集，用来复用前几轮已搬入的行。下面沿这条 Decode Offload 初版路径展开。
+下一轮的 query 仍可能选到本轮没读的位置，所以主 KV 要保留完整历史。Decode Offload 初版把完整的 Main MLA KV 放在共享 Host pool，Indexer 的完整 K/scale cache 留在 Device。Device 另有固定大小的主 KV 工作集，用来复用前几轮已搬入的行。
 
 这里的 Main MLA KV 是压缩 latent 与 RoPE 部分，并非普通 MHA 的完整 K、V 两份。源码中某些变量叫 `k_cache`、`v_cache`，需要沿实际张量拆分确认含义。[初版框架与张量组织](https://github.com/vllm-project/vllm-ascend/pull/13026/files)
 
@@ -28,7 +28,7 @@ C = 4096，Device 工作集：4096 × 1152 = 4.5 MiB
 
 这条路径为每个 miss 的 latent、RoPE 分别生成源地址、目标地址和长度；最大参数缓冲容量为 `40×R×K+4 B`。初版常规规划分支会把整块最大容量参数缓冲传回 Device，跨层 `skip_topk` 分支则复用描述符。它与随 miss 数变化的 KV payload 是不同的流量口径，不能只算有效描述符数量就代替实际 H2D。
 
-## 2. 一轮 Decode：从逻辑 TopK，走到可读的工作集
+## 一轮 Decode 的 TopK 解析与 KV 回填
 
 初版链路中，新 KV 与选历史 KV 是两条相关路径。PreAttention 先产生当前 token 的 latent/RoPE；TP0 将它们写入 TP 组共享的 Host pool。Indexer 根据 Device 上的索引历史，产出本层逻辑 TopK。随后进入缓存命中与地址规划。[Attention 及 manager 调用链](https://github.com/vllm-project/vllm-ascend/pull/13026/files)
 
@@ -50,25 +50,25 @@ logical token 13 也不是 Host 行 13。若 `block_size=4`、`block_table[3]=5`
 
 <!-- OFFLOAD_LAB -->
 
-### 请求相同，命中就一定有效吗？
+### 请求没变，命中的 KV 为什么仍会失效？
 
 初版映射按 layer × query row 维护。row 换了请求，旧映射必须清空；MTP 的临时后缀即使 token 位置相同，内容也可能已重写。源码用 `stable_prefix_len=actual_seq_len−当前 query span` 划出稳定前缀，使 resident 中位于该边界及之后的条目失效。否则缓存会“命中”旧内容，结果比多搬一次更严重。[请求归属与稳定前缀失效](https://github.com/vllm-project/vllm-ascend/pull/13026/files)
 
 Graph 模式可在当前计算流安排 Host callback 来做 LRU，仍须满足 TopK→规划→miss copy→Attention 的数据依赖。跨层 `skip_topk` 复用描述符并调整基址，省掉部分索引准备；仅凭这一分支，不能画成跨层异步搬运已经覆盖了计算。
 
-### Prefill 为什么不能直接套用 Decode 的搬运方式？
+### Prefill 按层换入完整历史
 
 在按层卸载方案中，Prefill 按层换入完整历史，以少量 Device buffer 轮转；稀疏 Decode 则根据索引，只换入本轮需要的行。Prefill 一层通常有较多计算，可尝试覆盖下一层搬运；Decode 的本层 Attention 依赖刚生成的 TopK，不能直接套用这一重叠假设。两者在总体卸载方案中分别设计。[Layerwise Prefill 与 sparse Decode 方案](https://github.com/vllm-project/vllm/issues/48203)
 
-### P 节点与 D 节点的交接还要单独接线
+### PD 交接中主 KV 与 Indexer 的去向
 
 初版的正常模式不在 D 节点保留完整 Device Main KV。P→D 连接器必须把主 KV 交接到 D 侧 Host pool，并让完整 Indexer cache 可在 D 侧 Device 使用。只把原来 Device→Device 的目的指针改成 Host 指针，并不足以证明元数据、完成事件和生命周期都已对齐。
 
 这条初版路径限定了 DSA/SFA、PD 分离 Decode、TP 和相应 Runner 路径；`keep_device_kv_cache` 保留完整 Device 主 KV 的分支是调试路径，不能拿它证明正常卸载的容量收益。部署时还需按目标版本核对 P→D connector 的实现、布局和完成事件。[初版支持边界](https://github.com/vllm-project/vllm-ascend/pull/13026)
 
-## 3. A3：融合的是 miss 数据面，Host planner 仍然在
+## A3 的融合数据面与 Host planner
 
-上一节先搬完 miss，再独立执行 SFA，Attention 要等搬运完成才能开始。A3 路径将 miss 读取、selection 更新与稀疏 Attention 放进 `npu_fused_sparse_attention_overlap`，在算子内部组织流水；共享 Host KV、外部 LRU planner 与 selection buffer 仍各有职责，CPU 管理器也仍然存在。[A3 融合实现](https://github.com/vllm-project/vllm-ascend/pull/14957)
+Decode Offload 初版先搬完 miss，再独立执行 SFA。A3 路径将 miss 读取、selection 更新与稀疏 Attention 放进 `npu_fused_sparse_attention_overlap`，在算子内部组织流水；共享 Host KV、外部 LRU planner 与 selection buffer 仍各有职责，CPU 管理器也仍然存在。[A3 融合实现](https://github.com/vllm-project/vllm-ascend/pull/14957)
 
 TopK 等元数据仍先到 TP0 Host，C++ planner 产出 compact plan，写入映射的 CPU membership 缓冲。NPU 算子消费计划，从共享完整 Host KV 取 miss 并填 selection；当前新 KV 则从计算结果直接 scatter 到 selection。CPU 管理和设备数据面各自承担一段职责。[A3 实现与算子说明](https://github.com/vllm-project/vllm-ascend/pull/14957/files)
 
@@ -78,13 +78,13 @@ TopK 等元数据仍先到 TP0 Host，C++ planner 产出 compact plan，写入�
 
 注意图里的 broadcast 是计划元数据与可见性同步，不是 TP ranks 间对完整 KV 做 All-to-All。主 KV 是共享 Host 视图；每个 rank 仍有自己的设备计算与 selection 消费。当前可引用材料没有给出可复用的 A3 实测 Trace，因此图只解释依赖，不表示任何一段实际被隐藏了多少微秒。
 
-## 4. A5：Indexer + Manage，与 Copy + SFA 两段如何衔接
+## A5 的 Indexer + Manage 与 Copy + SFA
 
 除了 miss 搬运，Indexer 产出 TopK 后，还要完成命中判断、槽位分配和计划生成。A5 把这段数据流分为两处融合：量化 Lightning Indexer + Manage 在设备侧产出 TopK 和缓存计划；Copy + SFA 消费 miss 计划，完成 C8 主 KV 的搬运和 Attention。两者目前均为待合入的独立算子，框架与整模型接入尚未完成。[Indexer + Manage 实现](https://github.com/vllm-project/vllm-ascend/pull/18383) · [Copy + SFA 实现](https://github.com/vllm-project/vllm-ascend/pull/18490)
 
 ![A5 两段融合算子的职责、逐 query TopK 与请求级 union miss，以及 copy-SFA 的两种设备分支；整体接入尚待完成](../dist/assets/offload-a5-fusion.svg)
 
-### 逐 query 的 TopK，和请求级搬运计划不是同一个数组
+### 逐 query 的 TopK 与请求级搬运计划
 
 一个 MTP 请求有多路 query。每路都需要按自己的 TopK 顺序读 Attention 输入，但多个 query 可能选中相同历史 token。传输侧应合并这些 miss，不能简单把每路的数量相加。
 
@@ -97,19 +97,19 @@ TopK 等元数据仍先到 TP0 Host，C++ planner 产出 compact plan，写入�
 
 稳态时，例如两路 query 分别缺 `[10,14]`、`[14,18]`，请求级 union 为 `[10,14,18]`，只需搬三行；两路仍保留各自的 Attention 索引。首次进入卸载的 `request_state=-2` 则会生成 C 行 prefix 初填计划，可包含本轮 TopK 之外的行，不能拿稳态 miss union 解释全部状态。LI+Manage 负责映射和计划，实际 KV 传输归下游。这一边界来自 [LI+Manage 的算子接口](https://github.com/vllm-project/vllm-ascend/pull/18383/files)，三行例子是教学构造。
 
-### Copy + SFA 并非所有 miss 数都走同一条流水
+### Copy + SFA 按每请求的搬运行数选择分支
 
 Copy-SFA 的分支条件是 **每个请求 copy plan 的计数**，稳态对应 union miss 数：全部请求均不超过 512 时，采用 source-aware fused 路径，在 Attention 取数中读取 DRAM miss、参与本次计算并写 HBM；任一请求超过 512，则在同一 MIX kernel 内先完成请求级 Scatter Copy，经跨核同步再执行 SFA。判断留在设备，不为读这个计数再做一次 D2H。[Copy-SFA 算子实现](https://github.com/vllm-project/vllm-ascend/pull/18490/files)
 
 这里的 512 既不是 batch miss 总和，也不是某一路 query 的 miss 数。C8 有效行宽为 `512×FP8 + 64×BF16 + 4×FP32 = 656 B`；内部缓冲的 672 B 对齐行宽是另一个口径。`dram_kv_bytes` 在测试中以 DRAM backing 的 NPU tensor 表示，不能直接照普通 CPU tensor 的接口来接线。
 
-### 接入前仍需对齐 tail 和地址空间
+### Tail 的槽位分配与可见范围
 
 这两项 PR 还不能直接拼成已完成的框架例子。请求 miss 张量维度需要适配；更关键的是 LI+Manage 将连续 tail 放在 prefix cache budget 之后，由上层维护，tail 不进入持久 prefix pool 与 miss-copy plan，而 Copy-SFA 还要明确其可寻址 KV 范围。
 
 LI+Manage 源码已按 tail 长度安排连续槽，部分说明仍保留旧的固定 256 与取模规则。接入时应以配对源码核对 slot 范围、tail 写入与 Attention 可见性，不能把旧说明当作稳定接口。[LI+Manage 的当前改动](https://github.com/vllm-project/vllm-ascend/pull/18383/files)
 
-## 5. 看性能表，要先确认测的是哪一段
+## A5 算子段的测量条件与结果
 
 融合减少了边界，不代表所有 batch 和 miss 分布都加速。Copy-SFA 作者报告的同一组条件为 950、MTP3、上下文 65536、cache budget 12288；摘取其中两行：
 
@@ -124,7 +124,7 @@ LI+Manage 的算子说明另报告了 LI 与 LI+Manage 的典型单算子时延�
 
 容量收益与时延收益也要分开验证：卸载可能使更多请求装得下，却增加单请求的搬运等待；最终吞吐还受并发、调度和其他模型层影响。没有整模型与服务端证据时，结论止于被测算子段。
 
-## 6. 为什么还要接社区 HiSparse？
+## HiSparse 的动态驻留与缓存分工
 
 现有路线为了尽快落地，把完整 Main KV 固定放在 Host，把 Indexer 留在 Device，在原有框架之外准备工作集。即使低负载时 HBM 还有空间，请求仍要走卸载与 miss 路径。它也缺少统一管理 Prefill 与 Decode 主 KV 驻留的能力。[问题与适配动机](https://github.com/vllm-project/vllm-ascend/issues/19293)
 
@@ -139,7 +139,7 @@ HiSparse 将“完整历史的身份”和“此刻是否驻留 Device”分开�
 
 HMA 为 Resident、Hot、Index 等 Device group 管理容量；Source 的 CPU KV 身份由独立 CPU pool 管理，不能概括为“所有缓存都由 HMA 持有”。HiSparse 也没有偷偷把 Indexer 完整历史一起卸载；那需要另一个明确的卸载机制。[社区设计与管理边界](https://github.com/vllm-project/vllm/blob/70cb50da/docs/design/hisparse.md)
 
-## 7. Dirty、Clean、Unpin、Reuse 是四件事
+## Resident 页的写回、Unpin 与复用
 
 ![HiSparse 四类缓存与 Resident 页生命周期：Host 安全副本完成后才可 unpin，实际复用后才失去驻留](../dist/assets/hisparse-page-lifecycle.svg)
 
@@ -151,13 +151,13 @@ HMA 为 Resident、Hot、Index 等 Device group 管理容量；Source 的 CPU KV
 
 Residency 变化与普通 block table 追加也分开传递。该合入点经 `take_residency_updates()` 取出 `SparseKVResidencyUpdate(pages, block_ids)`；原 block table 保持 append-only。RFC 里的早期字段表有其版本背景，不宜照抄成这里的接口。[Residency 更新结构](https://github.com/vllm-project/vllm/blob/70cb50da/vllm/v1/hisparse/types.py)
 
-### P/D 交接时，D 的主 KV 先落在哪一层？
+### D 侧导入目标：Resident 或 Host
 
 社区 HiSparse 的 NIXL 方案在 D 准入时为请求选定目标。导入的完整前缀能放进设备池时，NIXL 直接写入 Resident。若完整前缀放不下，D 可以在满足 Host Source 容量和设备固定工作集开销时选择 Host。Host 路径先经 D 的有限大小设备 staging 池，再拷到已注册的 Host 内存，并把马上要用的页写到对应 Resident 目的地。准入重试保留已选目标，两种目标进入 Decode 后都使用同一个 resolver。[NIXL 导入路径设计](https://github.com/vllm-project/vllm/blob/70cb50da/docs/design/hisparse.md#L149-L161)
 
-Coordinator 把在途 Host 导入记在 `_pending_imports`。连接器成功结束后，`finish_host_import()` 才调用 `complete_host_import()` 标记完成的整页，并安排末页的恢复。NIXL 仍把 Indexer 历史交接到设备组。这一段来自社区设计与对应源码。第七章的 A5 Mooncake 实验使用普通 FullAttention，实测证据只覆盖该章的设备到设备交接。[Host 导入的完成处理](https://github.com/vllm-project/vllm/blob/70cb50da/vllm/v1/hisparse/coordinator.py#L539-L565) · [Indexer 的 NIXL 去向](https://github.com/vllm-project/vllm/blob/70cb50da/docs/design/hisparse.md#L163-L175) · [PD 分离系统与 KV 生命周期](PD分离系统与KV生命周期.md)
+Coordinator 把在途 Host 导入记在 `_pending_imports`。连接器成功结束后，`finish_host_import()` 才调用 `complete_host_import()` 标记完成的整页，并安排末页的恢复。NIXL 仍把 Indexer 历史交接到设备组。这一段来自社区设计与对应源码。A5 Mooncake 实验使用普通 FullAttention，实测证据只覆盖设备到设备交接。[Host 导入的完成处理](https://github.com/vllm-project/vllm/blob/70cb50da/vllm/v1/hisparse/coordinator.py#L539-L565) · [Indexer 的 NIXL 去向](https://github.com/vllm-project/vllm/blob/70cb50da/docs/design/hisparse.md#L163-L175) · [PD 分离系统与 KV 生命周期](PD分离系统与KV生命周期.md)
 
-## 8. HiSparse 的 Decode 内部，谁解析 TopK，谁负责等？
+## HiSparse 的 TopK 解析与逐层回填
 
 Host Coordinator 管页生命周期；每层 Decode 内的 TopK 解析由设备 resolver 完成。两者不能混为“CPU 读回 TopK，再做规划”。社区路径不需要为逐 token 决策把 TopK 回读 Host。[运行时设计](https://github.com/vllm-project/vllm/blob/70cb50da/docs/design/hisparse.md)
 
@@ -167,7 +167,7 @@ Host Coordinator 管页生命周期；每层 Decode 内的 TopK 解析由设备 
 
 copy stream 先等 logical TopK ready，再依次执行 resolver、leader 层 gather 和 follower 层 gather，并为每层记录 ready event。compute stream 只在消费某层前等待该层 ready。因此“index manage/H2D 串行”应理解为解析、搬运、本层消费的依赖，不能画成整轮所有层都无重叠：共享 index 的 follower 仍可以提前 gather，与前层计算交叠。
 
-### Attention 索引与 gather 计划各装了什么？
+### Attention 索引与 gather 计划的张量形状
 
 沿用播放器的 HiSparse 示例。请求有 23 行历史，页大小为 4，Source 块表是 `[7,3,8,5,9,6]`。Resident 的逻辑页 0、4、5 分别在物理块 7、2、9，Hot 中 token 6 已占用槽 100。本轮 logical TopK 为 `[1,2,6,10,14,17,20,21]`。以 10 为例，Resident 块表里没有逻辑页 2，Hot 也没有这行，因此 resolver 为它选槽 101，并通过 Source 块表得到 Host 物理行 `8×4+2=34`。14 同理从 Host 行 22 搬到槽 102。保留原 TopK 顺序后，Attention 读 `[29,30,100,101,102,9,36,37]`，其中五项读 Resident、一项命中 Hot、两项等本轮回填。教学示例用紧密页，设备物理行和 Attention 槽号相同。真实 resolver 还接收 Attention 的块轴 stride。[Runtime 的 resolver 参数](https://github.com/vllm-project/vllm/blob/70cb50da/vllm/v1/hisparse/runtime.py#L942-L1012)
 
@@ -182,7 +182,7 @@ copy stream 先等 logical TopK ready，再依次执行 resolver、leader 层 ga
 
 计划张量按最大宽度留空间，gather 用计数只消费有效配对。多条 query 同属一个请求时，resolver 共同保护本步选中的行。两路选到同一个 Source miss 时可以共用一个回填槽，Attention 仍各自保留对该槽的引用。共享 index 的 follower 复用这些索引和 copy plan，每层 gather 读取本层各自的 Host KV 内容。[共享缓冲的形状与 dtype](https://github.com/vllm-project/vllm/blob/70cb50da/vllm/v1/hisparse/runtime.py#L648-L662) · [gather 与逐层事件](https://github.com/vllm-project/vllm/blob/70cb50da/vllm/v1/hisparse/runtime.py#L1014-L1073) · [多 query 约束](https://github.com/vllm-project/vllm/blob/70cb50da/docs/design/hisparse.md)
 
-## 9. Ascend 初版复用流程，融合版改变哪个边界？
+## Ascend 适配与融合算子的接入边界
 
 移植 HiSparse 时，host register、缓存算子、格式视图、IPC event、DMA 等能力需要由目标平台提供，Scheduler、Coordinator、KV 身份与回收策略则可以继续复用社区实现。平台后端抽象已合入：`Platform.get_hisparse_backend_cls()` 提供入口，`HiSparseBackend` 承接上述平台能力。[后端抽象源码](https://github.com/vllm-project/vllm/blob/70cb50da/vllm/v1/hisparse/backend.py) · [平台抽象合入记录](https://github.com/vllm-project/vllm/pull/62592)
 
@@ -192,7 +192,7 @@ copy stream 先等 logical TopK ready，再依次执行 resolver、leader 层 ga
 
 ### 连续前缀边界，为什么不能直接替代 Resident 页表？
 
-前面介绍的 A5 LI+Manage / Copy-SFA 路线，建立在“Host 历史前缀 + 连续 Device tail”的来源划分上。HiSparse 的驻留可能离散：页 0 仍在 Device，页 1、2、3 已被复用，页 4、5 又是 Resident tail。一个长度边界无法表达这种分布。
+A5 的 LI+Manage / Copy-SFA 按“Host 历史前缀 + 连续 Device tail”划分 KV 来源。HiSparse 的驻留可能离散：页 0 仍在 Device，页 1、2、3 已被复用，页 4、5 又是 Resident tail。一个长度边界无法表达这种分布。
 
 要把这条融合路线接到 HiSparse，管理与取数就需要认识页级 Resident 映射：每个 TopK 先判断 Resident，再判断 Hot，最后才是 Source miss。保留连续 tail 的快捷路径可以减少部分开销，但不能覆盖中间离散驻留页的正确性。这是后续融合适配讨论中的设计方向。[融合适配提议](https://github.com/vllm-project/vllm-ascend/issues/19293)
 
@@ -206,7 +206,7 @@ copy stream 先等 logical TopK ready，再依次执行 resolver、leader 层 ga
 
 这些是融合接入需要闭合的契约，属于设计与验证工作。它不等于把一个 `gather()` 调用换成融合算子名称。Prefill 还要读取历史 chunk，所需行集与 Decode TopK 不同；原先以 PD 分离 Decode 为范围的实现，需要补齐这段流程。[融合与 Prefill 适配提议](https://github.com/vllm-project/vllm-ascend/issues/19293)
 
-## 10. 真正采一份 Trace，需要把哪些证据对起来？
+## 采集 Decode Trace 时要对齐的事件
 
 本章泳道只表达依赖。要判断融合是否缩短一轮 Decode，应在相同模型、上下文、batch、MTP、精度、命中状态和执行模式下采样，至少把下面几组事件对齐：
 
@@ -219,7 +219,7 @@ copy stream 先等 logical TopK ready，再依次执行 resolver、leader 层 ga
 
 最后将算子段、单轮模型耗时、TPOT 与稳态吞吐分开报告。现阶段由 Decode Offload 提供可用的容量承接路径；社区 HiSparse 提供后续共享管理与动态驻留的收敛方向。是否采用融合版，则由配对实现的正确性与同条件测量决定。
 
-## 11. 实现边界与参考资料
+## 实现边界与参考资料
 
 下表供对照代码和部署时查阅。公开状态核对于 **2026-11-12**。社区 HiSparse 机制按平台抽象合入点说明，Ascend 适配引用各自的公开 PR 或源码快照。
 

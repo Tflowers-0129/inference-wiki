@@ -8,25 +8,25 @@
 
 网页不依赖前端框架、外部字体或脚本。克隆仓库后即可在本地预览；运行时只需要 Python 3。模型测试另需 Node.js 18 或更新版本。
 
-第二、三章为由 Markdown 生成的图解网页：从调度到一次前向（输入组织、metadata、算子与访存、KV 地址、图提交与 Trace、metadata 同步与跨轮异步调度），以及投机解码（候选验证、KV 有效范围、成组输出与 ITL/TPOT）。投机章开头的播放器沿八个步骤展示起点、逐个提议、四行验证、提交回退与下一轮输入；默认状态面板随网页宽度排版，可切换完整 SVG 泳道，并配合静态完整流程图和工作坊 profiling 原图阅读。正文用同一位置的 Draft 和 Target 分布算首次拒绝与校正采样，再追到有效计数和下一 Token。实验室另比较逐 Token、成组与代理缓冲三种发送场景。网页不展示具体引擎发行编号。
+《从一轮调度到一次前向》从输入组织、算子与访存追到 metadata 同步和跨轮异步调度。《投机解码与流式指标》继续追踪候选验证、KV 有效范围和客户端收到的内容事件。投机章开头的播放器沿八个步骤展示起点、逐个提议、四行验证、提交回退与下一轮输入；默认状态面板随网页宽度排版，可切换完整 SVG 泳道，并配合静态完整流程图和工作坊 profiling 原图阅读。正文用同一位置的 Draft 和 Target 分布算首次拒绝与校正采样，再追到有效计数和下一 Token。实验室另比较逐 Token、成组与代理缓冲三种发送场景。网页不展示具体引擎发行编号。
 
 九章共用左侧篇章导航，进入后默认展开当前章的目录，点击章标题可折叠；手机通过顶栏菜单打开相同导航。
 
-第二章用五行输入核对 Q/K/V 形状、LM Head 的三个采样位置和两个有效输出，再以六张 SVG 说明权重复用与 KV 规模、精确值的消费者、缓冲复用事件、动态 K 接续、跨轮 Token 重排和 Triton padded 输入计算。Triton 图解可切换 Torch / Triton 及接受长度，区分减少 Host 回读与减少设备算子提交；较长的源码对照可在页内展开。
+《从一轮调度到一次前向》用五行输入核对 Q/K/V 形状、LM Head 的三个采样位置和两个有效输出，再以六张 SVG 说明权重复用与 KV 规模、精确值的消费者、缓冲复用事件、动态 K 接续、跨轮 Token 重排和 Triton padded 输入计算。Triton 图解可切换 Torch / Triton 及接受长度，区分减少 Host 回读与减少设备算子提交；较长的源码对照可在页内展开。
 
-第四章《负载均衡与专家并行》从请求入口的 DPLB 走到单层 MoE 的 EPLB，用五张 SVG 展开 DP/EP 维度、等请求数与不同工作量、同容量专家副本放置、rank × stream 泳道和权重/映射安全切换。两个交互分别演示冻结遥测下的新请求评分与本地信用，以及同十二个物理槽、八十次专家任务下的布局和热度变化。正文追到 DPLB 快照替换、EPLB 逻辑到物理查表与 STAIR 计数汇总。泳道是明确标注的教学构造，不使用工作坊原图推断负载均衡收益，也不把专家计数均衡度写成实际加速比。
+《负载均衡：DPLB 与 EPLB》从请求入口的 DPLB 走到单层 MoE 的 EPLB，用五张 SVG 展开 DP/EP 维度、等请求数与不同工作量、同容量专家副本放置、rank × stream 泳道和权重/映射安全切换。两个交互分别演示冻结遥测下的新请求评分与本地信用，以及同十二个物理槽、八十次专家任务下的布局和热度变化。正文追到 DPLB 快照替换、EPLB 逻辑到物理查表与 STAIR 计数汇总。泳道是明确标注的教学构造，不使用工作坊原图推断负载均衡收益，也不把专家计数均衡度写成实际加速比。
 
-第五章《EP 通信与计算重叠：算子选择与融合执行》承接第四章的专家执行，比较 AllGather、AllToAll、MC2 与 MegaMoE 的通信组织和选择条件。源码算例复算 AllToAllV 的 split 数组、专家行展开和结果逆重排。副本实验室固定四十个 token、八十次专家任务与同一专家布局，只切换目标 rank 分布，区分专家任务、本地使用、远端激活副本与 BF16 逻辑 payload，不预测耗时。模拟 profiling 沿已核查的 W8A8 自定义内核，区分普通 MC2 的默认局部融合与 Fused-MC2 的 AIV / AIC flag 协作；支持单步、事件依赖和源码定位，横轴为教学推进格。A5 实操另用四张真实 Perfetto 截图对照 MC2／CANN MegaMoE 的 rank0、rank1，保留专家任务数、flow 归属、异窗定位和解释边界。
+《EP 通信与计算重叠：算子选择与融合执行》从专家任务的收发入手，比较 AllGather、AllToAll、MC2 与 MegaMoE 的通信组织和选择条件。源码算例复算 AllToAllV 的 split 数组、专家行展开和结果逆重排。副本实验室固定四十个 token、八十次专家任务与同一专家布局，只切换目标 rank 分布，区分专家任务、本地使用、远端激活副本与 BF16 逻辑 payload，不预测耗时。模拟 profiling 沿已核查的 W8A8 自定义内核，区分普通 MC2 的默认局部融合与 Fused-MC2 的 AIV / AIC flag 协作；支持单步、事件依赖和源码定位，横轴为教学推进格。A5 实操另用四张真实 Perfetto 截图对照 MC2／CANN MegaMoE 的 rank0、rank1，保留专家任务数、flow 归属、异窗定位和解释边界。
 
-第六章《上下文并行：KV 分片与 Attention 归并》先说明 TP 对 KV head 的切分与复制，再追踪 PCP 的 query 划分、DCP 的本地块表和有效长度。用 A5 算例对齐 Q AllGather、output/LSE 打包和归并的张量形状与通信 count。A5 实操用 rank0／rank1 的真实截图、同轮通信配对和逐卡任务记录对照，区分本地调用链、跨 rank 等待线索与尚未确认的原因。
+《上下文并行：KV 分片与 Attention 归并》先说明 TP 对 KV head 的切分与复制，再追踪 PCP 的 query 划分、DCP 的本地块表和有效长度。用 A5 算例对齐 Q AllGather、output/LSE 打包和归并的张量形状与通信 count。A5 实操用 rank0／rank1 的真实截图、同轮通信配对和逐卡任务记录对照，区分本地调用链、跨 rank 等待线索与尚未确认的原因。
 
-第七章《PD 分离系统：请求交接与 KV 生命周期》沿 vLLM-Ascend 与 Mooncake 源码追踪目标块分配、传输、就绪与源引用释放。用 A5 上的 129-token GQA 拉取请求复算每个接收 rank 的 READ 地址范围和整页字节量，再用 TP4→TP2 的源码算例说明页内重排。逐层推送用 MQA+DCP2 对照分片、写入事件和完成通知。两条路径保留原生 HIXL 任务与 Host 观察。逐层推送首次预热中，释放调用早于后台写返回，正文保留这次观察的边界。
+《PD 分离系统：请求交接与 KV 生命周期》沿 vLLM-Ascend 与 Mooncake 源码追踪目标块分配、传输、就绪与源引用释放。用 A5 上的 129-token GQA 拉取请求复算每个接收 rank 的 READ 地址范围和整页字节量，再用 TP4→TP2 的源码算例说明页内重排。逐层推送用 MQA+DCP2 对照分片、写入事件和完成通知。两条路径保留原生 HIXL 任务与 Host 观察。逐层推送首次预热中，释放调用早于后台写返回，正文保留这次观察的边界。
 
-第八章《KV 缓存布局与递归状态》从一次 Decode 的写槽与分页读取出发，追踪缓存组、块大小和 BLHNC／LBHNC 步幅。沿第七章的 A5 请求核对每 rank 的 GQA 张量形状、K/V 页大小、块步幅和续算写槽。正文对照 Kimi K3、GLM-5.3 系列和 DeepSeek 系列中的 MLA、稀疏与压缩 Attention、递归状态，并用 C4 算例复算压缩写槽、TopK 读取和页内尺度偏移。播放器演示分配物理页、写入槽 36，以及从三个物理页读取九个有效位置。[KV 寻址播放器](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html#kv-decode-player)
+《KV 缓存布局与递归状态》从一次 Decode 的写槽与分页读取出发，追踪缓存组、块大小和 BLHNC／LBHNC 步幅。沿 PD 拉取实测的 A5 请求核对每 rank 的 GQA 张量形状、K/V 页大小、块步幅和续算写槽。正文对照 Kimi K3、GLM-5.3 系列和 DeepSeek 系列中的 MLA、稀疏与压缩 Attention、递归状态，并用 C4 算例复算压缩写槽、TopK 读取和页内尺度偏移。播放器演示分配物理页、写入槽 36，以及从三个物理页读取九个有效位置。[KV 寻址播放器](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html#kv-decode-player)
 
-第九章《稀疏 KV 卸载与 HiSparse》沿完整历史、逻辑 TopK 与设备工作集讲解 Decode Offload；五张 SVG 展示地址空间、A3 泳道、A5 两段融合以及 HiSparse 页生命周期和跨层 gather。缓存实验室可切换 CPU LRU 与 Resident/Hot/Source 解析，逐步查看命中、Host miss 与 Attention 槽位，正文把同一轮索引和回填配对落到 resolver 输出张量。正文区分已合入框架、待合入算子和 RFC 方向，性能表保留作者报告及测量边界。
+《稀疏 KV 卸载与 HiSparse》沿完整历史、逻辑 TopK 与设备工作集讲解 Decode Offload；五张 SVG 展示地址空间、A3 泳道、A5 两段融合以及 HiSparse 页生命周期和跨层 gather。缓存实验室可切换 CPU LRU 与 Resident/Hot/Source 解析，逐步查看命中、Host miss 与 Attention 槽位，正文把同一轮索引和回填配对落到 resolver 输出张量。正文区分已合入框架、待合入算子和 RFC 方向，性能表保留作者报告及测量边界。
 
-第二、三篇按字段和执行现场展开：先走通五 Token 的输入与 KV 地址，再查 Host/Device 对账、CPU 输入缓冲复用和跨轮提交；投机章沿 K=3、a=2 的同一份账本追到 padded 输入和客户端指标。metadata 部分从投机候选数追到验证后的有效 KV，再切换下一轮 K=0/1/3，对照 query 边界、位置和块寻址；Host / Device 的等待分别解释数据冲突与消费者依赖。每处源码片段注明调用路径，Trace 排查给出可区分的证据，不把机制示例写成实测经验。
+前向篇从五 Token 的输入和 KV 地址走到 CPU 输入缓冲复用、跨轮提交和 Host/Device 对账。投机解码沿 K=3、a=2 的同一份账本追到 padded 输入和客户端指标。metadata 部分从投机候选数追到验证后的有效 KV，再切换下一轮 K=0/1/3，对照 query 边界、位置和块寻址；Host / Device 的等待分别解释数据冲突与消费者依赖。每处源码片段注明调用路径，Trace 排查给出可区分的证据，不把机制示例写成实测经验。
 
 工作坊素材在格式转换、KV 启动容量和投机章真实设备时间线的对应讲解处采用三张原图。PD 播放器之后用一条实测请求对照 P/D 块表、缓存步幅和传输字节数。正文区分 P/D 实例池、本地 KV 块池和共享 KV 缓存池，以 QPS 推导配比，并分别计算 KDA 和 Lightning Indexer + DSA 的状态、缓存与交接带宽。抢占按分配失败、解除引用、重排队与重算恢复解释；播放器区分本轮执行量与轮末四类请求状态。
 
@@ -34,7 +34,7 @@
 
 ## 实操验证
 
-[实验脚本、结果与待验证清单](experiments/README.md) 覆盖已执行的 padded 输入、跨轮进度辅助函数、真实 SSE 缓冲、A5 双卡 MC2／CANN MegaMoE，以及上下文并行、[PD 分离系统](experiments/pd-disaggregation/README.md)。第二、三、五、六、七章分别补入对应实测；第六章验证 PCP 布局、生产 DCP 归并与三种双卡 ModelRunnerV2 拓扑，第七章用实际 HTTP 服务、官方 proxy 和 Mooncake 完成两条交接路径。两章分别保留原生设备截图与 Host／Device 观察边界。教学模拟继续保留原有标识，预训练完整模型、调度、负载均衡和稀疏 KV 的未测项目逐项列出。
+[实验脚本、结果与待验证清单](experiments/README.md) 覆盖已执行的 padded 输入、跨轮进度辅助函数、真实 SSE 缓冲、A5 双卡 MC2／CANN MegaMoE，以及上下文并行、[PD 分离系统](experiments/pd-disaggregation/README.md)。上下文并行实验验证 PCP 布局、生产 DCP 归并与三种双卡 ModelRunnerV2 拓扑。PD 分离实验用实际 HTTP 服务、官方 proxy 和 Mooncake 完成两条交接路径。两组实验均保留原生设备截图与 Host／Device 观察边界。教学模拟继续保留原有标识，预训练完整模型、调度、负载均衡和稀疏 KV 的未测项目逐项列出。
 
 ## 本地预览
 
@@ -82,7 +82,7 @@ python3 scripts/serve.py --port 4174
 - `dist/ep-timeline-model.js`、`dist/ep-timeline-app.js`、`dist/ep-timeline.css`：MC2 / Fused-MC2 的源码依赖模拟与 profiling 泳道；`scripts/ep-timeline.html` 为面板源片段。
 - `dist/kv-decode-model.js`、`dist/kv-decode-app.js`、`dist/kv-decode.css` 维护 KV 寻址播放器，面板源为 `scripts/kv-decode-player.html`。
 - `dist/offload-model.js`、`dist/offload-app.js`、`dist/offload.css`：TopK 缓存和地址教学模型；`scripts/offload-lab.html` 为面板源片段。
-- `scripts/build-chapters.py`：用标准库渲染第二章起的受控 Markdown；修改正文后运行同步命令即可更新网页。
+- `scripts/build-chapters.py`：用标准库渲染首页之外的受控 Markdown；修改正文后运行同步命令即可更新网页。
 - `dist/spec-model.js`、`dist/spec-app.js`、`dist/spec.css`：投机验证与流式指标实验室。
 - `dist/chapter.js`、`dist/chapters.css`：新篇章的目录、搜索与排版。
 - `scripts/spec-player.html`：投机交互面板源片段。
@@ -104,7 +104,7 @@ EP 静态泳道与交互模拟共用模型。修改 `dist/ep-timeline-model.js` 
 
 脚本默认读取本仓库的 `content/`，生成 `dist/source.md`、`dist/execution.md`、`dist/speculation.md`、`dist/load-balancing.md`、`dist/ep-communication.md`、`dist/context-parallel.md`、`dist/pd-disaggregation.md`、`dist/kv-cache-layouts.md`、`dist/sparse-offload.md` 和 `dist/technical-wiki-source.zip`，供页面上的下载链接使用。这些下载生成文件由 `.gitignore` 排除，部署前会重新生成。压缩包正文引用 `figures/`，解压后可直接连图阅读。也可使用 `--manuscript /绝对路径/文稿.md`，图源仍需保存在本仓库 `dist/assets/`。
 
-同步脚本会从第二章起的 Markdown 重建 `execution.html`、`speculation.html`、`load-balancing.html`、`ep-communication.html`、`context-parallel.html`、`pd-disaggregation.html`、`kv-cache-layouts.html` 与 `sparse-offload.html`。这些生成网页随仓库提交便于直接浏览，应修改 Markdown 和模板后重建；原有 `index.html` 仍按手工图文维护。渲染支持本文使用的段落、标题、平面列表、表格、代码块和 SVG / PNG 图片，不是任意 Markdown 的通用转换器。涉及模型假设时也需检查播放器。
+同步脚本会用对应的 Markdown 重建 `execution.html`、`speculation.html`、`load-balancing.html`、`ep-communication.html`、`context-parallel.html`、`pd-disaggregation.html`、`kv-cache-layouts.html` 与 `sparse-offload.html`。这些生成网页随仓库提交便于直接浏览，应修改 Markdown 和模板后重建；原有 `index.html` 仍按手工图文维护。渲染支持本文使用的段落、标题、平面列表、表格、代码块和 SVG / PNG 图片，不是任意 Markdown 的通用转换器。涉及模型假设时也需检查播放器。
 
 ## 检查与测试
 

@@ -36,8 +36,8 @@ def asset_url(name):
 def chapter_navigation(current, local_links):
     chapters = [('index', '调度、PD 与 KV')] + [(slug, title) for slug, _, title, _ in CHAPTERS]
     items = []
-    for number, (slug, title) in enumerate(chapters, 1):
-        label = f'<span class="wiki-chapter-number">{number:02d}</span><span>{html.escape(title)}</span>'
+    for slug, title in chapters:
+        label = f'<span>{html.escape(title)}</span>'
         if slug == current:
             items.append(f'<details class="wiki-chapter-current" data-nav-chapter="{slug}" open><summary aria-current="page">{label}</summary><nav class="main-nav chapter-nav" aria-label="本章目录">{local_links}</nav></details>')
         else:
@@ -85,8 +85,7 @@ def render_markdown(source, key):
         lines = lines[1:]
     parts, headings, paragraph = [], [], []
     section_open = False
-    injected = {}
-    spec_player = ""
+    spec_player = spec_stream = ''
     execution_lab = (ROOT / 'scripts' / 'execution-lab.html').read_text(encoding='utf-8') if key == 'execution' else ''
     lb_panels = {kind: (ROOT / 'scripts' / f'{kind}-lab.html').read_text(encoding='utf-8') for kind in ('dplb', 'eplb')} if key == 'load-balancing' else {}
     offload_lab = (ROOT / 'scripts' / 'offload-lab.html').read_text(encoding='utf-8') if key == 'sparse-offload' else ''
@@ -97,8 +96,7 @@ def render_markdown(source, key):
     if key == 'speculation':
         fragment = (ROOT / 'scripts' / 'spec-player.html').read_text(encoding='utf-8')
         split = fragment.index('<section class="spec-lab" id="spec-stream"')
-        spec_player = fragment[:split]
-        injected = {'7.': fragment[split:]}
+        spec_player, spec_stream = fragment[:split], fragment[split:]
 
     def flush():
         if paragraph:
@@ -112,6 +110,13 @@ def render_markdown(source, key):
             flush(); i += 1; continue
         if line == '<!-- SPEC_PLAYER -->':
             flush(); parts.append(spec_player); i += 1; continue
+        if line == '<!-- SPEC_STREAM -->':
+            flush()
+            if section_open:
+                parts.append('</section>')
+                section_open = False
+            parts.append(spec_stream)
+            i += 1; continue
         if line == '<!-- KV_DECODE_PLAYER -->':
             flush(); parts.append(kv_decode_player); i += 1; continue
         if line == '<!-- EXECUTION_LAB -->':
@@ -141,9 +146,6 @@ def render_markdown(source, key):
             if marks == '##':
                 if section_open:
                     parts.append('</section>')
-                for prefix, fragment in injected.items():
-                    if title.startswith(prefix):
-                        parts.append(fragment)
                 identifier = key + '-' + str(len(headings) + 1)
                 headings.append((identifier, title))
                 parts.append(f'<section class="lesson observed" id="{identifier}" data-title="{html.escape(title, quote=True)}"><h2>{inline(title)}</h2>')
