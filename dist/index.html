@@ -124,6 +124,13 @@
 </div>
 <p class="source-scope">路径范围：按 vLLM Ascend 官方 Mooncake 普通拉取流程做简化。Layerwise 推送、D2RH 主机暂存和不同代理的首 token 返回路径，要分别看实现。<a class="inline-source" href="https://docs.vllm.ai/projects/ascend/en/main/developer_guide/Design_Documents/disaggregated_prefill.html" target="_blank" rel="noopener">Ascend PD 设计 ↗</a></p>
 
+<div class="mechanism-block" id="pd-block-transfer">
+  <div class="mechanism-heading"><h3>129 个输入 Token，D 实际读了多少 KV？</h3></div>
+  <p>A5 拉取实验中，P、D 各用 TP2，模型有 2 层、2 个 KV heads。每 rank 每层持有 1 个 KV head。按本次 LBNHC 分配路径推导，K 和 V 各有一份 BF16 视图，逻辑轴是 <code>[物理块, 页内位置, 本地 KV head, 头宽]</code>，形状为 <code>[512,128,1,64]</code>。单个 K 页有 <code>128×1×64×2 = 16,384 B</code> 数据，V 页同样大。底层按块交替放置 K 页和 V 页，所以同一份 K 视图的相邻块起点相距 32,768 B。<a class="inline-source" href="https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/pull.json" target="_blank" rel="noopener">A5 拉取实验记录</a> · <a class="inline-source" href="kv-cache-layouts.html#kv-cache-layouts-5">KV 视图与步幅</a></p>
+  <p>129 个位置要用两页。实测请求在 P 的块表是 <code>[1,2]</code>，在 D 的块表是 <code>[5,4]</code>，所以逻辑第 0 页从 P1 读到 D5，第 1 页从 P2 读到 D4。每个 D rank 发起一次 READ，包含 <code>2 页×2 层×2 个组件 = 8</code> 个地址范围，共 131,072 B。末页只有 1 个有效位置，但 READ 搬运整页，因此有效 KV 是 <code>129×2×2×1×64×2 = 66,048 B</code> 每 rank。<a class="inline-source" href="pd-disaggregation.html#pd-disaggregation-3">拉取路径的地址与传输描述符</a></p>
+  <p>D 分配到块号后先等远端 KV。执行器收齐两个 Worker 的接收完成回报后，Scheduler 才能把请求放回可调度队列。该代理让 D 用原 prompt 接续，D 在恢复调度时重算末尾位置 128，再采样客户端收到的首 Token。<a class="inline-source" href="pd-disaggregation.html#pd-disaggregation-4">D 的接收完成与末位置重算</a></p>
+</div>
+
         <figure class="diagram-figure"><a class="diagram-expand" href="assets/pd-pipeline.svg" target="_blank" rel="noopener" title="打开完整图解"><img width="1000" height="420" src="assets/pd-pipeline.svg" alt="PD分离流水线：请求依次经过P排队、Prefill、KV传输、D排队和Decode。系统性能受多个环节共同约束。" loading="lazy"></a><figcaption><span>图 03</span>两段计算与中间传输，必须一起考虑。<em>点击图解放大 ↗</em></figcaption></figure>
         <div class="two-column-explain"><div><h3>PD 配比是针对输入 / 输出场景的</h3><p>输入长、输出短时，P 端计算及 KV 传输压力通常更大；输入短、输出长时，D 端处理时间通常更长。同一个配比不能直接迁移到另一组输入输出分布。</p></div><div><h3>比较吞吐前，先统一单位</h3><p>在固定长度、稳定负载的简化条件下，可把各环节容量统一换算为“请求 / 秒”。流水线可持续到达率受最慢环节约束，利用率接近饱和时排队延迟也会显著增加。</p></div></div>
         <div class="formula-strip pd-formula"><span>可持续吞吐上界</span><b>≤</b><strong>min ( P 容量，传输容量，D 容量 )</strong></div><p class="small-note">实际配比还取决于硬件、并行方式、网络、缓存、路由和 SLO；应以目标输入输出分布下的测量为依据。</p>

@@ -20,15 +20,15 @@
 
 第六章《上下文并行：KV 分片与 Attention 归并》先说明 TP 对 KV head 的切分与复制，再追踪 PCP 的 query 划分、DCP 的序列分片和局部 Attention 结果归并；A5 实操用 rank0／rank1 的真实截图、同轮通信配对和逐卡任务记录对照，区分本地调用链、跨 rank 等待线索与尚未确认的原因。
 
-第七章《PD 分离系统：请求交接与 KV 生命周期》承接单引擎内部的 KV 分片，沿 vLLM-Ascend 与 Mooncake 源码说明拉取式、逐层推送式的请求交接，追踪目标块分配、传输、就绪与源引用释放。A5 实操分别运行合法的 GQA 拉取与 MQA+DCP2 逐层推送，核对两个来源／接收 rank 的原生 HIXL 任务，并用真实 Host 观察追踪完成和释放；首次预热中释放调用早于后台写返回的记录单独保留，避免把测量中的先后当作实现保证。
+第七章《PD 分离系统：请求交接与 KV 生命周期》沿 vLLM-Ascend 与 Mooncake 源码追踪目标块分配、传输、就绪与源引用释放。用 A5 上的 129-token GQA 拉取请求复算每个接收 rank 的 READ 地址范围和整页字节量，再对照 MQA+DCP2 逐层推送的分片、写入事件和完成通知。两条路径保留原生 HIXL 任务与 Host 观察。逐层推送首次预热中，释放调用早于后台写返回，正文保留这次观察的边界。
 
-第八章《KV 缓存布局与递归状态》从一次 Decode 的写槽与分页读取出发，追踪缓存组、块大小和 BLHNC／LBHNC 步幅。按 GQA、MLA、稀疏与压缩 Attention、递归状态对照 Kimi K3、GLM-5.3 系列和 DeepSeek 系列，最后在 vLLM 与 vLLM-Ascend 的算子入口核对块表和缓存视图。播放器演示分配物理页、写入槽 36，以及从三个物理页读取九个有效位置。[KV 寻址播放器](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html#kv-decode-player)
+第八章《KV 缓存布局与递归状态》从一次 Decode 的写槽与分页读取出发，追踪缓存组、块大小和 BLHNC／LBHNC 步幅。沿第七章的 A5 请求核对每 rank 的 GQA 张量形状、K/V 页大小、块步幅和续算写槽。正文继续对照 Kimi K3、GLM-5.3 系列和 DeepSeek 系列中的 MLA、稀疏与压缩 Attention、递归状态。播放器演示分配物理页、写入槽 36，以及从三个物理页读取九个有效位置。[KV 寻址播放器](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html#kv-decode-player)
 
 第九章《稀疏 KV 卸载与 HiSparse》沿完整历史、逻辑 TopK 与设备工作集讲解 Decode Offload；五张 SVG 展示地址空间、A3 泳道、A5 两段融合以及 HiSparse 页生命周期和跨层 gather。缓存实验室可切换 CPU LRU 与 Resident/Hot/Source 解析，逐步查看命中、Host miss 与 Attention 槽位。正文区分已合入框架、待合入算子和 RFC 方向，性能表保留作者报告及测量边界。
 
 第二、三篇按字段和执行现场展开：先走通五 Token 的输入与 KV 地址，再查 Host/Device 对账、CPU 输入缓冲复用和跨轮提交；投机章沿 K=3、a=2 的同一份账本追到 padded 输入和客户端指标。metadata 部分从投机候选数追到验证后的有效 KV，再切换下一轮 K=0/1/3，对照 query 边界、位置和块寻址；Host / Device 的等待分别解释数据冲突与消费者依赖。每处源码片段注明调用路径，Trace 排查给出可区分的证据，不把机制示例写成实测经验。
 
-工作坊素材在格式转换、KV 启动容量和投机章真实设备时间线的对应讲解处采用三张原图。PD 的交接依赖由播放器与简短说明呈现。正文区分 P/D 实例池、本地 KV 块池和共享 KV 缓存池，以 QPS 推导配比，并分别计算 KDA 和 Lightning Indexer + DSA 的状态、缓存与交接带宽。抢占按分配失败、解除引用、重排队与重算恢复解释；播放器区分本轮执行量与轮末四类请求状态。
+工作坊素材在格式转换、KV 启动容量和投机章真实设备时间线的对应讲解处采用三张原图。PD 播放器之后用一条实测请求对照 P/D 块表、缓存步幅和传输字节数。正文区分 P/D 实例池、本地 KV 块池和共享 KV 缓存池，以 QPS 推导配比，并分别计算 KDA 和 Lightning Indexer + DSA 的状态、缓存与交接带宽。抢占按分配失败、解除引用、重排队与重算恢复解释；播放器区分本轮执行量与轮末四类请求状态。
 
 [素材来源清单](dist/assets/profile-sources.json) 保存源文件名、上传提交、Git blob 校验值、采用位置及重绘依据；源仓库为私有，站内图片已本地保存，阅读站点不需要源仓库权限。公开仓库和下载包只含挑选的图片与新写分析。
 

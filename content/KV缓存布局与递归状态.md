@@ -89,7 +89,26 @@ BLHNC  (b×L+l)×16+12 = (1×2+1)×16+12 = 60
 
 这里 `B` 取对应视图的物理块数，`N` 取每块 token 槽数，`D` 是每头元素数。CUDA 可以在满足支持条件时用 `--attention-backend FLASH_ATTN` 或 `FLASHINFER` 选择实现。Ascend 路径由平台和模型配置分派。FIA 的 query `input_layout=TND` 中，`T` 为本轮 query 行，`N` 指 query heads，`D` 是头宽。Cache 参数仍可带物理块表。[CUDA 后端选择](https://docs.vllm.ai/en/latest/design/attention_backends/#setting-the-attention-backend) · [FlashAttention 视图](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/attention/backends/flash_attn.py) · [FlashInfer 视图](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/attention/backends/flashinfer.py) · [Ascend 形状与 FIA](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/attention_v1.py)
 
+把上面的 Qwen3-8B 算例放进 CUDA FlashAttention 的紧密 `LBHNC` 布局。本层合并视图为 `[B,2,16,256]`，BF16 元素步幅为 `(8192,4096,256,1)`。写入入口先交换 head 和页内位置轴，再沿末轴拆 K/V。拆出的两个视图各为 `[B,16,2,128]`，步幅都为 `(8192,256,4096,1)`，V 的起点比 K 多 128 个元素（256 B）。同一 head 的下一行 K 要跨过当前行的 V，所以只看拆出的 shape 会算错行步幅。[通用视图构造](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/kv_cache_interface.py#L347-L411) · [FlashAttention 拆分与写入](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/attention/backends/flash_attn.py#L1438-L1472)
+
 当 TP rank 多于总 KV heads，多个 rank 可能保存同一个 head。DCP 还可以切分该 head 的历史位置。容量公式分别代入本地头数和本地位置数。[TP、PCP 与 DCP](上下文并行与Attention归并.md)
+
+### A5 的一张页怎样映射到 K/V 两个视图？
+
+沿用第七章拉取实验的 `prompt129-repetition0`。两层 Qwen2 的全局 Q/KV heads 为 8/2，TP2、DCP1，头宽 64，KV 为 BF16。每个 rank 有 4 个 Q heads、1 个 KV head。Prefill 的 129 个有效位置在每层形成 Q `[129,4,64]` 和新 K、V 各 `[129,1,64]`。Worker 预分配的页池以 128 个位置为一页，单层一页占 `128×1×64×2 B×2=32,768 B`。同一个块号在两层各占一页，合计 64 KiB，按 32 MiB/rank 池预算得到 512 个物理块。[实验配置与请求记录](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/pull.json) · [池块数计算](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/kv_cache_utils.py#L1622-L1629)
+
+这个 eager 配置走普通 FullAttention 的合并分配分支。每层的 backing 按 `[K页0][V页0][K页1][V页1]…` 排列，Runner 用 `as_strided` 从中绑定两份视图。实验两端启动时报告 `LBNHC`，下表按对应的 NHD 形状分支从源码推导。stride 用 BF16 元素计，偏移从本层对齐后的页池起点算。[合并分配条件](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/attn_utils.py#L1529-L1568) · [PA 连续分配条件](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/utils.py#L288-L321) · [视图步幅](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/attn_utils.py#L820-L852) · [形状分支](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/attention_v1.py#L114-L124)
+
+| 单层视图 | BF16 shape | stride（元素） | 第 0 页起点（字节） |
+| --- | --- | --- | --- |
+| K | `[512,128,1,64]` | `(16384,64,64,1)` | 0 |
+| V | `[512,128,1,64]` | `(16384,64,64,1)` | 16,384 |
+
+在相同分配条件下，若改用 `LBHNC` 或别名 `HND`，两个视图变为 `[512,1,128,64]`，stride 为 `(16384,8192,64,1)`。本例只有一个本地 KV head，交换 head 和位置轴后的字节偏移相同。[形状分支](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/attention_v1.py#L114-L124)
+
+对于块号 `b`、页内行 `n`、通道 `d`，K 的字节偏移为 `b×32,768+n×128+d×2`，V 再加 16,384 B。一个 K 页有 16 KiB，相邻 K 页的起点相距 32 KiB，中间隔着一个 V 页。连接器分别记录每个视图的 `block_len`（一段传多少字节）与 `block_stride`（下一个块从哪里开始）。实测中 P 的 `[1,2]` 交给 D 的 `[5,4]`，每个 D rank 提交 `2 块×2 层×2 组件=8` 段，共 128 KiB。129 行有效 KV 只占 `129×2 层×256 B=66,048 B`，差额来自尾页剩下的 127 个槽。[连接器登记视图](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L2666-L2709) · [传输记录](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/pull.json) · [PD 分离系统与 KV 生命周期](PD分离系统与KV生命周期.md)
+
+D 收齐后先重算最后一个 prompt 位置 128，按目标块表写到块 4 的行 0，`slot_mapping=[512]`。等 D 把刚采样的输出作为下一轮输入，位置 129 写到块 4 的行 1，槽号 513。此时 K 第 0 通道的偏移为 `4×32,768+128=131,200 B`，V 为 147,584 B。分页 FIA 在 NHD 路径上把 K、V 各展成 `[512,128,64]`，再用 `block_table=[5,4]` 和 `actual_seq_lengths_kv=[130]` 读取两页中的 128+2 行。块 4 中其余槽仍在分配范围内，随有效长度增长才进入 Attention。[远端加载后重算末位置](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L3155-L3189) · [FIA 读取视图和长度](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/attention_v1.py#L861-L911)
 
 ## 6. MLA 的 576 维记录怎样供多个 Q heads 使用？
 
@@ -232,19 +251,27 @@ VLLM_USE_V2_MODEL_RUNNER=1 vllm serve Qwen/Qwen3-8B \
 
 
 1. 在初始化结束时记下 `kv_cache_config.num_blocks`、每组的 `layer_names` 和 `kv_cache_spec`、选出的 `kernel_block_sizes`。用组内 backend 的类名和层的实现类识别路径。Ascend 的普通 backend 名可能显示为 `CUSTOM`，实际实现由类和运行时分支确定。
-2. 在分配和绑定完成后，每组挑一层，在 worker 内用下方的 `describe_cache(layer_name, layer.kv_cache)` 查看该层绑定的缓存。保留 shape、stride、dtype 和 `storage_offset`。如果是 PD 部署，在两端分别记，并对照连接器登记的组件。
+2. 在分配和绑定完成后，每组挑一层，在 worker 内用下方的 `describe_cache(layer_name, layer.kv_cache)` 查看该层绑定的缓存。两份视图如果显示相同的 `storage` 编号，就从同一个底层分配的起点算偏移。`offset_bytes` 和 `stride0_bytes` 分别给出视图起点和块轴的步幅，`storage_bytes` 还包含该底层分配里的对齐余量或其他共享视图。如果是 PD 部署，在两端分别记，并对照连接器登记的组件。
 3. 在该轮准备 metadata 和调用算子时，各记一次有效的块表行、写槽和长度。若读表被展开成 kernel 页，先换算到同一寻址单位再比。只截取该请求和本轮有效的表项，避免混入图预热和 padding。把数字拷回 Host 可能同步设备，性能测量应关闭这类调试记录。[上游分配和绑定入口](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/attn_utils.py#L396-L444) · [Ascend MRv2 缓存视图](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/attn_utils.py#L2010-L2070) · [Ascend MRv2 块表](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/block_table.py)
 
 ```python
 def describe_cache(layer_name, cache):
     views = cache if isinstance(cache, (tuple, list)) else (cache,)
+    storage_ids = {}
     for component, view in enumerate(views):
+        storage = view.untyped_storage()
+        storage_key = (view.device, storage.data_ptr())
+        storage_id = storage_ids.setdefault(storage_key, len(storage_ids))
+        element_bytes = view.element_size()
         print(
             layer_name, component, view.device, view.dtype,
             "shape", tuple(view.shape),
-            "stride", view.stride(),
-            "offset", view.storage_offset(),
-            "bytes_per_elem", view.element_size(),
+            "stride_elements", view.stride(),
+            "storage", storage_id,
+            "storage_bytes", storage.nbytes(),
+            "offset_bytes", view.storage_offset() * element_bytes,
+            "stride0_bytes", view.stride(0) * element_bytes,
+            "bytes_per_elem", element_bytes,
         )
 ```
 
