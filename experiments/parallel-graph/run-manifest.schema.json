@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Parallel experiment manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "captured_date",
+    "environment",
+    "experiments",
+    "sources_manifest",
+    "sources_manifest_sha256",
+    "exclusions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wiki-parallel-experiments/1"
+    },
+    "captured_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "environment": {
+      "type": "object",
+      "required": [
+        "device",
+        "collective_backend"
+      ]
+    },
+    "experiments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "script",
+          "script_sha256",
+          "independent_launches",
+          "rank_case_count",
+          "scope"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_run"
+            ]
+          },
+          "script": {
+            "type": "string"
+          },
+          "script_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "independent_launches": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rank_case_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "scope": {
+            "type": "string"
+          },
+          "result_file": {
+            "type": "string"
+          },
+          "result_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "sources_manifest": {
+      "type": "string"
+    },
+    "sources_manifest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "exclusions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

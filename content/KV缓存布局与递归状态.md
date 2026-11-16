@@ -81,6 +81,8 @@ BLHNC  (b×L+l)×16+12 = (1×2+1)×16+12 = 60
 
 取 Qwen3-8B 的 TP4。36 层各有 32 个 Q heads、8 个 KV heads，头宽均为 128。本轮有五个有效 query 位置时，本 rank 的 Q 是 `[5,8,128]`，新 K 和 V 各是 `[5,2,128]`。缓存里的一个历史位置存 `2×(128+128)×2=1024 B`（BF16）。取 16 槽的 CUDA kernel 块，一层一页是 16 KiB。本文所查的 Ascend 普通 Attention 用 128 槽，一层一页是 128 KiB。若本 rank 持有全部 36 层、4096 个历史位置，两者的有效载荷同为 144 MiB。设备分配还要计入未用槽位和对齐。[Qwen3-8B 配置](https://huggingface.co/Qwen/Qwen3-8B/blob/main/config.json) · [Ascend kernel 块长](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/attention_v1.py#L153-L155)
 
+这里的本地 `H` 由总 KV head 数与 TP 大小共同决定。普通 GQA 在 TP 尚未超过总 KV heads 时按 head 分片，超过后进入 head 复制；复制阈值随模型变化。DCP 再决定一个本地 head 保留哪些历史位置，SP 则决定部分层之间的本轮激活行归属。三者的算例与实现边界见[上下文并行：KV 分片与 Attention 归并](上下文并行与Attention归并.md)。
+
 | 普通、等宽的 BF16 路径 | 每层持久缓存视图 | 算子入口 |
 | --- | --- | --- |
 | vLLM CUDA FlashAttention | `[B,H,N,2D]` | 转为 `[B,N,H,2D]`，再沿末轴取两份 `[B,N,H,D]` |

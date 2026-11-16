@@ -1,0 +1,916 @@
+{
+  "schema_version": "wiki-dp-protocol-summary/1",
+  "captured_date": "2026-11-16",
+  "status": "passed",
+  "scope": "Pinned production Python AST bodies with actual two-process CPU/Gloo AllReduce; controlled capture catalogue; no engine model or NPU graph executed",
+  "independent_launches": 2,
+  "cases_per_rank_per_launch": 5,
+  "rank_case_count": 20,
+  "device_graph_capture_executed": false,
+  "runs": [
+    {
+      "schema_version": "wiki-parallel-graph/1",
+      "started_at": "2026-11-16T05:09:15.242341+00:00",
+      "rank": 0,
+      "world_size": 2,
+      "device": "cpu",
+      "status": "passed",
+      "script_sha256": "afceb8a8e8544a97133b7adeb7c2deb4f820c751ff15ba13d2846fb9fc7b31ef",
+      "sources": {
+        "manifest": {
+          "checked_date": "2026-11-16",
+          "sources": [
+            {
+              "file": "compilation.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/config/compilation.py",
+              "sha256": "c9cec5c7200e8e559810ec8c30113ad61dab6780f9f7fb3c116bd0d9b5a43065",
+              "license": "Apache-2.0"
+            },
+            {
+              "file": "cudagraph_utils.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/v1/worker/gpu/cudagraph_utils.py",
+              "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+              "license": "Apache-2.0"
+            },
+            {
+              "file": "dp_utils.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/v1/worker/gpu/dp_utils.py",
+              "sha256": "e26867bc89e6bfc933cabc5ed13e5dc7b8d2d3030118ca1ca64c8785dabc0fc1",
+              "license": "Apache-2.0"
+            }
+          ]
+        },
+        "extracted_nodes": [
+          {
+            "file": "compilation.py",
+            "sha256": "c9cec5c7200e8e559810ec8c30113ad61dab6780f9f7fb3c116bd0d9b5a43065",
+            "nodes": [
+              {
+                "name": "CUDAGraphMode",
+                "line": 53,
+                "end_line": 110,
+                "ast_sha256": "d0ab33cabd159aee4127a2e89d3bbe491b63d805a368a1adb9892770ea1bb96d"
+              }
+            ]
+          },
+          {
+            "file": "cudagraph_utils.py",
+            "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+            "nodes": [
+              {
+                "name": "BatchExecutionDescriptor",
+                "line": 63,
+                "end_line": 76,
+                "ast_sha256": "b6f47b0ad3b0b7e5bd83db185b4a723412fbf0008956edbbdd9fa366e6c3a596"
+              },
+              {
+                "name": "_is_compatible",
+                "line": 102,
+                "end_line": 129,
+                "ast_sha256": "d16d9c6a3bc4175fee35ef374c92c13f047d843e9444960aafee36611dc11ce9"
+              }
+            ]
+          },
+          {
+            "file": "cudagraph_utils.py",
+            "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+            "nodes": [
+              {
+                "name": "_resolve_effective_loras",
+                "line": 214,
+                "end_line": 219,
+                "ast_sha256": "4519483638e641f63bca40932141422a1a5bc97c5fd89683576b9e491234f3f5"
+              },
+              {
+                "name": "dispatch",
+                "line": 496,
+                "end_line": 527,
+                "ast_sha256": "f977fc49063453630067e175d79f297697dac4592a1a956826600607a296474f"
+              }
+            ]
+          },
+          {
+            "file": "dp_utils.py",
+            "sha256": "e26867bc89e6bfc933cabc5ed13e5dc7b8d2d3030118ca1ca64c8785dabc0fc1",
+            "nodes": [
+              {
+                "name": "DPSyncState",
+                "line": 22,
+                "end_line": 41,
+                "ast_sha256": "b8f37c4daac88c844478a4783af4450911b94d1d3da356de70456cc30f042dbf"
+              },
+              {
+                "name": "sync_cudagraph_and_dp_padding",
+                "line": 44,
+                "end_line": 211,
+                "ast_sha256": "5954b6c9fde68fdf11573cf2538222185201cc363d2ad1819ec08590cba33a24"
+              },
+              {
+                "name": "dispatch_cg_and_sync_dp",
+                "line": 214,
+                "end_line": 318,
+                "ast_sha256": "dfbe0161381864e1f8a2b614b227d95550e23c0ecccde1ebb7c98abb1c72d9fc"
+              }
+            ]
+          }
+        ],
+        "method_bodies_modified": false,
+        "controlled_fields": [
+          "capture catalogue",
+          "get_dp_group",
+          "should_skip_dp_coordination=False"
+        ],
+        "excluded": [
+          "DBO",
+          "LoRA",
+          "speculation",
+          "varlen decode",
+          "model runner",
+          "attention"
+        ]
+      },
+      "environment": {
+        "python": "3.11.6",
+        "torch": "2.15.0+cu132"
+      },
+      "fixture": {
+        "topology": "two DP participants, one scalar expert each",
+        "capture_sizes": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "width": 4,
+        "dtype": "float32",
+        "repetitions": 2
+      },
+      "capture_events": [],
+      "cases": [
+        {
+          "name": "uneven_decode",
+          "scheduled_tokens": [
+            3,
+            5
+          ],
+          "local_protocol_tokens": 3,
+          "mode": "FULL",
+          "descriptor_tokens": 8,
+          "tokens_across_dp": [
+            8,
+            8
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "empty_partner_dummy",
+          "scheduled_tokens": [
+            0,
+            5
+          ],
+          "local_protocol_tokens": 1,
+          "mode": "FULL",
+          "descriptor_tokens": 8,
+          "tokens_across_dp": [
+            8,
+            8
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "mixed_prefill",
+          "scheduled_tokens": [
+            3,
+            5
+          ],
+          "local_protocol_tokens": 3,
+          "mode": "NONE",
+          "descriptor_tokens": 3,
+          "tokens_across_dp": [
+            3,
+            5
+          ],
+          "uniform_token_count": null,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "outside_capture_catalogue",
+          "scheduled_tokens": [
+            3,
+            9
+          ],
+          "local_protocol_tokens": 3,
+          "mode": "NONE",
+          "descriptor_tokens": 3,
+          "tokens_across_dp": [
+            3,
+            9
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "all_idle",
+          "scheduled_tokens": [
+            0,
+            0
+          ],
+          "local_protocol_tokens": 0,
+          "mode": "NONE",
+          "descriptor_tokens": 0,
+          "tokens_across_dp": null,
+          "uniform_token_count": null,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        }
+      ],
+      "scope": "production DP source replay with fixture capture catalogue; optional teaching expert kernel with actual HCCL/NPUGraph; no vLLM model or service timing",
+      "finished_at": "2026-11-16T05:09:15.278759+00:00",
+      "independent_launch": 1
+    },
+    {
+      "schema_version": "wiki-parallel-graph/1",
+      "started_at": "2026-11-16T05:09:15.242505+00:00",
+      "rank": 1,
+      "world_size": 2,
+      "device": "cpu",
+      "status": "passed",
+      "script_sha256": "afceb8a8e8544a97133b7adeb7c2deb4f820c751ff15ba13d2846fb9fc7b31ef",
+      "sources": {
+        "manifest": {
+          "checked_date": "2026-11-16",
+          "sources": [
+            {
+              "file": "compilation.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/config/compilation.py",
+              "sha256": "c9cec5c7200e8e559810ec8c30113ad61dab6780f9f7fb3c116bd0d9b5a43065",
+              "license": "Apache-2.0"
+            },
+            {
+              "file": "cudagraph_utils.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/v1/worker/gpu/cudagraph_utils.py",
+              "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+              "license": "Apache-2.0"
+            },
+            {
+              "file": "dp_utils.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/v1/worker/gpu/dp_utils.py",
+              "sha256": "e26867bc89e6bfc933cabc5ed13e5dc7b8d2d3030118ca1ca64c8785dabc0fc1",
+              "license": "Apache-2.0"
+            }
+          ]
+        },
+        "extracted_nodes": [
+          {
+            "file": "compilation.py",
+            "sha256": "c9cec5c7200e8e559810ec8c30113ad61dab6780f9f7fb3c116bd0d9b5a43065",
+            "nodes": [
+              {
+                "name": "CUDAGraphMode",
+                "line": 53,
+                "end_line": 110,
+                "ast_sha256": "d0ab33cabd159aee4127a2e89d3bbe491b63d805a368a1adb9892770ea1bb96d"
+              }
+            ]
+          },
+          {
+            "file": "cudagraph_utils.py",
+            "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+            "nodes": [
+              {
+                "name": "BatchExecutionDescriptor",
+                "line": 63,
+                "end_line": 76,
+                "ast_sha256": "b6f47b0ad3b0b7e5bd83db185b4a723412fbf0008956edbbdd9fa366e6c3a596"
+              },
+              {
+                "name": "_is_compatible",
+                "line": 102,
+                "end_line": 129,
+                "ast_sha256": "d16d9c6a3bc4175fee35ef374c92c13f047d843e9444960aafee36611dc11ce9"
+              }
+            ]
+          },
+          {
+            "file": "cudagraph_utils.py",
+            "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+            "nodes": [
+              {
+                "name": "_resolve_effective_loras",
+                "line": 214,
+                "end_line": 219,
+                "ast_sha256": "4519483638e641f63bca40932141422a1a5bc97c5fd89683576b9e491234f3f5"
+              },
+              {
+                "name": "dispatch",
+                "line": 496,
+                "end_line": 527,
+                "ast_sha256": "f977fc49063453630067e175d79f297697dac4592a1a956826600607a296474f"
+              }
+            ]
+          },
+          {
+            "file": "dp_utils.py",
+            "sha256": "e26867bc89e6bfc933cabc5ed13e5dc7b8d2d3030118ca1ca64c8785dabc0fc1",
+            "nodes": [
+              {
+                "name": "DPSyncState",
+                "line": 22,
+                "end_line": 41,
+                "ast_sha256": "b8f37c4daac88c844478a4783af4450911b94d1d3da356de70456cc30f042dbf"
+              },
+              {
+                "name": "sync_cudagraph_and_dp_padding",
+                "line": 44,
+                "end_line": 211,
+                "ast_sha256": "5954b6c9fde68fdf11573cf2538222185201cc363d2ad1819ec08590cba33a24"
+              },
+              {
+                "name": "dispatch_cg_and_sync_dp",
+                "line": 214,
+                "end_line": 318,
+                "ast_sha256": "dfbe0161381864e1f8a2b614b227d95550e23c0ecccde1ebb7c98abb1c72d9fc"
+              }
+            ]
+          }
+        ],
+        "method_bodies_modified": false,
+        "controlled_fields": [
+          "capture catalogue",
+          "get_dp_group",
+          "should_skip_dp_coordination=False"
+        ],
+        "excluded": [
+          "DBO",
+          "LoRA",
+          "speculation",
+          "varlen decode",
+          "model runner",
+          "attention"
+        ]
+      },
+      "environment": {
+        "python": "3.11.6",
+        "torch": "2.15.0+cu132"
+      },
+      "fixture": {
+        "topology": "two DP participants, one scalar expert each",
+        "capture_sizes": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "width": 4,
+        "dtype": "float32",
+        "repetitions": 2
+      },
+      "capture_events": [],
+      "cases": [
+        {
+          "name": "uneven_decode",
+          "scheduled_tokens": [
+            3,
+            5
+          ],
+          "local_protocol_tokens": 5,
+          "mode": "FULL",
+          "descriptor_tokens": 8,
+          "tokens_across_dp": [
+            8,
+            8
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "empty_partner_dummy",
+          "scheduled_tokens": [
+            0,
+            5
+          ],
+          "local_protocol_tokens": 5,
+          "mode": "FULL",
+          "descriptor_tokens": 8,
+          "tokens_across_dp": [
+            8,
+            8
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "mixed_prefill",
+          "scheduled_tokens": [
+            3,
+            5
+          ],
+          "local_protocol_tokens": 5,
+          "mode": "NONE",
+          "descriptor_tokens": 5,
+          "tokens_across_dp": [
+            3,
+            5
+          ],
+          "uniform_token_count": null,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "outside_capture_catalogue",
+          "scheduled_tokens": [
+            3,
+            9
+          ],
+          "local_protocol_tokens": 9,
+          "mode": "NONE",
+          "descriptor_tokens": 9,
+          "tokens_across_dp": [
+            3,
+            9
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "all_idle",
+          "scheduled_tokens": [
+            0,
+            0
+          ],
+          "local_protocol_tokens": 0,
+          "mode": "NONE",
+          "descriptor_tokens": 0,
+          "tokens_across_dp": null,
+          "uniform_token_count": null,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        }
+      ],
+      "scope": "production DP source replay with fixture capture catalogue; optional teaching expert kernel with actual HCCL/NPUGraph; no vLLM model or service timing",
+      "finished_at": "2026-11-16T05:09:15.278705+00:00",
+      "independent_launch": 1
+    },
+    {
+      "schema_version": "wiki-parallel-graph/1",
+      "started_at": "2026-11-16T05:09:18.273859+00:00",
+      "rank": 0,
+      "world_size": 2,
+      "device": "cpu",
+      "status": "passed",
+      "script_sha256": "afceb8a8e8544a97133b7adeb7c2deb4f820c751ff15ba13d2846fb9fc7b31ef",
+      "sources": {
+        "manifest": {
+          "checked_date": "2026-11-16",
+          "sources": [
+            {
+              "file": "compilation.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/config/compilation.py",
+              "sha256": "c9cec5c7200e8e559810ec8c30113ad61dab6780f9f7fb3c116bd0d9b5a43065",
+              "license": "Apache-2.0"
+            },
+            {
+              "file": "cudagraph_utils.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/v1/worker/gpu/cudagraph_utils.py",
+              "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+              "license": "Apache-2.0"
+            },
+            {
+              "file": "dp_utils.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/v1/worker/gpu/dp_utils.py",
+              "sha256": "e26867bc89e6bfc933cabc5ed13e5dc7b8d2d3030118ca1ca64c8785dabc0fc1",
+              "license": "Apache-2.0"
+            }
+          ]
+        },
+        "extracted_nodes": [
+          {
+            "file": "compilation.py",
+            "sha256": "c9cec5c7200e8e559810ec8c30113ad61dab6780f9f7fb3c116bd0d9b5a43065",
+            "nodes": [
+              {
+                "name": "CUDAGraphMode",
+                "line": 53,
+                "end_line": 110,
+                "ast_sha256": "d0ab33cabd159aee4127a2e89d3bbe491b63d805a368a1adb9892770ea1bb96d"
+              }
+            ]
+          },
+          {
+            "file": "cudagraph_utils.py",
+            "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+            "nodes": [
+              {
+                "name": "BatchExecutionDescriptor",
+                "line": 63,
+                "end_line": 76,
+                "ast_sha256": "b6f47b0ad3b0b7e5bd83db185b4a723412fbf0008956edbbdd9fa366e6c3a596"
+              },
+              {
+                "name": "_is_compatible",
+                "line": 102,
+                "end_line": 129,
+                "ast_sha256": "d16d9c6a3bc4175fee35ef374c92c13f047d843e9444960aafee36611dc11ce9"
+              }
+            ]
+          },
+          {
+            "file": "cudagraph_utils.py",
+            "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+            "nodes": [
+              {
+                "name": "_resolve_effective_loras",
+                "line": 214,
+                "end_line": 219,
+                "ast_sha256": "4519483638e641f63bca40932141422a1a5bc97c5fd89683576b9e491234f3f5"
+              },
+              {
+                "name": "dispatch",
+                "line": 496,
+                "end_line": 527,
+                "ast_sha256": "f977fc49063453630067e175d79f297697dac4592a1a956826600607a296474f"
+              }
+            ]
+          },
+          {
+            "file": "dp_utils.py",
+            "sha256": "e26867bc89e6bfc933cabc5ed13e5dc7b8d2d3030118ca1ca64c8785dabc0fc1",
+            "nodes": [
+              {
+                "name": "DPSyncState",
+                "line": 22,
+                "end_line": 41,
+                "ast_sha256": "b8f37c4daac88c844478a4783af4450911b94d1d3da356de70456cc30f042dbf"
+              },
+              {
+                "name": "sync_cudagraph_and_dp_padding",
+                "line": 44,
+                "end_line": 211,
+                "ast_sha256": "5954b6c9fde68fdf11573cf2538222185201cc363d2ad1819ec08590cba33a24"
+              },
+              {
+                "name": "dispatch_cg_and_sync_dp",
+                "line": 214,
+                "end_line": 318,
+                "ast_sha256": "dfbe0161381864e1f8a2b614b227d95550e23c0ecccde1ebb7c98abb1c72d9fc"
+              }
+            ]
+          }
+        ],
+        "method_bodies_modified": false,
+        "controlled_fields": [
+          "capture catalogue",
+          "get_dp_group",
+          "should_skip_dp_coordination=False"
+        ],
+        "excluded": [
+          "DBO",
+          "LoRA",
+          "speculation",
+          "varlen decode",
+          "model runner",
+          "attention"
+        ]
+      },
+      "environment": {
+        "python": "3.11.6",
+        "torch": "2.15.0+cu132"
+      },
+      "fixture": {
+        "topology": "two DP participants, one scalar expert each",
+        "capture_sizes": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "width": 4,
+        "dtype": "float32",
+        "repetitions": 2
+      },
+      "capture_events": [],
+      "cases": [
+        {
+          "name": "uneven_decode",
+          "scheduled_tokens": [
+            3,
+            5
+          ],
+          "local_protocol_tokens": 3,
+          "mode": "FULL",
+          "descriptor_tokens": 8,
+          "tokens_across_dp": [
+            8,
+            8
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "empty_partner_dummy",
+          "scheduled_tokens": [
+            0,
+            5
+          ],
+          "local_protocol_tokens": 1,
+          "mode": "FULL",
+          "descriptor_tokens": 8,
+          "tokens_across_dp": [
+            8,
+            8
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "mixed_prefill",
+          "scheduled_tokens": [
+            3,
+            5
+          ],
+          "local_protocol_tokens": 3,
+          "mode": "NONE",
+          "descriptor_tokens": 3,
+          "tokens_across_dp": [
+            3,
+            5
+          ],
+          "uniform_token_count": null,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "outside_capture_catalogue",
+          "scheduled_tokens": [
+            3,
+            9
+          ],
+          "local_protocol_tokens": 3,
+          "mode": "NONE",
+          "descriptor_tokens": 3,
+          "tokens_across_dp": [
+            3,
+            9
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "all_idle",
+          "scheduled_tokens": [
+            0,
+            0
+          ],
+          "local_protocol_tokens": 0,
+          "mode": "NONE",
+          "descriptor_tokens": 0,
+          "tokens_across_dp": null,
+          "uniform_token_count": null,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        }
+      ],
+      "scope": "production DP source replay with fixture capture catalogue; optional teaching expert kernel with actual HCCL/NPUGraph; no vLLM model or service timing",
+      "finished_at": "2026-11-16T05:09:18.310241+00:00",
+      "independent_launch": 2
+    },
+    {
+      "schema_version": "wiki-parallel-graph/1",
+      "started_at": "2026-11-16T05:09:18.274223+00:00",
+      "rank": 1,
+      "world_size": 2,
+      "device": "cpu",
+      "status": "passed",
+      "script_sha256": "afceb8a8e8544a97133b7adeb7c2deb4f820c751ff15ba13d2846fb9fc7b31ef",
+      "sources": {
+        "manifest": {
+          "checked_date": "2026-11-16",
+          "sources": [
+            {
+              "file": "compilation.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/config/compilation.py",
+              "sha256": "c9cec5c7200e8e559810ec8c30113ad61dab6780f9f7fb3c116bd0d9b5a43065",
+              "license": "Apache-2.0"
+            },
+            {
+              "file": "cudagraph_utils.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/v1/worker/gpu/cudagraph_utils.py",
+              "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+              "license": "Apache-2.0"
+            },
+            {
+              "file": "dp_utils.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/v1/worker/gpu/dp_utils.py",
+              "sha256": "e26867bc89e6bfc933cabc5ed13e5dc7b8d2d3030118ca1ca64c8785dabc0fc1",
+              "license": "Apache-2.0"
+            }
+          ]
+        },
+        "extracted_nodes": [
+          {
+            "file": "compilation.py",
+            "sha256": "c9cec5c7200e8e559810ec8c30113ad61dab6780f9f7fb3c116bd0d9b5a43065",
+            "nodes": [
+              {
+                "name": "CUDAGraphMode",
+                "line": 53,
+                "end_line": 110,
+                "ast_sha256": "d0ab33cabd159aee4127a2e89d3bbe491b63d805a368a1adb9892770ea1bb96d"
+              }
+            ]
+          },
+          {
+            "file": "cudagraph_utils.py",
+            "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+            "nodes": [
+              {
+                "name": "BatchExecutionDescriptor",
+                "line": 63,
+                "end_line": 76,
+                "ast_sha256": "b6f47b0ad3b0b7e5bd83db185b4a723412fbf0008956edbbdd9fa366e6c3a596"
+              },
+              {
+                "name": "_is_compatible",
+                "line": 102,
+                "end_line": 129,
+                "ast_sha256": "d16d9c6a3bc4175fee35ef374c92c13f047d843e9444960aafee36611dc11ce9"
+              }
+            ]
+          },
+          {
+            "file": "cudagraph_utils.py",
+            "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+            "nodes": [
+              {
+                "name": "_resolve_effective_loras",
+                "line": 214,
+                "end_line": 219,
+                "ast_sha256": "4519483638e641f63bca40932141422a1a5bc97c5fd89683576b9e491234f3f5"
+              },
+              {
+                "name": "dispatch",
+                "line": 496,
+                "end_line": 527,
+                "ast_sha256": "f977fc49063453630067e175d79f297697dac4592a1a956826600607a296474f"
+              }
+            ]
+          },
+          {
+            "file": "dp_utils.py",
+            "sha256": "e26867bc89e6bfc933cabc5ed13e5dc7b8d2d3030118ca1ca64c8785dabc0fc1",
+            "nodes": [
+              {
+                "name": "DPSyncState",
+                "line": 22,
+                "end_line": 41,
+                "ast_sha256": "b8f37c4daac88c844478a4783af4450911b94d1d3da356de70456cc30f042dbf"
+              },
+              {
+                "name": "sync_cudagraph_and_dp_padding",
+                "line": 44,
+                "end_line": 211,
+                "ast_sha256": "5954b6c9fde68fdf11573cf2538222185201cc363d2ad1819ec08590cba33a24"
+              },
+              {
+                "name": "dispatch_cg_and_sync_dp",
+                "line": 214,
+                "end_line": 318,
+                "ast_sha256": "dfbe0161381864e1f8a2b614b227d95550e23c0ecccde1ebb7c98abb1c72d9fc"
+              }
+            ]
+          }
+        ],
+        "method_bodies_modified": false,
+        "controlled_fields": [
+          "capture catalogue",
+          "get_dp_group",
+          "should_skip_dp_coordination=False"
+        ],
+        "excluded": [
+          "DBO",
+          "LoRA",
+          "speculation",
+          "varlen decode",
+          "model runner",
+          "attention"
+        ]
+      },
+      "environment": {
+        "python": "3.11.6",
+        "torch": "2.15.0+cu132"
+      },
+      "fixture": {
+        "topology": "two DP participants, one scalar expert each",
+        "capture_sizes": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "width": 4,
+        "dtype": "float32",
+        "repetitions": 2
+      },
+      "capture_events": [],
+      "cases": [
+        {
+          "name": "uneven_decode",
+          "scheduled_tokens": [
+            3,
+            5
+          ],
+          "local_protocol_tokens": 5,
+          "mode": "FULL",
+          "descriptor_tokens": 8,
+          "tokens_across_dp": [
+            8,
+            8
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "empty_partner_dummy",
+          "scheduled_tokens": [
+            0,
+            5
+          ],
+          "local_protocol_tokens": 5,
+          "mode": "FULL",
+          "descriptor_tokens": 8,
+          "tokens_across_dp": [
+            8,
+            8
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "mixed_prefill",
+          "scheduled_tokens": [
+            3,
+            5
+          ],
+          "local_protocol_tokens": 5,
+          "mode": "NONE",
+          "descriptor_tokens": 5,
+          "tokens_across_dp": [
+            3,
+            5
+          ],
+          "uniform_token_count": null,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "outside_capture_catalogue",
+          "scheduled_tokens": [
+            3,
+            9
+          ],
+          "local_protocol_tokens": 9,
+          "mode": "NONE",
+          "descriptor_tokens": 9,
+          "tokens_across_dp": [
+            3,
+            9
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        },
+        {
+          "name": "all_idle",
+          "scheduled_tokens": [
+            0,
+            0
+          ],
+          "local_protocol_tokens": 0,
+          "mode": "NONE",
+          "descriptor_tokens": 0,
+          "tokens_across_dp": null,
+          "uniform_token_count": null,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        }
+      ],
+      "scope": "production DP source replay with fixture capture catalogue; optional teaching expert kernel with actual HCCL/NPUGraph; no vLLM model or service timing",
+      "finished_at": "2026-11-16T05:09:18.310298+00:00",
+      "independent_launch": 2
+    }
+  ]
+}

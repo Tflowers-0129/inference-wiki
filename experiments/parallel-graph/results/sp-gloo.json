@@ -1,0 +1,560 @@
+{
+  "schema_version": "wiki-sp-gloo-summary/1",
+  "captured_date": "2026-11-16",
+  "status": "passed",
+  "scope": "Real two-process CPU/Gloo experiment; synthetic partial activations, not a vLLM model or NPU performance test",
+  "distinct_configurations": 4,
+  "input_repetitions_per_configuration": 2,
+  "rank_case_count": 16,
+  "sp_vs_allreduce_exact": true,
+  "max_abs_error_against_fp64_oracle": {
+    "torch.float32": 1.1780110709125324e-07,
+    "torch.bfloat16": 0.003612066562934224
+  },
+  "runs": [
+    {
+      "schema_version": "wiki-sp-gloo/1",
+      "status": "passed",
+      "rank": 0,
+      "world_size": 2,
+      "started_at": "2026-11-16T05:08:26.569077+00:00",
+      "script_sha256": "125a28120bfbe1ee1a1ec3f5904cd32ee64c0cd254395894b45ca7fd64d6e4bf",
+      "environment": {
+        "python": "3.11.6",
+        "torch": "2.15.0+cu132",
+        "device": "cpu",
+        "backend": "gloo"
+      },
+      "scope": "real CPU collectives and RMSNorm on synthetic row-parallel partial outputs; no model/NPU/FlashComm performance or KV result",
+      "rmsnorm": {
+        "hidden_size": 8,
+        "epsilon": 1e-06,
+        "accumulation_dtype": "float32",
+        "weight": "gamma[c]=(c+1)/8"
+      },
+      "cases": [
+        {
+          "dtype": "torch.float32",
+          "valid_rows": 4,
+          "padded_rows": 4,
+          "repetition": 0,
+          "reduce_scatter_input_shape": [
+            4,
+            8
+          ],
+          "local_norm_shape": [
+            2,
+            8
+          ],
+          "all_gather_output_shape": [
+            4,
+            8
+          ],
+          "local_padded_row_interval": [
+            0,
+            2
+          ],
+          "local_valid_rows": 2,
+          "baseline_norm_elements_per_rank": 32,
+          "sp_norm_elements_per_rank": 16,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 1e-06,
+          "oracle_atol": 1e-06,
+          "oracle_max_abs_error": 8.633776649169533e-08,
+          "output_checksum_fp64": -0.23764308542013168
+        },
+        {
+          "dtype": "torch.float32",
+          "valid_rows": 4,
+          "padded_rows": 4,
+          "repetition": 1,
+          "reduce_scatter_input_shape": [
+            4,
+            8
+          ],
+          "local_norm_shape": [
+            2,
+            8
+          ],
+          "all_gather_output_shape": [
+            4,
+            8
+          ],
+          "local_padded_row_interval": [
+            0,
+            2
+          ],
+          "local_valid_rows": 2,
+          "baseline_norm_elements_per_rank": 32,
+          "sp_norm_elements_per_rank": 16,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 1e-06,
+          "oracle_atol": 1e-06,
+          "oracle_max_abs_error": 1.1780110709125324e-07,
+          "output_checksum_fp64": -0.509482741355896
+        },
+        {
+          "dtype": "torch.float32",
+          "valid_rows": 5,
+          "padded_rows": 6,
+          "repetition": 0,
+          "reduce_scatter_input_shape": [
+            6,
+            8
+          ],
+          "local_norm_shape": [
+            3,
+            8
+          ],
+          "all_gather_output_shape": [
+            6,
+            8
+          ],
+          "local_padded_row_interval": [
+            0,
+            3
+          ],
+          "local_valid_rows": 3,
+          "baseline_norm_elements_per_rank": 48,
+          "sp_norm_elements_per_rank": 24,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 1e-06,
+          "oracle_atol": 1e-06,
+          "oracle_max_abs_error": 8.633776649169533e-08,
+          "output_checksum_fp64": -0.37245794385671616
+        },
+        {
+          "dtype": "torch.float32",
+          "valid_rows": 5,
+          "padded_rows": 6,
+          "repetition": 1,
+          "reduce_scatter_input_shape": [
+            6,
+            8
+          ],
+          "local_norm_shape": [
+            3,
+            8
+          ],
+          "all_gather_output_shape": [
+            6,
+            8
+          ],
+          "local_padded_row_interval": [
+            0,
+            3
+          ],
+          "local_valid_rows": 3,
+          "baseline_norm_elements_per_rank": 48,
+          "sp_norm_elements_per_rank": 24,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 1e-06,
+          "oracle_atol": 1e-06,
+          "oracle_max_abs_error": 1.1780110709125324e-07,
+          "output_checksum_fp64": -0.8176309652626514
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "valid_rows": 4,
+          "padded_rows": 4,
+          "repetition": 0,
+          "reduce_scatter_input_shape": [
+            4,
+            8
+          ],
+          "local_norm_shape": [
+            2,
+            8
+          ],
+          "all_gather_output_shape": [
+            4,
+            8
+          ],
+          "local_padded_row_interval": [
+            0,
+            2
+          ],
+          "local_valid_rows": 2,
+          "baseline_norm_elements_per_rank": 32,
+          "sp_norm_elements_per_rank": 16,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 0.004,
+          "oracle_atol": 0.004,
+          "oracle_max_abs_error": 0.003612066562934224,
+          "output_checksum_fp64": -0.2314453125
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "valid_rows": 4,
+          "padded_rows": 4,
+          "repetition": 1,
+          "reduce_scatter_input_shape": [
+            4,
+            8
+          ],
+          "local_norm_shape": [
+            2,
+            8
+          ],
+          "all_gather_output_shape": [
+            4,
+            8
+          ],
+          "local_padded_row_interval": [
+            0,
+            2
+          ],
+          "local_valid_rows": 2,
+          "baseline_norm_elements_per_rank": 32,
+          "sp_norm_elements_per_rank": 16,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 0.004,
+          "oracle_atol": 0.004,
+          "oracle_max_abs_error": 0.003527482373547608,
+          "output_checksum_fp64": -0.5069580078125
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "valid_rows": 5,
+          "padded_rows": 6,
+          "repetition": 0,
+          "reduce_scatter_input_shape": [
+            6,
+            8
+          ],
+          "local_norm_shape": [
+            3,
+            8
+          ],
+          "all_gather_output_shape": [
+            6,
+            8
+          ],
+          "local_padded_row_interval": [
+            0,
+            3
+          ],
+          "local_valid_rows": 3,
+          "baseline_norm_elements_per_rank": 48,
+          "sp_norm_elements_per_rank": 24,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 0.004,
+          "oracle_atol": 0.004,
+          "oracle_max_abs_error": 0.003612066562934224,
+          "output_checksum_fp64": -0.36669921875
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "valid_rows": 5,
+          "padded_rows": 6,
+          "repetition": 1,
+          "reduce_scatter_input_shape": [
+            6,
+            8
+          ],
+          "local_norm_shape": [
+            3,
+            8
+          ],
+          "all_gather_output_shape": [
+            6,
+            8
+          ],
+          "local_padded_row_interval": [
+            0,
+            3
+          ],
+          "local_valid_rows": 3,
+          "baseline_norm_elements_per_rank": 48,
+          "sp_norm_elements_per_rank": 24,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 0.004,
+          "oracle_atol": 0.004,
+          "oracle_max_abs_error": 0.003527482373547608,
+          "output_checksum_fp64": -0.8121337890625
+        }
+      ],
+      "finished_at": "2026-11-16T05:08:26.981228+00:00"
+    },
+    {
+      "schema_version": "wiki-sp-gloo/1",
+      "status": "passed",
+      "rank": 1,
+      "world_size": 2,
+      "started_at": "2026-11-16T05:08:26.569051+00:00",
+      "script_sha256": "125a28120bfbe1ee1a1ec3f5904cd32ee64c0cd254395894b45ca7fd64d6e4bf",
+      "environment": {
+        "python": "3.11.6",
+        "torch": "2.15.0+cu132",
+        "device": "cpu",
+        "backend": "gloo"
+      },
+      "scope": "real CPU collectives and RMSNorm on synthetic row-parallel partial outputs; no model/NPU/FlashComm performance or KV result",
+      "rmsnorm": {
+        "hidden_size": 8,
+        "epsilon": 1e-06,
+        "accumulation_dtype": "float32",
+        "weight": "gamma[c]=(c+1)/8"
+      },
+      "cases": [
+        {
+          "dtype": "torch.float32",
+          "valid_rows": 4,
+          "padded_rows": 4,
+          "repetition": 0,
+          "reduce_scatter_input_shape": [
+            4,
+            8
+          ],
+          "local_norm_shape": [
+            2,
+            8
+          ],
+          "all_gather_output_shape": [
+            4,
+            8
+          ],
+          "local_padded_row_interval": [
+            2,
+            4
+          ],
+          "local_valid_rows": 2,
+          "baseline_norm_elements_per_rank": 32,
+          "sp_norm_elements_per_rank": 16,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 1e-06,
+          "oracle_atol": 1e-06,
+          "oracle_max_abs_error": 8.633776649169533e-08,
+          "output_checksum_fp64": -0.23764308542013168
+        },
+        {
+          "dtype": "torch.float32",
+          "valid_rows": 4,
+          "padded_rows": 4,
+          "repetition": 1,
+          "reduce_scatter_input_shape": [
+            4,
+            8
+          ],
+          "local_norm_shape": [
+            2,
+            8
+          ],
+          "all_gather_output_shape": [
+            4,
+            8
+          ],
+          "local_padded_row_interval": [
+            2,
+            4
+          ],
+          "local_valid_rows": 2,
+          "baseline_norm_elements_per_rank": 32,
+          "sp_norm_elements_per_rank": 16,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 1e-06,
+          "oracle_atol": 1e-06,
+          "oracle_max_abs_error": 1.1780110709125324e-07,
+          "output_checksum_fp64": -0.509482741355896
+        },
+        {
+          "dtype": "torch.float32",
+          "valid_rows": 5,
+          "padded_rows": 6,
+          "repetition": 0,
+          "reduce_scatter_input_shape": [
+            6,
+            8
+          ],
+          "local_norm_shape": [
+            3,
+            8
+          ],
+          "all_gather_output_shape": [
+            6,
+            8
+          ],
+          "local_padded_row_interval": [
+            3,
+            6
+          ],
+          "local_valid_rows": 2,
+          "baseline_norm_elements_per_rank": 48,
+          "sp_norm_elements_per_rank": 24,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 1e-06,
+          "oracle_atol": 1e-06,
+          "oracle_max_abs_error": 8.633776649169533e-08,
+          "output_checksum_fp64": -0.37245794385671616
+        },
+        {
+          "dtype": "torch.float32",
+          "valid_rows": 5,
+          "padded_rows": 6,
+          "repetition": 1,
+          "reduce_scatter_input_shape": [
+            6,
+            8
+          ],
+          "local_norm_shape": [
+            3,
+            8
+          ],
+          "all_gather_output_shape": [
+            6,
+            8
+          ],
+          "local_padded_row_interval": [
+            3,
+            6
+          ],
+          "local_valid_rows": 2,
+          "baseline_norm_elements_per_rank": 48,
+          "sp_norm_elements_per_rank": 24,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 1e-06,
+          "oracle_atol": 1e-06,
+          "oracle_max_abs_error": 1.1780110709125324e-07,
+          "output_checksum_fp64": -0.8176309652626514
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "valid_rows": 4,
+          "padded_rows": 4,
+          "repetition": 0,
+          "reduce_scatter_input_shape": [
+            4,
+            8
+          ],
+          "local_norm_shape": [
+            2,
+            8
+          ],
+          "all_gather_output_shape": [
+            4,
+            8
+          ],
+          "local_padded_row_interval": [
+            2,
+            4
+          ],
+          "local_valid_rows": 2,
+          "baseline_norm_elements_per_rank": 32,
+          "sp_norm_elements_per_rank": 16,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 0.004,
+          "oracle_atol": 0.004,
+          "oracle_max_abs_error": 0.003612066562934224,
+          "output_checksum_fp64": -0.2314453125
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "valid_rows": 4,
+          "padded_rows": 4,
+          "repetition": 1,
+          "reduce_scatter_input_shape": [
+            4,
+            8
+          ],
+          "local_norm_shape": [
+            2,
+            8
+          ],
+          "all_gather_output_shape": [
+            4,
+            8
+          ],
+          "local_padded_row_interval": [
+            2,
+            4
+          ],
+          "local_valid_rows": 2,
+          "baseline_norm_elements_per_rank": 32,
+          "sp_norm_elements_per_rank": 16,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 0.004,
+          "oracle_atol": 0.004,
+          "oracle_max_abs_error": 0.003527482373547608,
+          "output_checksum_fp64": -0.5069580078125
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "valid_rows": 5,
+          "padded_rows": 6,
+          "repetition": 0,
+          "reduce_scatter_input_shape": [
+            6,
+            8
+          ],
+          "local_norm_shape": [
+            3,
+            8
+          ],
+          "all_gather_output_shape": [
+            6,
+            8
+          ],
+          "local_padded_row_interval": [
+            3,
+            6
+          ],
+          "local_valid_rows": 2,
+          "baseline_norm_elements_per_rank": 48,
+          "sp_norm_elements_per_rank": 24,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 0.004,
+          "oracle_atol": 0.004,
+          "oracle_max_abs_error": 0.003612066562934224,
+          "output_checksum_fp64": -0.36669921875
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "valid_rows": 5,
+          "padded_rows": 6,
+          "repetition": 1,
+          "reduce_scatter_input_shape": [
+            6,
+            8
+          ],
+          "local_norm_shape": [
+            3,
+            8
+          ],
+          "all_gather_output_shape": [
+            6,
+            8
+          ],
+          "local_padded_row_interval": [
+            3,
+            6
+          ],
+          "local_valid_rows": 2,
+          "baseline_norm_elements_per_rank": 48,
+          "sp_norm_elements_per_rank": 24,
+          "sp_vs_allreduce_exact": true,
+          "padding_zero": true,
+          "oracle_rtol": 0.004,
+          "oracle_atol": 0.004,
+          "oracle_max_abs_error": 0.003527482373547608,
+          "output_checksum_fp64": -0.8121337890625
+        }
+      ],
+      "finished_at": "2026-11-16T05:08:26.981288+00:00"
+    }
+  ]
+}

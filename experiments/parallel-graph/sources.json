@@ -1,0 +1,23 @@
+{
+  "checked_date": "2026-11-16",
+  "sources": [
+    {
+      "file": "compilation.py",
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/config/compilation.py",
+      "sha256": "c9cec5c7200e8e559810ec8c30113ad61dab6780f9f7fb3c116bd0d9b5a43065",
+      "license": "Apache-2.0"
+    },
+    {
+      "file": "cudagraph_utils.py",
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/v1/worker/gpu/cudagraph_utils.py",
+      "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+      "license": "Apache-2.0"
+    },
+    {
+      "file": "dp_utils.py",
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/v1/worker/gpu/dp_utils.py",
+      "sha256": "e26867bc89e6bfc933cabc5ed13e5dc7b8d2d3030118ca1ca64c8785dabc0fc1",
+      "license": "Apache-2.0"
+    }
+  ]
+}

@@ -12,13 +12,13 @@
 
 九章共用左侧篇章导航，进入后默认展开当前章的目录，点击章标题可折叠；手机通过顶栏菜单打开相同导航。
 
-《从一轮调度到一次前向》用五行输入核对 Q/K/V 形状、LM Head 的三个采样位置和两个有效输出，再以六张 SVG 说明权重复用与 KV 规模、精确值的消费者、缓冲复用事件、动态 K 接续、跨轮 Token 重排和 Triton padded 输入计算。Triton 图解可切换 Torch / Triton 及接受长度，区分减少 Host 回读与减少设备算子提交；较长的源码对照可在页内展开。
+《从一轮调度到一次前向》用五行输入核对 Q/K/V 形状、LM Head 的三个采样位置和两个有效输出，再以七张 SVG 说明权重复用与 KV 规模、精确值的消费者、metadata 与 tiling 计划、缓冲复用事件、动态 K 接续、跨轮 Token 重排和 Triton padded 输入计算。Triton 图解可切换 Torch / Triton 及接受长度，区分减少 Host 回读与减少设备算子提交；较长的源码对照可在页内展开。
 
 《负载均衡：DPLB 与 EPLB》从请求入口的 DPLB 走到单层 MoE 的 EPLB，用五张 SVG 展开 DP/EP 维度、等请求数与不同工作量、同容量专家副本放置、rank × stream 泳道和权重/映射安全切换。两个交互分别演示冻结遥测下的新请求评分与本地信用，以及同十二个物理槽、八十次专家任务下的布局和热度变化。正文追到 DPLB 快照替换、EPLB 逻辑到物理查表与 STAIR 计数汇总。泳道是明确标注的教学构造，不使用工作坊原图推断负载均衡收益，也不把专家计数均衡度写成实际加速比。
 
-《EP 通信与计算重叠：算子选择与融合执行》从专家任务的收发入手，比较 AllGather、AllToAll、MC2 与 MegaMoE 的通信组织和选择条件。源码算例复算 AllToAllV 的 split 数组、专家行展开和结果逆重排。副本实验室固定四十个 token、八十次专家任务与同一专家布局，只切换目标 rank 分布，区分专家任务、本地使用、远端激活副本与 BF16 逻辑 payload，不预测耗时。模拟 profiling 沿已核查的 W8A8 自定义内核，区分普通 MC2 的默认局部融合与 Fused-MC2 的 AIV / AIC flag 协作；支持单步、事件依赖和源码定位，横轴为教学推进格。A5 实操另用四张真实 Perfetto 截图对照 MC2／CANN MegaMoE 的 rank0、rank1，保留专家任务数、flow 归属、异窗定位和解释边界。
+《EP 通信与计算重叠：算子选择与融合执行》从专家任务的收发入手，比较 AllGather、AllToAll、MC2 与 MegaMoE 的通信组织和选择条件。源码算例复算 AllToAllV 的 split 数组、专家行展开和结果逆重排。跨 DP 的 FULL_DECODE_ONLY 以四个 rank 的不同 Decode 行数说明捕获集合、模式和桶协调、空 rank dummy 与整组 eager 回退。副本实验室固定四十个 token、八十次专家任务与同一专家布局，只切换目标 rank 分布，区分专家任务、本地使用、远端激活副本与 BF16 逻辑 payload，不预测耗时。模拟 profiling 沿已核查的 W8A8 自定义内核，区分普通 MC2 的默认局部融合与 Fused-MC2 的 AIV / AIC flag 协作；支持单步、事件依赖和源码定位，横轴为教学推进格。A5 实操另用四张真实 Perfetto 截图对照 MC2／CANN MegaMoE 的 rank0、rank1，保留专家任务数、flow 归属、异窗定位和解释边界。
 
-《上下文并行：KV 分片与 Attention 归并》先说明 TP 对 KV head 的切分与复制，再追踪 PCP 的 query 划分、DCP 的本地块表和有效长度。用 A5 算例对齐 Q AllGather、output/LSE 打包和归并的张量形状与通信 count。A5 实操用 rank0／rank1 的真实截图、同轮通信配对和逐卡任务记录对照，区分本地调用链、跨 rank 等待线索与尚未确认的原因。
+《上下文并行：KV 分片与 Attention 归并》先按 TP 与总 KV head 数的关系说明切分与复制，再以 ReduceScatter、逐行 Norm 和 AllGather 解释 SP 的激活分片，随后追踪 PCP 的 query 划分、DCP 的本地块表和有效长度。用 A5 算例对齐 Q AllGather、output/LSE 打包和归并的张量形状与通信 count。A5 实操用 rank0／rank1 的真实截图、同轮通信配对和逐卡任务记录对照，区分本地调用链、跨 rank 等待线索与尚未确认的原因。
 
 《PD 分离系统：请求交接与 KV 生命周期》沿 vLLM-Ascend 与 Mooncake 源码追踪目标块分配、传输、就绪与源引用释放。用 A5 上的 129-token GQA 拉取请求复算每个接收 rank 的 READ 地址范围和整页字节量，再用 TP4→TP2 的源码算例说明页内重排。逐层推送用 MQA+DCP2 对照分片、写入事件和完成通知。两条路径保留原生 HIXL 任务与 Host 观察。逐层推送首次预热中，释放调用早于后台写返回，正文保留这次观察的边界。
 
@@ -34,7 +34,7 @@
 
 ## 实操验证
 
-[实验脚本、结果与待验证清单](experiments/README.md) 覆盖已执行的 padded 输入、跨轮进度辅助函数、真实 SSE 缓冲、A5 双卡 MC2／CANN MegaMoE，以及上下文并行、[PD 分离系统](experiments/pd-disaggregation/README.md)。上下文并行实验验证 PCP 布局、生产 DCP 归并与三种双卡 ModelRunnerV2 拓扑。PD 分离实验用实际 HTTP 服务、官方 proxy 和 Mooncake 完成两条交接路径。两组实验均保留原生设备截图与 Host／Device 观察边界。教学模拟继续保留原有标识，预训练完整模型、调度、负载均衡和稀疏 KV 的未测项目逐项列出。
+[实验脚本、结果与待验证清单](experiments/README.md) 覆盖已执行的 padded 输入、跨轮进度辅助函数、真实 SSE 缓冲、A5 双卡 MC2／CANN MegaMoE，以及上下文并行、[PD 分离系统](experiments/pd-disaggregation/README.md)。上下文并行实验验证 PCP 布局、生产 DCP 归并与三种双卡 ModelRunnerV2 拓扑。PD 分离实验用实际 HTTP 服务、官方 proxy 和 Mooncake 完成两条交接路径。两组实验均保留原生设备截图与 Host／Device 观察边界。[DP 协调与 SP 实验](experiments/parallel-graph/README.md)在服务器 CPU/Gloo 上验证多 rank 模式与桶选择，以及归约、分片和 Norm 的数值等价，单独保留受控夹具与非 NPU 的边界。教学模拟继续保留原有标识，预训练完整模型、调度、负载均衡和稀疏 KV 的未测项目逐项列出。
 
 ## 本地预览
 

@@ -1,0 +1,54 @@
+{
+  "schema_version": "wiki-parallel-experiments/1",
+  "captured_date": "2026-11-16",
+  "environment": {
+    "system": "Linux server",
+    "python": "3.11.6",
+    "torch": "2.15.0+cu132",
+    "device": "cpu",
+    "collective_backend": "gloo"
+  },
+  "experiments": [
+    {
+      "id": "dp-protocol-cpu",
+      "status": "passed",
+      "result_file": "dp-protocol-cpu.json",
+      "result_sha256": "12205c90cf182fe01f5a13730ba5cef14bc1b801be7e03ccc82d8c8b53db28d9",
+      "script": "parallel_graph_probe.py",
+      "script_sha256": "afceb8a8e8544a97133b7adeb7c2deb4f820c751ff15ba13d2846fb9fc7b31ef",
+      "independent_launches": 2,
+      "rank_case_count": 20,
+      "scope": "Exact selected AST bodies from pinned vLLM source; real CPU/Gloo collectives; fixture capture catalogue, no model or device graph"
+    },
+    {
+      "id": "sp-gloo",
+      "status": "passed",
+      "result_file": "sp-gloo.json",
+      "result_sha256": "95795888ebbc7b7d13d29e58c3dc8602d10bee1e6a94e842cdcdc72c9587c910",
+      "script": "sp_gloo_probe.py",
+      "script_sha256": "125a28120bfbe1ee1a1ec3f5904cd32ee64c0cd254395894b45ca7fd64d6e4bf",
+      "independent_launches": 1,
+      "rank_case_count": 16,
+      "scope": "Real CPU/Gloo collectives and RMSNorm; four configurations, two input repetitions, two ranks; no NPU, model, timing, or KV allocation"
+    },
+    {
+      "id": "npu-graph-collective",
+      "status": "not_run",
+      "script": "parallel_graph_probe.py",
+      "script_sha256": "afceb8a8e8544a97133b7adeb7c2deb4f820c751ff15ba13d2846fb9fc7b31ef",
+      "independent_launches": 0,
+      "rank_case_count": 0,
+      "scope": "Prepared HCCL/NPUGraph teaching-expert probe; syntax/code review only",
+      "reason": "No exclusive NPU window available"
+    }
+  ],
+  "sources_manifest": "../sources.json",
+  "sources_manifest_sha256": "08c6b76397160a0a816d6a128ab6e6be30f1befedb1aebc7781abe817d269543",
+  "exclusions": [
+    "No server endpoints or credentials",
+    "No complete model execution",
+    "No NPU graph success claim",
+    "No performance measurement",
+    "No KV-capacity measurement"
+  ]
+}

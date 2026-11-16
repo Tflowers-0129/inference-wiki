@@ -178,6 +178,8 @@ R4 的 `NewRequestData.num_computed_tokens` 为 0，Runner 因此取位置 `[0,4
 
 在 PD 分离里，D 实例通常更容易持续出现 uniform decode 形状，因此可以单独考虑 `FULL_DECODE_ONLY`；它同样需要满足图覆盖和后端条件。P 端能否用图仍应另查，PD 分离本身不保证任何一端采用图。
 
+多个 DP 实例通过 EP 共同执行 MoE 层时，还要在各 rank 回放前协调本轮模式和形状，空闲 rank 也要参加所需通信。跨 DP 捕获、padding 桶与 eager 回退的具体链路见[《EP 通信与计算重叠》](EP通信与通算融合.md)。
+
 要确认当前机器有没有切换，先记录有效图配置、捕获档位、Attention 后端，再对齐每轮 P/D Token、padding 后形状、runtime mode 和设备 Trace。尚无这些证据时，只能说明“具备逐轮切换机制”，不能认定某次 TPOT 改善来自图执行。
 
 ## 输出只有 64，为什么 TPOT 可能很长？

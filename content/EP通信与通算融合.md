@@ -4,7 +4,7 @@
 
 AllGather、AllToAll、MC2 和 MegaMoE 以不同方式组织这次往返。Prefill 与 Decode 的输入行数会改变通信和专家计算的形状。
 
-> 本章以 Ascend 的 EP 实现为主。教学算例固定四个 rank、TP=1、无 PCP、八个逻辑专家且没有冗余副本，每 rank 两个专家。四十个 token 使用 top-2，产生八十次专家任务。通信量算例和自定义 Fused-MC2 的模拟泳道均为教学构造，A5 实操部分另列实测。算子选择条件适用于本章核查的实现。
+> 本章以 Ascend 的 EP 实现为主。通信量算例固定四个 rank、TP=1、无 PCP、八个逻辑专家且没有冗余副本，每 rank 两个专家。四十个 token 使用 top-2，产生八十次专家任务。图捕获算例与自定义 Fused-MC2 泳道分别注明自己的输入条件；这些均为教学构造，A5 实操部分另列实测。算子选择条件适用于本章核查的实现。
 
 ## Router 选出两个专家后，要发什么？
 
@@ -120,6 +120,54 @@ AllGather 和定向交换也会随形状改变成本。输入多时，要检查�
 可用性还包括硬件能力、模型、EP 规模和量化等检查。配置值表示请求采用某条路径，不替代实际调用验证；本章也没有在目标机器上执行这些启动组合。[配置校验与归一化](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ascend_config.py) · [融合路线的调用方](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ops/fused_moe/moe_comm_method.py)
 
 <!-- /DETAILS -->
+
+## 跨 DP 的 FULL_DECODE_ONLY 捕获与回放
+
+设四个 DP rank 分别接了 3、5、0、2 条 Decode 请求，每条本轮只算一个 token，TP=1、EP=4。第三个 rank 没有自己的请求，但它持有的专家仍可能收到其他 rank 的激活。每个 rank 独立挑一个图、空 rank 直接跳过，便不能保证下一层 EP 的参与者和调用顺序对齐。这里要同时解决本地形状匹配与跨 rank 协调。[DP 的同步与 dummy 前向](https://docs.vllm.ai/en/latest/serving/data_parallel_deployment/)
+
+以下沿 **ModelRunnerV2 的普通 uniform Decode 路径**解释，固定 query 长度为 1，先不加入 PCP、PP、DBO、LoRA 和投机验证。`FULL_DECODE_ONLY` 是配置策略：符合已捕获 Decode 形状的批次使用运行时 `FULL`，其余批次回到 `NONE`。Ascend 沿相同的模式语义执行 ACL graph，具体模型、Attention 和通信算子仍要支持这条路径。[模式语义](https://docs.vllm.ai/en/latest/design/cuda_graphs/) · [Ascend 图执行与后端支持](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/docs/source/user_guide/feature_guide/graph_mode.md)
+
+### 每个 rank 捕获自己的图，共用同一组形状约定
+
+假设配置的 token 桶为 `[1,2,4,8]`。各 rank 以同样的配置构造捕获描述符，按相同顺序完成预热和捕获。这里记录的是各设备自己的模型执行图；MoE 的通信调用也在相应捕获路径中，通信组与对端仍由 EP 实现提供。没有一个把四卡内存合成统一地址空间的“大图”。[描述符与捕获顺序](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/worker/gpu/cudagraph_utils.py#L248-L488)
+
+MRV2 的描述符除 `num_tokens` 外还带请求数、uniform query 长度等匹配条件。捕获构造的 `num_tokens_across_dp` 在各项填入相同桶大小；Ascend `ModelAclGraphManager` 继承这段管理流程，捕获时切到 NPU communicator，底层图上下文使用 `torch.npu.graph`。因此启动配置与实际捕获集合需要在参与通信的 rank 间一致，不能只在忙 rank 上单独录图。[捕获输入与 DP 计数](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/worker/gpu/cudagraph_utils.py#L648-L743) · [Ascend 捕获入口](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/aclgraph_utils.py#L204-L240) · [NPU 通信与图上下文](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/utils.py#L180-L205)
+
+若加入固定的投机 query 长度 `q`，uniform 图的实际 token 数还会向上对齐到 `q` 的倍数，并受最大请求数和最大捕获大小约束。原始配置里的桶数不一定等于最终图数。动态 query 长度和可变长 Decode 又有各自匹配分支，不能直接套用本例的单 token 条件。[uniform 捕获对齐](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/worker/gpu/cudagraph_utils.py#L265-L340) · [Ascend 按实际描述符登记图参数](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/aclgraph_utils.py#L56-L68)
+
+### 一轮请求量不同时，先协调再选共同桶
+
+`dispatch_cg_and_sync_dp()` 先获得本地候选，再由 `sync_cudagraph_and_dp_padding()` 在 DP 的 CPU 通信组上汇总 token 数、候选模式、uniform query 长度、query 上界等字段。普通非 DBO 路径先取模式的最小值；只要一个 rank 选择 `NONE`，整组就回到 eager。全部允许图执行时，再按跨 DP 的最大 token 数和已协调的 query 条件重新匹配描述符，把每个 rank 的运行容量统一到选中的桶。[MRV2 的协调函数](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/worker/gpu/dp_utils.py#L44-L210)
+
+空 rank 也有工作。EngineCore 在本地没有 ready 请求、整组仍运行时调用 `execute_dummy_batch()`；Ascend Worker 进入 uniform dummy 前向，MRV2 至少构造一个 Decode query。因此本例真实行数 `[3,5,0,2]` 变成协调入口的 `[3,5,1,2]`，本地候选分别为 FULL 的 4、8、1、2 桶，协调后全组选 8。空 rank 的 dummy 不产生用户输出，但该 rank 仍参加本轮 EP。[空闲 DP 的引擎循环](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/engine/core.py#L2204-L2225) · [Ascend dummy 入口](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/worker.py#L1432-L1440) · [MRV2 dummy 的 query 形状](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/worker/gpu/model_runner.py#L792-L815)
+
+![四个 DP rank 先协调模式与桶，再各自回放 FULL8；空 rank 以 dummy 参加，混入 Prefill 则全组 eager](../dist/assets/dp-ep-full-decode.svg)
+
+本例图容量为 `4×8=32` 行，真实请求本轮只贡献 `3+5+0+2=10` 行。剩余 22 行包含 dummy 和 padding，不能记作输出 token 或有效 KV。图中的 EP 节点表示各 rank 按相容的通信顺序执行，块宽没有耗时含义；它也没有假设各 rank 的专家任务数相等。
+
+若第二个 rank 换成五行 Prefill，其本地 batch 就不满足本例的 uniform Decode 图条件，整组转为 `NONE`；其他 rank 仍处理自己的 Decode，只是这一轮不用 full graph。任一 rank 超过最大捕获桶，同样会通过未匹配描述符触发回退。该非 DBO 分支保留各 rank 自己的输入行数，不为图执行强行补到全局最大值。[未命中图的返回值](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/worker/gpu/cudagraph_utils.py#L496-L527) · [全组 eager 分支](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/worker/gpu/dp_utils.py#L156-L173)
+
+### 回放时仍要更新输入，并保持通信路径一致
+
+选中共同桶后，Runner 准备本轮 token、位置、块表和 Attention metadata，再调用 `run_fullgraph()`。Ascend 的 full graph 管理器还通过 update stream 更新 Attention 任务参数。图回放复用执行结构，本轮请求与 KV 地址仍需按接口更新；有 update 调用也不表示 Host 已等到设备完成。[MRV2 输入与回放入口](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/worker/gpu/model_runner.py#L1685-L1909) · [Ascend 的参数更新](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/aclgraph_utils.py#L126-L202)
+
+通信方法也必须一致。MRV2 的 Ascend platform hook 用 `max_tokens_across_dp` 调用 `select_moe_comm_method()`，避免小 batch rank 走 MC2、大 batch rank 同时走另一条通信路线。固定桶允许 Router 每轮产生不同专家 ID，前提是该通信实现能够在捕获的容量和接口内处理这些动态数据；它不能在回放中随意插入新的 Host 分支。[MRV2 跨 DP 统一选择](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/platform.py#L727-L744)
+
+例如本章的 AllToAllV 路径会把 split 计数转为 CPU / NumPy 数据。只设置 `FULL_DECODE_ONLY`，不足以证明这条动态 Host 路径能收进 full graph；还要核对实际选择的通信类、量化实现和图支持条件。已有 A5 MC2／MegaMoE 实验采用 eager，尚未验证本节的跨 DP 捕获和回放。后续实测应同时保留各 rank 的协调前后描述符、实际 replay 记录、空 rank 与回退场景，并在同权重、同输入下核对输出，再比较未带 profiler 的整轮时延。[AllToAllV 的 Host split 数据](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/ops/fused_moe/token_dispatcher.py#L643-L668)
+
+### 在服务器 CPU 上核对跨 DP 协调
+
+服务器实验用两个进程建立真实 Gloo CPU 通信组，执行固定源码中的 `dispatch_cg_and_sync_dp()`、`sync_cudagraph_and_dp_padding()` 和图匹配方法。脚本抽取这些函数的原始 AST，函数体未改动；捕获目录 `[1,2,4,8]` 与请求形状由测试夹具提供，没有启动模型或捕获设备图。这里实际验证的是模型图外的协调协议。[脚本与固定来源](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/parallel-graph)
+
+| 双 rank 输入场景 | 协调入口 token 数 | 返回模式与各 rank 行数 |
+| --- | --- | --- |
+| 不等长 Decode | `[3,5]` | FULL，`[8,8]` |
+| 第一侧无请求，另一侧 Decode | `[1,5]`，第一侧由夹具提供 dummy | FULL，`[8,8]` |
+| 第二侧为五行 Prefill | `[3,5]` | NONE，`[3,5]` |
+| 第二侧超过最大捕获桶 | `[3,9]` | NONE，`[3,9]` |
+| 两侧都空闲 | `[0,0]` | NONE，`[0,0]` |
+
+五种场景分别运行两次独立 launch，按 `5 场景×2 rank×2 次=20` 条 rank-case 记录计，模式与行数断言全部通过。全空闲案例只检查辅助函数返回零行，不表示真实引擎还会执行一次空模型前向。CPU AllReduce、描述符匹配和回退已运行；EP kernel、ACLGraph capture/replay 与服务时延尚未在这组实验中运行。[逐 rank 输入、返回描述符和环境](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/parallel-graph/results/dp-protocol-cpu.json)
 
 ## MC2 的局部融合与 Fused-MC2 的全链融合
 
