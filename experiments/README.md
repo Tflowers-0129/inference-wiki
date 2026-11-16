@@ -1,6 +1,6 @@
 # Wiki 实操实验
 
-这些脚本把第二、三、五、六、七章里的部分机制放到真实运行环境中核对。前四项结果采集于 2026-11-04；固定源码身份、软件组合和量化条件保存在 [A5 结果](results/a5-moe.json)。上下文并行实验采集于 2026-11-05，另有[独立环境与复现说明](context-parallel/README.md)。PD 分离同日运行，[独立说明](pd-disaggregation/README.md)记录拉取式与逐层推送式的实际配置、请求结果及多 rank 证据。2026-11-16 的[并行协议实验](parallel-graph/README.md)另在服务器 CPU 上验证双进程 DP 协调与 SP 集合通信；它们不属于 NPU 图回放或整模型性能数据。公开目录只保留脚本、数值结果及选定设备事件，不包含服务器端点、凭据或整份原始 trace。
+这些脚本保存推理机制在真实运行环境中的核对结果。`padded-inputs.py` 与 `batch-change.py` 是历史辅助函数微实验，不作为正文 ModelRunnerV2 输入、采样或状态更新调用链的证据；其原始结果继续保留。前四项结果采集于 2026-11-04；固定源码身份、软件组合和量化条件保存在 [A5 结果](results/a5-moe.json)。上下文并行实验采集于 2026-11-05，另有[独立环境与复现说明](context-parallel/README.md)。PD 分离同日运行，[独立说明](pd-disaggregation/README.md)记录拉取式与逐层推送式的实际配置、请求结果及多 rank 证据。2026-11-16 的[并行协议实验](parallel-graph/README.md)另在服务器 CPU 上验证双进程 DP 协调与 SP 集合通信；它们不属于 NPU 图回放或整模型性能数据。公开目录只保留脚本、数值结果及选定设备事件，不包含服务器端点、凭据或整份原始 trace。
 
 | 实验 | 实际执行内容 | 已确认的范围 |
 | --- | --- | --- |
@@ -41,7 +41,7 @@ MoE 的正确性先比较相同量化权重的两条实现，并用独立路由�
 
 各 rank 的 profiler 初始化不同步，完整采集还含未归属 active scope 的设备任务。active iteration 由原始 `torch_to_npu` flow ID 关联到 Host scope，再关联设备任务；选定的 [泳道数据](results/a5-moe-swimlane.json) 使用每种实现自己的设备首任务作零点，没有跨 rank 对齐。Host／Device 微秒级时间差未经独立校准，Perfetto 导入还存在 flow 告警，因此不据其计算派发延迟。
 
-第二章的 [padded 正确性结果](results/padded-inputs.json) 与 [任务归属摘要](results/padded-profile.json)、第三章的 [进度修正结果](results/batch-change.json) 与 [SSE 实际打点](results/sse-buffering.json) 分别保留各自口径。SSE 的单块七项 TPOT=0 是接收边界的退化结果；O=1 时记录为未定义。
+历史 [padded 正确性结果](results/padded-inputs.json) 与 [任务归属摘要](results/padded-profile.json)、[进度修正结果](results/batch-change.json) 与 [SSE 实际打点](results/sse-buffering.json) 分别保留各自口径。SSE 的单块七项 TPOT=0 是接收边界的退化结果；O=1 时记录为未定义。
 
 第五章另用四张真实 Perfetto 截图配对 tokens32、iteration2 的 MC2／CANN MegaMoE 两个 rank。[逐卡任务与路由结果](results/a5-moe-rank-comparison.json)保留精确 flow、Host／Device 窗口及 71+57=128 次专家任务；[截图来源](results/a5-moe-profiling-screenshots.json)记录源 SHA 和实际显示范围。Level0 没有独立的 HCCL peer 收发轨道，因此不套用第六章的集体通信序号配对，也不从单卡区间判定慢 rank。
 
@@ -54,7 +54,7 @@ Linux 上解析与浏览器查看的完整步骤见 [第五章实操](https://tf
 | 章节 | 尚未覆盖的实操 | 必需条件 |
 | --- | --- | --- |
 | 1 调度与执行 | 实际 Scheduler 连续轮次、图模式与真实捕获形状 | 目标测试夹具；完整模型与匹配 Attention 后端 |
-| 2 一次前向 | slot_mapping、多 KV 组融合、Host 精确值等待、Device tiling plan 的生成与复用 | 对应 Runner／块表 ABI 与逐元素地址 oracle |
+| 2 一次前向 | V2 slot_mapping、Host 精确长度等待、Device tiling plan 的生成、更新与复用 | 对应 Runner／块表 ABI 与逐元素地址 oracle |
 | 3 投机解码 | 完整 Draft→Target→提交回退→下一轮的模型执行 | 模型与 proposer 配对；接受结果及 KV 边界取证 |
 | 4 负载均衡 | 实际 DPLB 选择回放、EPLB 整数副本映射及同容量关键路径 | 固定入口和遥测；多卡同权重、路由与布局对照 |
 | 5 EP 通信 | 完整选择函数、AllGather/AllToAll 容量边界、graph 与服务级指标 | 支持的模型／量化／拓扑和同条件负载 |

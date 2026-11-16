@@ -41,30 +41,32 @@ ms 与 mbt 是不同维度的约束；KV 是否足够还取决于模型结构、
 
 一次完整 Prefill 结束时，通常已经可以采样首个输出 Token；所以“输出 1024 Token”不能机械地解释成“Prefill 后还必须做 1024 轮 Decode”。在本例同步、无投机的模型里，可以理解为首 Token 后再生成约 1023 个 Token。真实首 Token 发送时点还受到执行和流式返回实现影响。
 
-教学中的 P/D 是工作类型标签。V1 调度器源码以已计算 Token 数和待计算 Token 数统一描述请求，并非必须维护两个独立的 P/D 队列。[V1 调度器源码说明](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py)
+教学中的 P/D 是工作类型标签。与 ModelRunnerV2 配对的调度器源码以已计算 Token 数和待计算 Token 数统一描述请求，并非必须维护两个独立的 P/D 队列。[调度器源码说明](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py)
 
 ### 从 Scheduler 到模型前向
 
-**资料参考｜GPU 单进程、ModelRunnerV1。** `EngineCore.step()` 先调用 `Scheduler.schedule()`，拿到 `SchedulerOutput`，再交给执行器；调度器并不直接运行模型。输出结构包括各请求本轮调度的 Token 数、新请求数据与 KV 块编号等信息，因此它描述的是“本轮算哪些 Token、使用哪些状态”。[EngineCore](https://github.com/vllm-project/vllm/blob/main/vllm/v1/engine/core.py)、[SchedulerOutput](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/output.py)
+本章使用 **ModelRunnerV2**，先看无 PP、普通文本生成的同步逐轮路径。`EngineCore.step()` 调用 `Scheduler.schedule()` 得到 `SchedulerOutput`，再交给执行器；调度器不直接运行模型。输出携带每请求调度行数、新请求数据和 KV 块号，描述的是本轮要推进的工作。[EngineCore](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/engine/core.py#L589-L619)
 
 ```text
 EngineCore.step()
   ├─ Scheduler.schedule() → SchedulerOutput
-  ├─ UniProcExecutor.execute_model(scheduler_output, non_block=True)
-  │    └─ collective_rpc("execute_model", ...) → run_method(driver_worker, ...)
-  │         └─ WorkerWrapperBase.execute_model()
-  │              └─ Worker.execute_model()
-  │                   └─ GPUModelRunner.execute_model()
-  │                        └─ 准备输入 / Attention 元数据 → _model_forward() → self.model(...)
-  ├─ 等待执行结果；若返回 None，再调用执行器的 sample_tokens(...)
-  └─ Scheduler.update_from_output(...) → 更新请求进度、完成状态与输出
+  ├─ Executor.execute_model(..., non_block=True)
+  │    └─ Ascend Worker.execute_model()
+  │         └─ worker/v2/NPUModelRunner.execute_model()
+  │              ├─ 更新持久请求状态与块表，协调本轮图描述符
+  │              ├─ prepare_inputs() → prepare_attn() → Attention metadata
+  │              └─ self.model(...) 或 run_fullgraph(...) → 保存隐藏状态
+  ├─ Executor.sample_tokens() → Runner.sample_tokens()
+  │    ├─ 选 logits 行、词表投影与采样
+  │    └─ postprocess_sampled() → 更新设备请求状态 → 回收有效输出
+  └─ Scheduler.update_from_output(...) → 更新请求状态与输出
 ```
 
-这里 `self.model_executor` 的具体类型选为 `UniProcExecutor`：它通过 `collective_rpc` 调用持有 Worker 的包装对象，再由 GPU `Worker.execute_model()` 调用 `model_runner.execute_model()`。Runner 更新持久批状态、准备本轮输入和 Attention 元数据，最终进入模型前向。执行器后端、流水线和异步设置会改变具体执行路径，这张调用链只追踪上述参考路径。[UniProcExecutor](https://github.com/vllm-project/vllm/blob/main/vllm/v1/executor/uniproc_executor.py)、[WorkerWrapperBase](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/worker_base.py)、[GPU Worker](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu_worker.py)、[GPU Model Runner](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu_model_runner.py)
+Ascend Worker 把执行与采样分别转给 V2 Runner。`NPUModelRunner` 继承上游 `vllm/v1/worker/gpu/model_runner.py` 的主流程，并覆写 NPU 输入准备等环节。`vllm/v1` 是引擎目录，V2 Runner 的定位要看后面的 `gpu/model_runner.py`。模型前向返回隐藏状态后，普通生成路径把中间状态留给后续 `sample_tokens()`；不能把这两个调用混成一次已完成的客户端输出。[Ascend Worker](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/worker.py#L877-L956) · [V2 执行主流程](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/worker/gpu/model_runner.py#L1632-L1995) · [V2 采样与接续](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/worker/gpu/model_runner.py#L1997-L2181)
 
-**教学推导。** “先分配 D 的预算”与“D 在设备上先独立执行完、立刻返回”不是同一件事；本轮调度输出仍可能组织成一个混合批次。调度顺序本身不能给出这轮的毫秒数。
+“先分配 D 的预算”与“D 在设备上先独立执行完、立刻返回”不是同一件事。本轮调度输出仍可能组织成一个混合批次，调度顺序本身不能给出毫秒数。执行器、PP 与异步队列会改变调用如何排队；请求状态、输入准备和输出回收的具体关系见[ModelRunnerV2 的一次前向](从一轮调度到一次前向.md)。
 
-**待验证。** 4K 输入、1K 输出的 200 并发混部算例没有对应的服务运行记录。Ascend 的 Worker 和 Runner 有自己的实现。解释 NPU Trace 时还需核对实际执行器、Runner 和异步设置。[Ascend ModelRunnerV1 的输入准备](从一轮调度到一次前向.md)
+4K 输入、1K 输出的 200 并发算例是教学推导，没有对应服务运行记录。解释 NPU Trace 时仍需对齐实际执行器、Runner、后端和异步设置。
 
 ## 混部调度的逐轮预算
 
@@ -121,7 +123,7 @@ R1 D：1 + R2 D：1 + R3 P：4096 + R4 P：4094 = 8192
 
 #### 第二轮的 SchedulerOutput
 
-用上游 vLLM V1 Scheduler 的字段核对第二轮。它先遍历 `running`，这个列表既可以有 Decode，也可以有上轮留下的 Prefill chunk。对运行请求，待推进量从 `num_tokens_with_spec + num_output_placeholders - num_computed_tokens` 算起，再受本轮预算、长度上限等约束。轮到等待请求时，Scheduler 还要检查运行态准入、前缀命中和 KV 分配。所查实现允许用 `max_num_active_seqs` 单独收紧准入，用 `max_num_scheduled_tokens` 单独限制调度量。两者缺省时分别回落到 ms、mbt。[预算与准入配置](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L128-L141) · [运行请求的待推进量](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L657-L721) · [等待请求的准入](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L912-L929)
+用与 ModelRunnerV2 配对的 Scheduler 字段核对第二轮。它先遍历 `running`，这个列表既可以有 Decode，也可以有上轮留下的 Prefill chunk。对运行请求，待推进量从 `num_tokens_with_spec + num_output_placeholders - num_computed_tokens` 算起，再受本轮预算、长度上限等约束。轮到等待请求时，Scheduler 还要检查运行态准入、前缀命中和 KV 分配。所查实现允许用 `max_num_active_seqs` 单独收紧准入，用 `max_num_scheduled_tokens` 单独限制调度量。两者缺省时分别回落到 ms、mbt。[预算与准入配置](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L128-L141) · [运行请求的待推进量](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L657-L721) · [等待请求的准入](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L912-L929)
 
 按本例的同步、无投机、无前缀命中条件，第二轮输出的核心字段可以写成下面这样。R3、R4 首次被调度，Worker 收到它们的 prompt、块号和起始进度。R1、R2 已在 Worker 缓存请求状态，本轮带的是更新量。[调度输出结构](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/output.py#L41-L78) · [已缓存请求与本轮 Token 数](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/output.py#L232-L249)
 
@@ -211,7 +213,7 @@ AISBench 将 TTFT 描述为首 Token 返回延迟，将 TPOT 描述为排除首 
 
 ### 分块预算与混合轮次的输出间隔
 
-**源码事实。** 前面的 GPU 单进程参考链说明，预算分配与模型执行是两个层次；`GPUModelRunner` 依据本轮所有请求组织输入，再进入前向。这不等于先跑完一个独立 D batch，再开始 P batch。长 Prefill 混入本轮后，实际耗时还受到算子形状、上下文长度、访存和通信影响。
+**源码事实。** 前面的 ModelRunnerV2 调用链说明，预算分配与模型执行是两个层次；Runner 依据本轮所有请求组织输入，再进入前向。这不等于先跑完一个独立 D batch，再开始 P batch。长 Prefill 混入本轮后，实际耗时还受到算子形状、上下文长度、访存和通信影响。
 
 **教学推导。** 假设一条请求的相邻两个输出，分别来自连续的同步轮次 k 和 k+1，那么它的 ITL 不只取决于“本轮 D 占 1 个预算”，还受后一轮执行与发送等开销影响。如果轮次 k+1 携带较重的 P，即使 D 先拿到了预算，它也没有获得一个固定的时延保证。首 Token 后发生的调度或抢占等待，仍会进入 TPOT；被扣除的是首 Token 之前的 TTFT。
 
@@ -280,7 +282,7 @@ P、D 是不同引擎实例，各自有 ms、mbt 与 KV 块池，不能把它们
 
 ### D 拉取 129 个输入 Token 的 KV 时，实际读了多少？
 
-A5 拉取实验中，P、D 各用 TP2，模型有 2 层、2 个 KV heads。每 rank 每层持有 1 个 KV head。按本次 LBNHC 分配路径推导，K 和 V 各有一份 BF16 视图，逻辑轴是 `[物理块, 页内位置, 本地 KV head, 头宽]`，形状为 `[512,128,1,64]`。单个 K 页有 `128×1×64×2 = 16,384 B` 数据，V 页同样大。底层按块交替放置 K 页和 V 页，所以同一份 K 视图的相邻块起点相距 32,768 B。[A5 拉取实验记录](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/pull.json) · [KV 视图与步幅](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html#kv-cache-layouts-5)
+A5 拉取实验中，P、D 各用 TP2，模型有 2 层、2 个 KV heads。每 rank 每层持有 1 个 KV head。按本次 LBNHC 分配路径推导，K 和 V 各有一份 BF16 视图，逻辑轴是 `[物理块, 页内位置, 本地 KV head, 头宽]`，形状为 `[512,128,1,64]`。单个 K 页有 `128×1×64×2 = 16,384 B` 数据，V 页同样大。底层按块交替放置 K 页和 V 页，所以同一份 K 视图的相邻块起点相距 32,768 B。[A5 拉取实验记录](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/pull.json) · [KV 视图与步幅](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html#kv-cache-layouts-7)
 
 129 个位置要用两页。实测请求在 P 的块表是 `[1,2]`，在 D 的块表是 `[5,4]`，所以逻辑第 0 页从 P1 读到 D5，第 1 页从 P2 读到 D4。每个 D rank 发起一次 READ，包含 `2 页×2 层×2 个组件 = 8` 个地址范围，共 131,072 B。末页只有 1 个有效位置，但 READ 搬运整页，因此有效 KV 是 `129×2×2×1×64×2 = 66,048 B` 每 rank。[拉取路径的地址与传输描述符](https://tflowers-0129.github.io/inference-wiki/pd-disaggregation.html#pd-disaggregation-3)
 

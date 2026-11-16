@@ -116,7 +116,7 @@ rank 3  E6+E7 =  8  →  E6+E1 = 20</code></pre>
 <p>MRv2 沿用上游的异步控制路径。后台先把待搬移的专家权重送入中间缓冲，前台确认就绪后逐层安装到计算实际读取的存储，再提交该层映射。Ascend 原地刷新设备端查表张量后才确认消费，后台随后可以复用缓冲。这个过程只更新发生变化的槽位。目标 rank 如果已有所需专家，可以从本地复制，否则要从持有该专家的 rank 接收。<a class="inline-source" href="https://github.com/vllm-project/vllm/blob/main/vllm/distributed/eplb/rebalance_execute.py" target="_blank" rel="noopener">权重搬移与源槽选择</a> · <a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/patch/platform/patch_eplb.py" target="_blank" rel="noopener">Ascend 安装与查表刷新</a></p>
 <h3>vLLM-Ascend 四卡 MRv2 服务配置</h3>
 <p>下面从 Ascend 的 A3 四卡回归用例取模型、并行拓扑和冗余预算，写成服务启动示例。这里 PCP=1，两组 DP 各有两个 TP rank，MoE 的 EP 组共四个 rank。每层有 128 个路由专家，加四个冗余槽后每 rank 放 33 个。上游测试检查回答前缀及异步周期提交日志，这条服务命令仍待目标 NPU 实测。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/main/tests/e2e/pull_request/four_card/test_qwen3_mrv2_eplb.py" target="_blank" rel="noopener">Ascend 四卡回归配置</a> · <a class="inline-source" href="https://www.modelscope.cn/models/vllm-ascend/Qwen3-30B-A3B-W8A8/resolve/master/config.json" target="_blank" rel="noopener">W8A8 模型配置</a></p>
-<p>把模型路径换成已下载的 W8A8 权重目录。仍默认选择 MRv1 的发行版用 <code>VLLM_USE_V2_MODEL_RUNNER=1</code> 切到 MRv2。已移除 MRv1 的主线直接使用 MRv2。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/pull/20097" target="_blank" rel="noopener">Runner 切换与主线变更</a></p>
+<p>把模型路径换成已下载的 W8A8 权重目录。本例明确启用 ModelRunnerV2；启动日志还须确认实际 Runner 与 EPLB 配置。已默认使用 V2 的版本不再需要切换环境变量。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/pull/20097" target="_blank" rel="noopener">Runner 配置</a></p>
 <pre class="source-code"><code>export VLLM_USE_V2_MODEL_RUNNER=1
 unset DYNAMIC_EPLB EXPERT_MAP_RECORD
 
@@ -137,14 +137,6 @@ vllm serve /models/Qwen3-30B-A3B-W8A8 \
 <p>混部先按默认 <code>all</code> 收集热度。用 STAIR 且要单看纯 Decode 批次时，可加 <code>--additional-config &#x27;{&quot;eplb_config&quot;:{&quot;load_collection_phase&quot;:&quot;decode&quot;}}&#x27;</code>。有 Prefill 的混合批次归到 Prefill。各 rank 可以在同一步有不同的采样决定，但它们照常前向并推进窗口。汇总时先跨 rank 归约每步的采样标记，保留至少一处有样本的步，当前 rank 缺的样本在对齐的汇总数组中补零。P/D 分开部署时，按各实例的流量校验窗口。<a class="inline-source" href="https://docs.vllm.ai/projects/ascend/en/latest/user_guide/feature_guide/expert_parallelism_load_balancer.html#feature-usage" target="_blank" rel="noopener">MRv2 阶段过滤</a> · <a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/blob/c09d3e20/vllm_ascend/distributed/eplb/eplb_state.py#L340-L422" target="_blank" rel="noopener">跨 rank 对齐窗口</a></p>
 <p>跨节点部署时，可以用 <code>additional_config.eplb_config.stair_config</code> 限制权重搬移。例如 <code>cross_node_transfer_limit: 0</code> 禁止 STAIR 跨节点搬权重，前向 Dispatch 仍按专家位置通信。窗口、间隔和冗余预算走上游 <code>--eplb-config</code>。<a class="inline-source" href="https://docs.vllm.ai/projects/ascend/en/latest/user_guide/feature_guide/expert_parallelism_load_balancer.html#tuning-suggestions" target="_blank" rel="noopener">STAIR 迁移预算</a></p>
 <p>上机前要核对安装包对应的支持表和启动配置。EPLB 需要 MoE 量化实现提供完整的可迁移权重视图，MRv2 EPLB 也与权重 offload、权重预取和 elastic EP 互斥。<a class="inline-source" href="https://docs.vllm.ai/projects/ascend/en/latest/user_guide/feature_guide/expert_parallelism_load_balancer.html#constraints-and-limitations" target="_blank" rel="noopener">Ascend 支持矩阵与限制</a></p>
-<h3>旧版 MRv1 部署脚本里的三种模式</h3>
-<p>如果部署使用仍包含 MRv1 的发行版，MRv1 EPLB 的入口是 <code>--enable-expert-parallel</code> 配合 <code>--additional-config</code> 中的 <code>eplb_config</code>。这套实现的进程和配置与 MRv2 分开。<a class="inline-source" href="https://github.com/vllm-project/vllm-ascend/pull/19377/files" target="_blank" rel="noopener">旧版配置与调用链</a></p>
-<ul class="chapter-list">
-<li>动态重排用 <code>DYNAMIC_EPLB=true</code>，在 <code>eplb_config</code> 里设 <code>dynamic_eplb: true</code>。默认策略 <code>eplb_policy_type: 2</code> 为 SwiftBalance。先按 <code>expert_heat_collection_interval</code> 收集热度，再留出 <code>algorithm_execution_interval</code> 给子进程算布局，随后在前向线程逐层搬移。</li>
-<li>录制布局用 <code>EXPERT_MAP_RECORD=true</code>，在 <code>eplb_config</code> 里设 <code>expert_map_record_path</code> 为输出绝对路径。用代表性流量产生计划，记录供下次启动加载的专家映射。录制期间沿用已有布局。</li>
-<li>静态加载时在 <code>eplb_config</code> 里设 <code>expert_map_path</code> 为已录制的 JSON 路径。加载权重时按表放置专家，运行中沿用该布局。</li>
-</ul>
-<p>切换到 MRv2 时，从脚本清掉旧环境变量和旧字段，再用上面的 <code>--enable-eplb</code> 配置。静态专家表属于旧版 MRv1 路径。<a class="inline-source" href="https://docs.vllm.ai/projects/ascend/en/latest/user_guide/configuration/additional_config.html" target="_blank" rel="noopener">MRv2 配置范围</a></p>
 </section>
 <section class="lesson observed" id="load-balancing-8" data-title="冗余副本的成本与服务收益"><h2>冗余副本的成本与服务收益</h2>
 <p>冗余首先占内存。假设 L 个 MoE 层规格一致，每个完整专家连同随专家搬移的参数占 B 字节，整个 EP 组加 R 个冗余槽，均摊到 G 个 rank：</p>

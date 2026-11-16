@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="970" viewBox="0 0 960 970" role="img" aria-labelledby="title desc">
+<title id="title">ModelRunnerV2 的 KV 管理闭环</title><desc id="desc">EngineCore 规划页池；Scheduler 管理请求到块号和引用；V2 将块表映射为本轮写槽并让backend读写；完成或抢占在安全边界归还引用。无时间比例。</desc>
+<style>text{font-family:"Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif;fill:#18334e;font-size:16px} .title{font-size:21px;font-weight:650}.head{font-size:18px;font-weight:600}.small{font-size:14px;fill:#435c70}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:15px}.line{fill:none;stroke:#526f86;stroke-width:2;marker-end:url(#arrow)}.box{stroke:#7890a3;stroke-width:1.5;rx:12}</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#526f86"/></marker></defs>
+<rect width="960" height="970" fill="#f8fbfd"/>
+<text x="32" y="43" class="title">ModelRunnerV2：从页池规划到请求归还</text>
+<text x="32" y="75" class="small">流程示意 · 块号和进度跨边界传递，KV 数据留在 worker 的设备缓存</text>
+<rect x="40" y="104" width="880" height="122" class="box" fill="#eaf2ff"/>
+<text x="60" y="136" class="head">启动：层的 KVCacheSpec ＋ 可用预算 → KVCacheConfig</text>
+<text x="60" y="170" class="">规划缓存组、物理块数与 backing storage；确定兼容的 backend / kernel 块长</text>
+<text x="60" y="199" class="">V2 分配设备存储并绑定各层视图，Scheduler 建立请求块管理器</text>
+<path d="M 400 226 L 400 274" class="line"/>
+<path d="M 880 226 L 880 274" class="line"/>
+<text x="58" y="264" class="small">Scheduler / KVCacheManager</text>
+<text x="538" y="264" class="small">worker / ModelRunnerV2</text>
+<rect x="40" y="282" width="400" height="200" class="box" fill="#eaf7f3"/>
+<text x="60" y="315" class="head">取得并保留请求的块引用</text>
+<text x="60" y="350" class="">前缀查询：取得可接续的命中块</text>
+<text x="60" y="381" class="">allocate_slots：接纳命中、追加新块</text>
+<text x="60" y="412" class="">request → cache group → block IDs</text>
+<text x="60" y="443" class="">空间不足 → 抢占并重新排队</text>
+<rect x="520" y="282" width="400" height="200" class="box" fill="#edf4ff"/>
+<text x="540" y="315" class="head">对齐当前批次的表和槽</text>
+<text x="540" y="350" class="">新请求覆盖块号，已有请求追加</text>
+<text x="540" y="381" class="">idx_mapping：批次行 → 请求槽</text>
+<text x="540" y="412" class="">positions → 每组 slot_mapping</text>
+<text x="540" y="443" class="">builder → 各层读写 metadata</text>
+<path d="M 440 385 L 520 385" class="line"/>
+<text x="448" y="369" class="small">块号</text>
+<path d="M 720 482 L 720 542" class="line"/>
+<text x="736" y="518" class="small">层视图 ＋ metadata</text>
+<rect x="520" y="550" width="400" height="178" class="box" fill="#fff3e8"/>
+<text x="540" y="583" class="head">backend 执行本轮读写</text>
+<text x="540" y="618" class="">写本轮 KV / 压缩记录 / 状态</text>
+<text x="540" y="649" class="">按表、长度和选择范围读取</text>
+<text x="540" y="680" class="">设备完成与传输依赖各自遵守</text>
+<rect x="40" y="550" width="400" height="178" class="box" fill="#f0f4f7"/>
+<text x="60" y="583" class="head">完成、取消或抢占后的清理</text>
+<text x="60" y="618" class="">解除请求引用；需要时延迟归还</text>
+<text x="60" y="649" class="">等待尚未完成的设备操作或传输</text>
+<text x="60" y="680" class="">ref_cnt 降到 0 → 进入可复用队列</text>
+<path d="M 520 652 L 440 652" class="line"/>
+<text x="451" y="637" class="small">安全</text>
+<text x="451" y="682" class="small">边界</text>
+<path d="M 240 728 L 240 782" class="line"/>
+<rect x="40" y="790" width="880" height="135" class="box" fill="#fff"/>
+<text x="60" y="825" class="head">归还引用 ≠ 立即抹除缓存内容</text>
+<text x="60" y="860" class="">有 hash 的空闲块仍可前缀命中；touch 后重新持有引用</text>
+<text x="60" y="889" class="">真正复用给新数据时驱逐旧 hash。新块清零、部分前缀 CoW 由调度结果触发。</text>
+<text x="40" y="953" class="small">各缓存组可有不同保留边界；已分配槽位不等于已提交的有效历史。</text>
+</svg>

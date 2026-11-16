@@ -4,7 +4,45 @@
 
 MLA 的一行历史可以保存压缩 latent。稀疏 Attention 先选出本轮要读的位置，有些模型还会压缩历史行数。Mamba 和 KDA 从某个位置的状态接续计算，页里保存的是续算快照。
 
-> A 的算例使用缩小的块长，无投机、无上下文分片。模型算例按各自链接的源码、配置和运行条件记账。形状、容量与服务参数依据源码和部署文档核对。本章的服务步骤供复查实际张量。
+> 本章的执行主线采用 ModelRunnerV2：上游 `vllm/v1/worker/gpu/model_runner.py` 和 Ascend `worker/v2/model_runner.py`。`attention_v1.py`、`mla_v1.py`、`sfa_v1.py` 是这条路径会调用的 backend 文件名。A 的教学算例使用缩小的块长，无投机、无上下文分片；模型形状按各自固定来源核对。A5 数据仍沿用原实验记录的配置，本章没有据此新增 V2 实测结论。
+
+## 启动时怎样得到页池和 backend？
+
+请求进入之前，模型已经定义了哪些层需要跨轮保存数据。普通 Attention 层报告 K/V 的 `KVCacheSpec`；MLA 报告 latent 规格；Indexer、压缩器与递归层也各自登记所需缓存。显式共享前层 KV 的后层不再重复申请同一份存储。Ascend V2 的 `get_kv_cache_spec()` 汇总这些层，补充后端需要的页格式，再把规格交回 EngineCore。[Ascend 规格收集](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/attn_utils.py#L215-L333)
+
+`EngineCore._initialize_kv_caches()` 先收集各 worker 的规格并确定兼容布局，再通过内存测算得到可用于 KV 的预算。`get_kv_cache_configs()` 据页规格、预算和并行配置制定各 worker 的 `KVCacheConfig`，其中包含缓存组、物理块数和 backing storage 计划。Scheduler 得到用于管理块号的配置；worker 经 `initialize_from_config()` 分配设备缓存，之后才进入模型编译和预热。不能把空闲 HBM 全部除以某层的 K/V 大小当作最终块数：非 KV 运行开销、混合层规格、页对齐和实际分配计划都参与这个过程。[启动顺序](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/engine/core.py#L261-L405) · [缓存配置规划](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/kv_cache_utils.py)
+
+backend 的选择和物理分配相互约束。模型构造 Attention 层时，经平台选择或模型专用类确定 backend；V2 初始化再按缓存组、backend、层 spec 和本地 Q head 数组织 `AttentionGroup`，建立 metadata builder，确定 kernel 的块长及图模式能力。Ascend 平台的一般分流如下；表中选择仍受设备、dtype、量化和并行组合的检查约束。[平台选择](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/platform.py#L305-L355) · [V2 初始化](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/model_runner.py#L605-L804)
+
+| 层的缓存与计算需求 | Ascend 入口 | 后续读写责任 |
+| --- | --- | --- |
+| 普通 MHA/GQA | `AscendAttentionBackend` | 写 K/V，再选择 PA 或 FIA 读取；二者是同一 backend 内的执行分支 |
+| 满足 A5 Device-length 条件的指定模型路径 | `AscendFlashAttentionBackend` | 继承普通 K/V 写入，改由 CANN `flash_attn_metadata` / `flash_attn` 读取 |
+| 稠密 MLA | `AscendMLABackend` | 生成并写入 latent / 共享 Key，再按 Decode 或 Prefill 路径读取 |
+| 带独立 Indexer 的稀疏 MLA | `AscendSFABackend` | 更新主 KV 和 Indexer K，选择 TopK 后读取主 KV |
+| DeepSeek-V4 的压缩 Attention | `AscendDSAC4Backend`、`AscendDSAC128Backend`、`AscendDSASWABackend` | 模型按压缩率直接选类，分别组织压缩记录、压缩状态和滑窗缓存 |
+| GDN、KDA 等递归层 | 各层注册的状态 backend 与模型算子 | 由状态索引选续算快照，计算后更新状态 |
+
+例如 A5 的 Device-length FlashAttention 分支只对源码指定的 DFlash／DSpark 等模型路径开放，还检查 dtype、KV 量化和 CP 等条件；训练一致性模式另有 FA3 选择。这里的 FA 不能等同于“普通 Dense 默认都会进入的算子”。V4 的专用类也不能仅用平台上的 `use_mla/use_sparse/use_compress` 三个布尔值概括。[Device-length 适用条件](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/platform.py#L1663-L1712) · [V4 按压缩率选择](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/models/layer/attention/layer.py#L127-L161)
+
+Ascend V2 的 `initialize_kv_cache()` 复制逻辑配置后应用 layerwise 物理计划。分配器创建 backing storage，再由 `_reshape_kv_cache_v2()` 得到各 backend 所需的 K/V、latent、Indexer 或状态视图；`init_kv_cache()` 将视图绑定到层。后续前向复用这些持久分配，请求增长主要改变“哪些块属于它”以及“本轮写哪一槽”。[Ascend V2 初始化](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/model_runner.py#L484-L538) · [Ascend 分配与视图](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/attn_utils.py#L1594-L1699) · [V2 绑定层缓存](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/attn_utils.py#L396-L443)
+
+## 一条请求怎样取得、保留和归还块？
+
+Scheduler 持有请求的调度进度，`KVCacheManager` 通过各类型 manager 和 `BlockPool` 管理 `request → cache group → block IDs`。worker 上的 V2 持有这些块号的设备侧表和层缓存视图。两边交换块号与进度，不在每轮把整份 KV 从 Scheduler 传给设备。
+
+![启动时根据规格与预算建立物理页池。每轮 Scheduler 取得块引用，V2 对齐块表和写槽，backend 写读数据；完成或抢占后在安全边界解除引用。](../dist/assets/kv-v2-lifecycle.svg)
+
+新请求先经 `get_computed_blocks()` 查询可复用前缀。命中的是已有数据和块引用，仍须核对所有相关缓存组能共同接续的边界。即使整个提示词都已缓存，生成 logits 仍要求重算末尾输入，所以该入口把最大命中长度限制在 `request.num_tokens−1`，具体还受块对齐约束。随后 `allocate_slots()` 先移除已不再需要的历史块，再检查空闲容量，接纳命中块并追加新块；空间不足返回 `None`。开启投机时还可能预留 lookahead 槽，已分配容量不等于已确认有效 KV。[前缀查询](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/kv_cache_manager.py#L278-L325) · [追加与有效范围](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/kv_cache_manager.py#L550-L618)
+
+已有请求通常保留旧块，只为本轮跨过的块边界追加块号。`SchedulerOutput` 把新请求的完整块表和已有请求的增量块号交给 V2。`add_requests()` 在请求槽里覆盖初始块号；`update_requests()` 对已有请求追加块号，并按调度结果执行新块清零或部分前缀命中的 copy-on-write。请求在本轮 batch 中换了行，持久请求槽仍可保留；`idx_mapping` 将本轮批内请求索引映射到持久状态槽。[V2 新请求](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/model_runner.py#L1181-L1267)
+
+输入位置确定后，`prepare_attn()` 按 `idx_mapping` 收集每组块表，由 `positions` 和 query 边界计算每组 `slot_mapping`。Ascend 的 `build_attn_metadata()` 再将同一组的表、槽、长度交给对应 builder，最终按层名供前向使用。写槽回答“本轮这一行写到哪里”；读侧还需要块表、有效长度、可见窗口或稀疏索引。状态缓存可以声明不使用普通 token 写槽，转而由自己的 builder 准备状态索引。[V2 取表与算槽](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/model_runner.py#L1556-L1574) · [按组的 slot 能力](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/model_runner.py#L629-L650) · [Ascend metadata 分发](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/attn_utils.py#L557-L670)
+
+分配失败可触发抢占。`_preempt_request()` 解除该请求的块引用、清零其调度计算进度，再放回等待队列；恢复时重新查前缀并补算未命中的部分。正常完成和取消也进入请求清理路径。解除引用必须遵守尚未完成的设备操作和 KV connector 的生命周期，源码有延迟归还队列，避免旧前向或异步传输还会写的块立即被其他请求拿走。[抢占](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L1571-L1617) · [完成与延迟归还](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L2727-L2777)
+
+块的 `ref_cnt` 降到 0 后进入可复用队列；带前缀 hash 的块仍可保留缓存身份。另一条请求命中它时，`touch()` 把它移出空闲队列并增加引用；真正为了新数据复用它时，分配器再驱逐旧 hash。因此“请求释放”“前缀仍可命中”“物理内容被覆盖”是不同事件。滑窗回收也只越过已经处理并提交的安全边界，不能直接用异步调度已经乐观推进的计数。[引用与空闲队列](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/block_pool.py#L752-L805) · [复用时驱逐](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/block_pool.py#L666-L713) · [滑窗安全边界](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/kv_cache_manager.py#L550-L559)
+
 
 ## 请求 A 怎样从两页接到第三页？
 
@@ -124,6 +162,8 @@ DeepSeek-V3 与 R1 的 KV 投影为每个位置生成 512 维 latent 和 64 维�
 
 `N` 在这里仍是页内历史位置数。CUDA 可为兼容的 MLA 路径指定 `--attention-backend FLASHMLA` 等后端，并通过 `attention_config.mla_prefill_backend` 为 Prefill 选择实现。Ascend 的拆分或合并分支要从实际 backend 和 cache dtype 核对。[vLLM 绑定视图](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/model_executor/layers/attention/mla_attention.py#L715) · [CUDA 后端矩阵](https://docs.vllm.ai/en/latest/design/attention_backends/#mla-multi-head-latent-attention-backends) · [Ascend MRv2 KV 视图](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/attn_utils.py#L2010-L2070) · [Ascend FlashMLA 选择条件](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/mla_v1.py#L1067-L1087)
 
+Ascend V2 将上述视图绑定到 MLA 层后，`AscendMLAImpl.forward()` 从 metadata 区分 Decode 与 Prefill 行，并选择普通预处理或支持的 fused prolog。普通路径在 `_mla_preprocess()` 中投影 Q 与 KV、按 `slot_mapping` 写入 latent 和共享 Key；融合路径把投影、归一化、RoPE 和 cache 写入组合在一起。缓存写完后，Decode 进入 `_forward_decode()`（或明确选中的 external FlashMLA），Prefill 进入 `_forward_prefill()`，后者还要处理当前片段与已有上下文。合并 MLA tensor 可以在入口拆成零拷贝逻辑视图；不能因变量名 `key_cache/value_cache` 就把第二份视图当成普通 GQA 的 V。[MLA 写入与通知](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/mla_v1.py#L3325-L3360) · [MLA 前向分流](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/mla_v1.py#L3385-L3530)
+
 ### Kimi K3 只在 MLA 层逐位置保留历史
 
 Kimi K3 文本主干有 24 层全量 MLA 和 69 层 Kimi Delta Attention（KDA）。MLA 层采用 NoPE，仍写入 512 维 latent 和 64 维共享 Key，计算时跳过旋转。vLLM CUDA 以 `use_sparse=False` 选后端。普通 BF16 和 FP8 的合并视图均为 `[B,N,576]`，每位置分别占 1152 B 和 576 B。Ascend 的 W4A8 检查点保留同样的层型和维度。所查 MRv2 实现分别构造 `AscendKimiMLAAttention` 和 `AscendKimiK3DeltaAttention`，BF16 拆分 MLA 仍使用上表两份视图。KDA 页保存卷积和递归状态，其形状见下文。[模型配置](https://huggingface.co/moonshotai/Kimi-K3/blob/f831ab66/config.json) · [Ascend W4A8 模型配置](https://www.modelscope.cn/models/Eco-Tech/Kimi-K3-w4a8/resolve/master/config.json) · [CUDA MLA 选择](https://github.com/vllm-project/vllm/blob/ced6857afa0e/vllm/models/kimi_k3/nvidia/mla.py#L316-L349) · [CUDA 缓存规格](https://github.com/vllm-project/vllm/blob/ced6857afa0e/vllm/models/kimi_k3/nvidia/mla.py#L412-L434) · [Ascend 主干选层](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/models/kimi_k3.py#L514-L554)
@@ -141,6 +181,10 @@ DeepSeek-V3.2 在 576 维 MLA 主缓存旁边增加 Lightning Indexer。当前 `
 | vLLM-Ascend SFA C8，另启用 Indexer 量化 | `[B,N,1,656]` 字节视图，每位置 512 B latent、128 B RoPE、16 B scale | K 为 `[B_i,N_i,1,128]`，scale 为 `[B_i,N_i,1,1]`。FP8/FP32 合计 132 B，INT8/FP16 合计 130 B |
 
 `B_i,N_i` 取 Indexer 页几何。CUDA 兼容路径可指定 `--attention-backend FLASHMLA_SPARSE` 和 `--kv-cache-dtype fp8_ds_mla`。Ascend SFA 的主 KV 通过 `--additional-config '{"enable_sparse_sfa_c8":true}'` 和相应 `--kv-cache-dtype` 进入 C8 路径，Indexer K 则由 `--attention-config.indexer_kv_dtype` 选择。两种主 KV 都能是 656 B，字节顺序按表中各行读取。取 Ascend BF16 路径的 128 槽页，主 KV 和 Indexer 各分配 4 页时，有效载荷为 `4×128×(1152+256)=704 KiB` 每层。支持同组分配时，同一个 block ID 会分别定位主 KV 视图和 Indexer 视图。后续的稀疏卸载还会增加 Host 和设备工作集之间的映射。[CUDA 缓存记录与后端支持](https://github.com/vllm-project/vllm/blob/ced6857/vllm/v1/attention/backends/mla/flashmla_sparse.py#L76-L142) · [CUDA Indexer spec](https://github.com/vllm-project/vllm/blob/ced6857/vllm/model_executor/models/deepseek_v2.py#L637) · [Ascend 主 KV 开关与打包](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/sfa_v1.py#L860-L882) · [Ascend C8 写入](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/sfa_v1.py#L1657) · [Indexer 分组](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/core/kv_cache_interface.py#L295) · [稀疏 KV 卸载与 HiSparse](稀疏KV卸载与HiSparse.md)
+
+在 Ascend SFA 的一次前向中，主层 metadata 与 Indexer 层 metadata 分别取出；各自的表和槽对应各自绑定的缓存。主路径先写 latent / RoPE，Indexer 再执行 `K 投影 → 写 Indexer cache → TopK`，所以选址 kernel 能读到本轮刚写入的 K。两份缓存写完便触发该层的 `notify_kv_cache_written()`，无需等 Attention 输出；是否传输由 connector 和 Scheduler 决定。随后 `_execute_sparse_flash_attention_process()` 用 TopK、主 KV 和主块表计算输出，再做 V 空间投影与 O 投影。[SFA 缓存与 metadata 取得](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/sfa_v1.py#L1723-L1819) · [完整写入、选址与读取顺序](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/sfa_v1.py#L1960-L2048)
+
+TopK 复用还要分清两种情况：保留运行时 Indexer 的 `skip_topk` 层仍更新自己的 Indexer K，只跳过本轮选择；静态共享索引的层可以没有自己的运行时 Indexer cache。两者都会继续执行本层主 KV 的写入与读取。TopK 是这次 Attention 读哪些位置的选择结果，不能据它的长度推断已分配页数。
 
 ### GLM-5.3 复用 TopK，主 KV 仍由各层持有
 
@@ -171,6 +215,10 @@ DeepSeek-V4-Flash 每层先写 128 位置滑窗的原始 KV，Attention 读这�
 
 Ascend 指南的 950DT 示例分别用 `--kv-cache-dtype fp8` 和 `--attention_config.indexer_kv_dtype fp8` 选择主 KV 与 Indexer 的精度。A3 示例用 INT8 Indexer；上表的 BF16 主 KV 按相应 cache dtype 计算。[CUDA 256 位置逻辑块](https://github.com/vllm-project/vllm/blob/ced6857/vllm/models/deepseek_v4/sparse_mla.py#L47-L62) · [CUDA 主 KV spec](https://github.com/vllm-project/vllm/blob/ced6857/vllm/models/deepseek_v4/attention.py#L834-L863) · [CUDA SWA spec](https://github.com/vllm-project/vllm/blob/ced6857/vllm/v1/attention/backends/mla/sparse_swa.py#L72-L130) · [CUDA Indexer 字节宽度](https://github.com/vllm-project/vllm/blob/ced6857/vllm/models/deepseek_v4/attention.py#L987-L1004) · [CUDA 页内地址](https://github.com/vllm-project/vllm/blob/ced6857/vllm/models/deepseek_v4/common/ops/cache_utils.py#L67) · [CUDA 格式解析](https://github.com/vllm-project/vllm/blob/ced6857/vllm/models/deepseek_v4/attention.py#L94-L129) · [Ascend 块几何](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/layer/attention/layer.py#L33-L57) · [Ascend 压缩主 KV spec](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/layer/attention/layer.py#L208-L235) · [Ascend SWA 格式](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/deepseek_v4/model.py#L117-L153) · [Ascend Indexer spec](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/deepseek_v4/indexer.py#L98-L158) · [Ascend 配置](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/docs/source/tutorials/models/DeepSeek-V4-Flash.md#L195-L258)
 
+Ascend V2 为这些缓存分别建立组和 builder：原始滑窗、压缩主 KV、压缩器状态，以及 C4 的 Indexer K／尺度与其压缩器状态。模型通过 `dsa_forward` custom op 取得各层视图，组装 cache tuple 后调用 `AscendDSAImpl.forward()`；`_forward_attention()` 先解出各视图，prolog 把本轮原始 KV 写到 SWA 槽，压缩器再结合自己的 `state_block_table` 和 `start_pos` 接续尚未完成的压缩窗口。只有形成有效压缩记录时，返回的压缩槽才对应主 KV 的新行。压缩器状态页因此也必须由管理器保留，不能只统计最终压缩行。[V4 模型组装](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/models/deepseek_v4/model.py#L634-L688) · [DSA 前向与 cache tuple](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/ops/dsa.py#L149-L244) · [压缩器状态与写槽](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/models/deepseek_v4/compressor.py#L202-L235)
+
+C4 路径在更新压缩主 KV 时运行 Indexer，更新压缩 Indexer K／scale 并返回 TopK；C128 路径更新主 KV 后直接使用可见的压缩历史。随后稀疏 Attention 同时接收 `ori_kv/ori_block_table` 与 `cmp_kv/cmp_block_table`，C4 再传 `cmp_sparse_indices`；SWA-only 层只保留原始窗口这一支。这里每类缓存有自己的页几何和状态变化，不能把普通 Dense 的一个 `slot_mapping` 不加转换地复用到所有缓存。[压缩更新与 Indexer](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/dsa_v1.py#L2890-L2967) · [DSA 读写全链](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/dsa_v1.py#L2970-L3120) · [Indexer 压缩和量化写入](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/models/deepseek_v4/indexer.py#L661-L768)
+
 ### C4 的一个 TopK 索引怎样找到数据和尺度？
 
 沿 CUDA FlashMLA 的 C4 页复算一次。取主 KV 块表 `[7,3]`，每个逻辑块覆盖 256 个原始位置，实际存 64 条压缩记录。压缩写入在 `(position+1)%4=0` 时才产生有效槽。位置 260～262 的压缩写槽为 `-1`，到位置 263 才产生压缩行 `263//4=65`。它落在逻辑块 `65//64=1`，映射到物理块 3 的第 `65%64=1` 行，扁平槽号为 `3×64+1=193`。后续 Decode 若由 Indexer 选出压缩行 65，主 Attention 用主 KV 块表做同样的换算，向 FlashMLA 传槽 193。滑窗索引通过另一个参数传给同一次 Attention。[压缩写槽](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/attention/backends/mla/compressor_utils.py#L58-L84) · [读侧换算](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/models/deepseek_v4/nvidia/flashmla.py#L186-L207) · [FlashMLA 入口](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/models/deepseek_v4/nvidia/flashmla.py#L248-L264)
@@ -190,6 +238,8 @@ Ascend 指南的 950DT 示例分别用 `--kv-cache-dtype fp8` 和 `--attention_c
 Ascend 示例的全局页用 `--block-size 128`，C2/C1 分别存 64/128 行，Indexer 同 source 采用相同的压缩率。A5 用其硬件配置选择 packed 路径，记录字节复算为 `(320+68)×(3/2+1)=970 B` 每原始 token。层 20 还为候选块选择写一份 folded Indexer `[B_i,16,1,544]`，每 8 条 K 和 scale 重新排列成一条，分配量另计。CUDA 还有 `fp8_ds_mla` 的全局记录和 FlashInfer 普通 BF16/FP8 行，表中只列明确选中的格式。[CUDA 格式解析](https://github.com/vllm-project/vllm/blob/63ac0a4e/vllm/models/deepseek_v41/attention.py#L181-L243) · [CUDA SWA 与全局规格](https://github.com/vllm-project/vllm/blob/63ac0a4e/vllm/models/deepseek_v41/attention.py#L568-L633) · [Ascend 部署](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/docs/source/tutorials/models/DeepSeek-V4.1-Flash.md#L271-L291) · [Ascend cache spec](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/deepseek_v41/cache_config.py#L40-L129) · [Folded 视图](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/worker/v2/attn_utils.py#L1862-L1897)
 
 Ascend 在同一个 source 的物理页内，为全局 KV、Indexer 和 folded Indexer 分配不同区段。分配器也能把 SWA 与压缩器状态安排在同一 backing 的其他块号，页 stride 由槽位可能装入的最大内容决定。跨层共享关系沿模型的 source 层追，显存容量沿分配器的页 stride 和块数追。启用 SWA bounded replay 后，前缀命中可重算滑窗，运行中的滑窗仍需要可写页。[Ascend 分配](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/deepseek_v41/cache_config.py#L154-L213) · [SWA bounded replay](https://vllm-project.github.io/2026/10/07/deepseek-v41-flash.html#swa-bounded-replay)
+
+这套共享关系在 Ascend 的 `AscendDSAV41Impl.forward()` 中也决定谁写、谁读。每层先更新自己的 SWA；只有 `is_kv_source` 的层写全局 KV 和相应 Indexer K。选择阶段由 `is_index_source` 层读取 `index_k_source_prefix` 指向的缓存并计算 TopK，其余层复用共享 TopK；主 Attention 则从 `long_kv_source_prefix` 取得全局 KV，同时读取本层 SWA。V2 builder 按这些缓存身份提供各自表、槽和长度。复用 TopK、复用 Indexer K、复用主 KV 是三种关系，要分别沿 source 名称核对。[V4.1 缓存更新](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/attention/dsa_v41.py#L419-L474) · [source 选址与读缓存](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/attention/dsa_v41.py#L648-L773) · [V4.1 前向](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/attention/dsa_v41.py#L780-L820)
 
 ## Mamba、GDN 和 KDA 的续算状态
 
@@ -217,6 +267,10 @@ Ascend 在同一个 source 的物理页内，为全局 KV、Indexer 和 folded I
 
 Ascend MRv2 通过页 stride 绑定卷积与递归视图。取 Qwen 单行载荷 801,792 B，假设统一后的物理页是 800 KiB，卷积 `[B,3,2560]` 以 BF16 元素计块 stride 为 `819,200/2=409,600`。递归 `[B,12,128,128]` 以 FP32 元素计块 stride 为 `819,200/4=204,800`，若页首和 backing 起点对齐，递归视图的起点为卷积占用之后的 `15,360/4=3840`。GDN 部分 Prefill 路径按状态索引 gather 对应行，算完 scatter 回去。这个例子的 800 KiB 是为说明地址选的页大小，实际值读目标 `MambaSpec` 和已绑定视图。[Ascend 状态视图](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc8aa2/vllm_ascend/worker/v2/attn_utils.py#L1668-L1686) · [Ascend GDN 状态读写](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc8aa2/vllm_ascend/ops/gdn.py#L828-L875) · [Ascend Kimi KDA 入口](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/ops/kimi_kda.py#L179)
 
+在 V2 中，递归状态同样由 `KVCacheConfig` 规划和分配，但一页的语义是续算快照。初始化按 `uses_slot_mapping` 决定是否生成普通 token 槽；递归层的 metadata 则区分 Prefill、Decode、投机状态索引及是否存在初始状态。以 Ascend KDA 为例，非投机 Prefill 通过 `state_copy.gather()` 取初始递归矩阵，chunk kernel 算完后 `scatter()` 写回；Decode 用状态索引在 recurrent kernel 中接续更新。卷积缓存有自己的索引与写回，两部分共同决定下轮从哪里继续。GDN 也有分支直接把状态池与索引交给 recurrent kernel，不能把所有情况画成同一个显式 gather。[V2 状态组能力](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/model_runner.py#L629-L650) · [KDA Prefill 状态读写](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/ops/kimi_kda.py#L600-L639) · [KDA Decode 与 Prefill 路径](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/ops/kimi_kda.py#L680-L834) · [GDN recurrent 路径](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/ops/gdn.py#L720-L877)
+
+请求命中前缀时，递归层必须能提供相同接续边界的状态；释放或抢占时，状态块也受同一引用与安全回收规则管理。上表的 Mamba1/Mamba2 是对应实现的形状说明，不能据此推断每种 Ascend 设备都支持所有 Mamba backend。GDN、KDA 的算子链按这里所引的 Ascend 实现核对，实际投机和 prefix-cache 支持仍由所选模型、状态模式及 builder 决定。
+
 ## Paged Attention 读取请求 A 的三页 KV
 
 请求 A 的新 K/V 写入槽 36 后，Attention 需要当前 Q、本层 K/V 视图、A 在该缓存组的块表，以及有效长度和可见范围。块表把请求内的连续位置映射到物理页。算子按本层视图的 stride 取到各页数据，再依据长度和 mask 决定哪些位置参加计算。对 A 的位置 8，三张页进入同一次 Attention，softmax 在九个可见位置上归一化。
@@ -226,6 +280,8 @@ Ascend MRv2 通过页 stride 绑定卷积与递归视图。取 Qwen 单行载荷
 读取侧：seq_len=9  → block_table=[7,2,9] → 有效行数 [4,4,1]
 输出侧：Q 的一行 × 九个可见 K → 对九个 V 做加权汇总
 ```
+
+![同一 V2 管理层下，Dense 写 K/V 后分页读取，MLA 写 latent 后读取，SFA 先更新 Indexer 再选址，压缩 DSA 同时维护窗口和压缩状态，递归层按状态索引接续。](../dist/assets/kv-v2-backend-flow.svg)
 
 ### GPU FlashAttention 和 Ascend 的调用入口
 
@@ -237,6 +293,10 @@ Ascend MRv2 通过页 stride 绑定卷积与递归视图。取 Qwen 单行载荷
 FlashAttention 这条路径把两个层次放在一起：页表提供逻辑位置到设备页的映射，计算 kernel 对 Q/K/V 分块并累积 Attention 结果。上游在 `prepare_attn()` 按当前批次取表和槽，metadata builder 按缓存组分发给层。A 在批内换行时，`query_start_loc`、`seq_lens` 与 A 的块表行也要随批次一起对齐。[GPU Runner 取表与槽](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/model_runner.py#L1556-L1574) · [按组构建 metadata](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/attn_utils.py#L495-L569) · [FlashAttention 读和写](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/attention/backends/flash_attn.py#L1399-L1470)
 
 Ascend 在 `DecodeOnly`、无滑窗且通过 `using_paged_attention()` 检查时使用专用 PA 路径。对普通 head dim，检查涉及设备支持、投机配置、`FULL_DECODE_ONLY` 图模式以及 `additional_config.pa_shape_list` 是否包含当前执行形状。其他普通路径可进入 FIA。FIA 在 Decode 和命中前缀的 Prefill 仍可读分页 KV，直接处理无缓存前缀时才可见 `block_table=None` 的分支。排查时从实际算子参数判断它读的缓存。[Ascend 分流与写入](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/attention_v1.py#L1185-L1307) · [专用 PA 调用](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/attention_v1.py#L1140-L1158) · [FIA 参数分支](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/attention_v1.py#L861-L911) · [PA 条件](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/utils.py#L288-L306)
+
+沿普通 Ascend Dense 的实际调用，Attention 层取到 V2 已绑定的本层缓存与 metadata，`AscendAttentionBackendImpl.forward()` 在有本轮 K/V 时进入 `reshape_and_cache()`；它裁出有效输入，并把 `slot_mapping` 交给 `DeviceOperator.reshape_and_cache`。随后 `forward_impl()` 才在 PA 与 FIA 间选择读路径。backend 也提供独立的 `do_kv_cache_update()` 接口；分析 trace 时应核对上层的 `forward_includes_kv_cache_update` 约定和实际调用，不能把独立更新与 forward 内更新当成固定要连续执行的两次写入。[Dense 前向](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/attention_v1.py#L1185-L1383) · [Attention 层更新约定](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/model_executor/layers/attention/attention.py#L540-L580)
+
+指定的 A5 Device-length FlashAttention 分支继承这套缓存写入，只覆盖 `forward_impl()`。builder 保留设备上的 query 边界和 KV 长度；`flash_attn_metadata()` 为对应头数、head dim、窗口和布局生成 plan，`flash_attn()` 再接收同一批长度、plan、本层 K/V 和块表。plan 在同一 attention group、同一 draft step 的 metadata 对象内复用，页归属仍由原来的 Cache Manager 管理。它既不另建一套请求页池，也不因改用 FA 就省略本轮 KV 写入。[Device-length FA 完整路径](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/fa_v1.py#L18-L116) · [metadata 与 tiling 的分工](从一轮调度到一次前向.md)
 
 ### 在服务上对齐分配、写入和读取
 

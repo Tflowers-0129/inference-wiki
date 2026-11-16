@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="1110" viewBox="0 0 960 1110" role="img" aria-labelledby="title desc">
+<title id="title">ModelRunnerV2 下各类缓存的写入与读取</title><desc id="desc">Dense、MLA、SFA、压缩DSA和递归状态共用V2缓存管理但有不同更新责任。图为无上下文分片的机制摘要，不代表所有硬件组合都支持。</desc>
+<style>text{font-family:"Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif;fill:#18334e;font-size:16px} .title{font-size:21px;font-weight:650}.head{font-size:18px;font-weight:600}.small{font-size:14px;fill:#435c70}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:15px}.line{fill:none;stroke:#526f86;stroke-width:2;marker-end:url(#arrow)}.box{stroke:#7890a3;stroke-width:1.5;rx:12}</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#526f86"/></marker></defs>
+<rect width="960" height="1110" fill="#f8fbfd"/>
+<text x="32" y="43" class="title">同一套 V2 管理，五种缓存读写路径</text>
+<text x="32" y="75" class="small">无 CP 的机制摘要 · 实际入口由模型、设备、dtype 与 backend 条件决定</text>
+<rect x="32" y="100" width="896" height="78" class="box" fill="#eaf2ff"/>
+<text x="52" y="132" class="head">V2：绑定持久层视图 → 按组取块表 → 构建本轮 metadata</text>
+<text x="52" y="162" class="small">普通 token 槽、压缩槽和状态索引，分别交给对应消费者。</text>
+<text x="190" y="212" class="head">准备缓存</text>
+<text x="610" y="212" class="head">计算并输出</text>
+<rect x="32" y="232" width="896" height="140" class="box" fill="#edf4ff"/>
+<text x="50" y="272" class="head">Dense</text>
+<text x="190" y="274" class="">Q/K/V → 按 token 槽写 K/V</text>
+<text x="190" y="304" class="">继承的写入路径可被 FA 复用</text>
+<path d="M 559 302.0 L 594 302.0" class="line"/>
+<text x="610" y="274" class="">PA 或 FIA：块表 ＋ 有效长度</text>
+<text x="610" y="304" class="">指定 FA：plan ＋ Device 长度</text>
+<rect x="32" y="390" width="896" height="140" class="box" fill="#eaf7f3"/>
+<text x="50" y="430" class="head">MLA</text>
+<text x="190" y="432" class="">投影 / norm / RoPE → 写 latent</text>
+<text x="190" y="462" class="">与共享 Key；可由 prolog 融合</text>
+<path d="M 559 460.0 L 594 460.0" class="line"/>
+<text x="610" y="432" class="">Decode 读压缩历史</text>
+<text x="610" y="462" class="">Prefill 合并当前片段与上下文</text>
+<rect x="32" y="548" width="896" height="140" class="box" fill="#fff3e8"/>
+<text x="50" y="588" class="head">SFA</text>
+<text x="190" y="590" class="">先写主 KV；再写 Indexer K</text>
+<text x="190" y="620" class="">Indexer 读新旧 K → TopK</text>
+<path d="M 559 618.0 L 594 618.0" class="line"/>
+<text x="610" y="590" class="">TopK ＋ 主块表 → 读主 KV</text>
+<text x="610" y="620" class="">再投影回 V 空间与输出</text>
+<rect x="32" y="706" width="896" height="170" class="box" fill="#f2effb"/>
+<text x="50" y="746" class="head">压缩 DSA</text>
+<text x="190" y="748" class="">原始 KV → SWA 窗口</text>
+<text x="190" y="778" class="">压缩器接续状态 → 压缩记录</text>
+<text x="190" y="808" class="">C4 更新 Indexer K → TopK</text>
+<path d="M 559 791.0 L 594 791.0" class="line"/>
+<text x="610" y="748" class="">SWA 表 ＋ 压缩主表</text>
+<text x="610" y="778" class="">C4 另带压缩 TopK</text>
+<text x="610" y="808" class="">C128 读可见的压缩历史</text>
+<rect x="32" y="894" width="896" height="140" class="box" fill="#edf7f5"/>
+<text x="50" y="934" class="head">GDN / KDA</text>
+<text x="190" y="936" class="">按状态索引读取卷积 / 递归快照</text>
+<text x="190" y="966" class="">取本次接续边界的初始状态</text>
+<path d="M 559 964.0 L 594 964.0" class="line"/>
+<text x="610" y="936" class="">Prefill / Decode 计算</text>
+<text x="610" y="966" class="">写回状态，供下一轮接续</text>
+<text x="32" y="1069" class="small">共用的是块管理与持久分配；不同缓存有各自的视图、页几何与有效边界。</text>
+<text x="32" y="1095" class="small">TopK 和 tiling plan 是本轮计算元数据，不等同于请求持有的 KV 页。</text>
+</svg>

@@ -26,6 +26,10 @@ DOWNLOADS = {
 }
 
 
+# Backend names such as attention_v1.py remain valid under ModelRunnerV2.
+LEGACY_RUNNER = re.compile(r"ModelRunnerV1|MRv1|worker/v1/|gpu_model_runner\.py", re.IGNORECASE)
+
+
 class Page(HTMLParser):
     def __init__(self, path):
         super().__init__()
@@ -69,6 +73,8 @@ def main():
             errors.append(f'缺少锚点：{target.name}#{parsed.fragment}')
 
     for path, page in pages.items():
+        if LEGACY_RUNNER.search(path.read_text(encoding="utf-8")):
+            errors.append(f"{path.name} 教学调用链应使用 ModelRunnerV2")
         expected_order = ['index', 'execution', 'speculation', 'load-balancing', 'ep-communication', 'context-parallel', 'pd-disaggregation', 'kv-cache-layouts', 'sparse-offload']
         if page.chapter_order != expected_order:
             errors.append(f'{path.name} 学习篇章顺序不一致，预期为 {", ".join(expected_order)}')
@@ -102,6 +108,8 @@ def main():
                 errors.append(f'缺少正文 {path.name}；请运行 sync-content.py')
                 continue
             body = path.read_text(encoding='utf-8')
+            if LEGACY_RUNNER.search(body):
+                errors.append(f'{path.name} 教学调用链应使用 ModelRunnerV2')
             if re.search(r'\bv\d+\.\d+(?:\.\d+)?|\b[0-9a-f]{40}\b',body):
                 errors.append(f'{path.name} 不应展示具体产品版本或提交号')
             images = re.findall(r'!\[[^\]]*\]\(([^)]+)\)',body)

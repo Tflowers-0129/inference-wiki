@@ -86,7 +86,6 @@ def render_markdown(source, key):
     parts, headings, paragraph = [], [], []
     section_open = False
     spec_player = spec_stream = ''
-    execution_lab = (ROOT / 'scripts' / 'execution-lab.html').read_text(encoding='utf-8') if key == 'execution' else ''
     lb_panels = {kind: (ROOT / 'scripts' / f'{kind}-lab.html').read_text(encoding='utf-8') for kind in ('dplb', 'eplb')} if key == 'load-balancing' else {}
     offload_lab = (ROOT / 'scripts' / 'offload-lab.html').read_text(encoding='utf-8') if key == 'sparse-offload' else ''
     ep_lab = (ROOT / 'scripts' / 'ep-lab.html').read_text(encoding='utf-8') if key == 'ep-communication' else ''
@@ -119,8 +118,6 @@ def render_markdown(source, key):
             i += 1; continue
         if line == '<!-- KV_DECODE_PLAYER -->':
             flush(); parts.append(kv_decode_player); i += 1; continue
-        if line == '<!-- EXECUTION_LAB -->':
-            flush(); parts.append(execution_lab); i += 1; continue
         if line == '<!-- OFFLOAD_LAB -->':
             flush(); parts.append(offload_lab); i += 1; continue
         if line == '<!-- EP_LAB -->':
@@ -202,10 +199,10 @@ def build_chapters():
             next_link = '<a href="load-balancing.html">继续：DPLB 与 EPLB →</a>'
             action = '<a class="primary-button" href="#spec-player">逐步看接受与回退 →</a><a class="text-button" href="#spec-stream">对照 ITL 与 TPOT ↓</a>'
         elif key == 'execution':
-            player_links = '<a href="#fusion-lab">Triton 输入准备图解</a>'
-            extra = f'<link rel="stylesheet" href="{asset_url("execution-lab.css")}"><script defer src="{asset_url("execution-lab.js")}"></script>'
+            player_links = ''
+            extra = ''
             next_link = '<a href="speculation.html">继续：投机解码与流式指标 →</a>'
-            action = '<a class="primary-button" href="#execution-1">从输入打包开始 →</a><a class="text-button" href="#fusion-lab">看 Triton 怎样融合准备 ↓</a>'
+            action = '<a class="primary-button" href="#execution-1">沿 V2 走完一轮 →</a><a class="text-button" href="#execution-5">理解 tiling 下沉 ↓</a>'
         elif key == 'load-balancing':
             player_links = '<a href="#dplb-lab">DPLB 请求分发</a><a href="#eplb-lab">EPLB rank 泳道</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("lb.css")}"><script defer src="{asset_url("lb-model.js")}"></script><script defer src="{asset_url("lb-app.js")}"></script>'
@@ -235,7 +232,7 @@ def build_chapters():
             player_links = '<a href="#kv-decode-player">KV 寻址播放器</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("kv-decode.css")}"><script defer src="{asset_url("kv-decode-model.js")}"></script><script defer src="{asset_url("kv-decode-app.js")}"></script>'
             next_link = '<a href="sparse-offload.html">继续：稀疏 KV 卸载与 HiSparse →</a>'
-            action = '<a class="primary-button" href="#kv-decode-player">播放一次 Decode 的 KV 寻址 →</a><a class="text-button" href="#kv-cache-layouts-5">按后端查缓存形状 ↓</a>'
+            action = '<a class="primary-button" href="#kv-decode-player">播放一次 Decode 的 KV 寻址 →</a><a class="text-button" href="#kv-cache-layouts-7">按后端查缓存形状 ↓</a>'
         else:
             raise ValueError(f'Unknown chapter: {key}')
         chapter_nav = chapter_navigation(key, player_links + local_nav)
