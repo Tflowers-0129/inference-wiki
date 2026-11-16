@@ -41,7 +41,7 @@ OMP_NUM_THREADS=1 python3 -m torch.distributed.run \
 
 ## SP：哪些计算可以留在行分片上？
 
-输入模拟 Row Parallel Linear 在 TP2 上的两份部分和，每个 rank 持有 `[N,H]`，`H=8`。对照路径先 AllReduce 得到完整激活，再运行 RMSNorm；SP 路径先 ReduceScatter 得到本 rank 的行，再在这些行上做 RMSNorm，最后 AllGather 恢复完整结果。RMSNorm 沿完整的 hidden 维计算，RMSNorm 的平方均值采用 FP32 计算，输出转回输入 dtype；collective 张量仍采用所选 dtype，`epsilon=1e-6`，`gamma[c]=(c+1)/8`。
+输入模拟 Row Parallel Linear 在 TP2 上的两份部分和，每个 rank 持有 `[N,H]`，`H=8`。对照路径先 AllReduce 得到完整激活，再运行 RMSNorm；SP 路径先 ReduceScatter 得到本 rank 的行，再在这些行上做 RMSNorm，最后 AllGather 恢复完整结果。RMSNorm 沿完整 hidden 维计算，平方均值采用 FP32，输出转回输入 dtype，`epsilon=1e-6`，`gamma[c]=(c+1)/8`。collective 张量仍采用所选 dtype。
 
 有效行数分别取 4 和 5。5 行先补到 6 行，ReduceScatter 后每 rank 是 `[3,8]`，分别拥有有效行 0–2 和 3–4，最后一个 padding 行保持为零。该场景每 rank 的 RMSNorm 元素数从 `6×8=48` 降到 `3×8=24`；这只是张量工作量计数，不是时延或峰值显存测量。
 
