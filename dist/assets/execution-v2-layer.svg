@@ -31,7 +31,7 @@
 <text x="250" y="397" class="body">C 的 2048 行 Q 依次可见</text>
 <text x="250" y="429" class="mono">4097,4098,…,6144 个位置</text>
 <path d="M330 208 V274" fill="none" stroke="#607086" stroke-width="1.5" marker-end="url(#arrow)"/>
-<text x="344" y="246" class="small">K / V</text>
+<text x="344" y="246" class="small">按 slot_mapping 写 KV</text>
 <path d="M560 274 V208" fill="none" stroke="#607086" stroke-width="1.5" marker-end="url(#arrow)"/>
 <text x="574" y="246" class="small">页表 + 长度</text>
 <rect x="694" y="274" width="234" height="194" rx="6" fill="#fff4e7" stroke="#d8e1eb"/>
@@ -41,7 +41,7 @@
 <text x="710" y="397" class="mono">有效输出数 [1,1,0]</text>
 <text x="710" y="429" class="mono">C：6144 &lt; 8192</text>
 <path d="M810 208 V274" fill="none" stroke="#607086" stroke-width="1.5" marker-end="url(#arrow)"/>
-<text x="32" y="511" class="small">线性层共享权重；2050 行没有缩成图中展示的几个位置。</text>
+<text x="32" y="511" class="small">线性层共享权重；每个输入 Token 都保留对应的一行隐藏状态。</text>
 <text x="32" y="540" class="small">C 继续保留本轮 KV，但 Prompt 尚未结束，本轮没有生成输出。</text>
 <text x="32" y="569" class="small">数据依赖示意：方框不对应 kernel 数，不表示实测耗时。</text>
 </svg>

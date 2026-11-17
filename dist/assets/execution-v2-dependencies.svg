@@ -1,1 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="429" viewBox="0 0 960 429" role="img" aria-labelledby="title desc"><title id="title">V2 target metadata 的生产、消费与复用</title><desc id="desc">只适用于支持延迟 producer 的 builder；横向表示依赖顺序，不表示耗时比例。</desc><defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="#607086"/></marker><style>text{font-family:"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#22334b}.title{font-size:21px;font-weight:600}.head{font-size:16px;font-weight:600}.body{font-size:16px}.small{font-size:14px;fill:#607086}.mono{font-family:ui-monospace,"SFMono-Regular",Consolas,"PingFang SC",monospace;font-size:15px}.blue{font-size:16px;fill:#2763b0}.teal{font-size:16px;fill:#157b78}.orange{font-size:16px;fill:#a96524}</style></defs><rect width="960" height="429" fill="#fff"/><text x="32" y="38" class="title">V2 target metadata 的生产、消费与复用</text><text x="32" y="65" class="small">只适用于支持延迟 producer 的 builder；横向表示依赖顺序，不表示耗时比例。</text><text x="32" y="112" class="head">计算流</text><text x="32" y="238" class="head">metadata 流</text><text x="32" y="332" class="head">下一轮</text><path d="M142 118 H928" fill="none" stroke="#d8e1eb"/><path d="M142 244 H928" fill="none" stroke="#d8e1eb"/><path d="M142 338 H928" fill="none" stroke="#d8e1eb"/><rect x="152" y="92" width="174" height="52" rx="6" fill="#edf4fe" stroke="#d8e1eb"/><text x="166" y="124" class="body">本轮输入已更新</text><rect x="152" y="218" width="174" height="52" rx="6" fill="#eaf6f3" stroke="#d8e1eb"/><text x="166" y="250" class="body">producer 生成计划</text><path d="M238 144 V218" fill="none" stroke="#607086" stroke-width="1.5" marker-end="url(#arrow)"/><rect x="410" y="92" width="196" height="52" rx="6" fill="#eaf6f3" stroke="#d8e1eb"/><text x="426" y="124" class="body">首次 Attention 消费</text><path d="M326 244 H370 V118 H410" fill="none" stroke="#607086" stroke-width="1.5" marker-end="url(#arrow)"/><text x="350" y="190" class="small">就绪依赖</text><rect x="706" y="92" width="222" height="52" rx="6" fill="#f4f6f9" stroke="#d8e1eb"/><text x="722" y="124" class="body">结束：join 所有 producer</text><path d="M606 118 L704 118" fill="none" stroke="#607086" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M326 254 H672 V144 H706" fill="none" stroke="#607086" stroke-width="1.5" marker-end="url(#arrow)"/><rect x="706" y="312" width="222" height="52" rx="6" fill="#edf4fe" stroke="#d8e1eb"/><text x="722" y="344" class="body">才能复用 producer 输入</text><path d="M818 144 V312" fill="none" stroke="#607086" stroke-width="1.5" marker-end="url(#arrow)"/><text x="32" y="401" class="small">FULL 捕获包含 producer、消费等待与末尾 join；回放执行这些节点，不再额外提交同一 producer。</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="476" viewBox="0 0 960 476" role="img" aria-labelledby="title desc">
+<title id="title">执行计划先生成，再交给 Attention</title>
+<desc id="desc">接入 TargetDeviceMetadata 并延后生成执行计划的 V2 后端：Attention 使用计划前等待生成完成，本轮结束前等待所有生成任务结束，下一轮才能复用输入。</desc>
+<defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="#607086"/></marker><style>text{font-family:"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#22334b}.title{font-size:21px;font-weight:600}.head{font-size:16px;font-weight:600}.body{font-size:16px}.small{font-size:14px;fill:#607086}.mono{font-family:ui-monospace,"SFMono-Regular",Consolas,"PingFang SC",monospace;font-size:15px}.arrow{fill:none;stroke:#607086;stroke-width:1.5;marker-end:url(#arrow)}</style></defs>
+<rect width="960" height="476" fill="#fff"/>
+<text x="32" y="38" class="title">执行计划先生成，再交给 Attention</text>
+<text x="32" y="65" class="small">适用于通过 TargetDeviceMetadata 延后生成计划的 V2 后端；箭头表示依赖，不表示耗时。</text>
+<text x="32" y="128" class="head">计算流</text>
+<text x="32" y="264" class="head">计划生成流</text>
+<text x="32" y="382" class="head">下一轮</text>
+<path d="M142 129 H928 M142 265 H928 M142 377 H928" fill="none" stroke="#d8e1eb"/>
+
+<rect x="152" y="94" width="174" height="70" rx="6" fill="#edf4fe" stroke="#d8e1eb"/>
+<text x="168" y="123" class="body">本轮输入已更新</text>
+<text x="168" y="150" class="small">长度、位置等</text>
+<path d="M238 164 V230" class="arrow"/>
+<rect x="152" y="230" width="174" height="70" rx="6" fill="#eaf6f3" stroke="#d8e1eb"/>
+<text x="168" y="260" class="body">生成执行计划</text>
+<text x="168" y="286" class="small">读取本轮输入</text>
+
+<rect x="410" y="94" width="196" height="70" rx="6" fill="#eaf6f3" stroke="#d8e1eb"/>
+<text x="426" y="123" class="body">Attention 使用计划</text>
+<text x="426" y="150" class="small">所需计划就绪后执行</text>
+<path d="M326 265 H370 V129 H410" class="arrow"/>
+<text x="384" y="205" class="small">等所需计划生成完成</text>
+
+<rect x="706" y="94" width="222" height="70" rx="6" fill="#f4f6f9" stroke="#d8e1eb"/>
+<text x="722" y="123" class="body">本轮结束前</text>
+<text x="722" y="150" class="body">等全部计划生成完成</text>
+<path d="M606 129 H704" class="arrow"/>
+<path d="M326 285 H672 V151 H704" class="arrow"/>
+
+<rect x="706" y="342" width="222" height="70" rx="6" fill="#edf4fe" stroke="#d8e1eb"/>
+<text x="722" y="371" class="body">下一轮才能复用</text>
+<text x="722" y="398" class="body">计划生成所需的输入</text>
+<path d="M818 164 V340" class="arrow"/>
+<text x="32" y="445" class="small">FULL 图捕获计划生成与上述等待；回放直接执行这些节点，不重复提交同一生成任务。</text>
+</svg>

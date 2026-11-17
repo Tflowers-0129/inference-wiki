@@ -1,34 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="672" viewBox="0 0 960 672" role="img" aria-labelledby="title desc">
-<title id="title">采样结果怎样接回下一轮</title><desc id="desc">回到 A 本轮开始前：Prompt 4096，已输出 32；旧 KV 长度为 4127，anchor 为 a4127。</desc>
-<defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="#607086"/></marker><style>text{font-family:"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#22334b}.title{font-size:21px;font-weight:600}.head{font-size:16px;font-weight:600}.body{font-size:16px}.small{font-size:14px;fill:#607086}.mono{font-family:ui-monospace,"SFMono-Regular",Consolas,"PingFang SC",monospace;font-size:15px}</style></defs>
-<rect width="960" height="672" fill="#fff"/>
-<text x="32" y="38" class="title">采样结果怎样接回下一轮</text>
-<text x="32" y="65" class="small">回到 A 本轮开始前：Prompt 4096，已输出 32；旧 KV 长度为 4127，anchor 为 a4127。</text>
-<text x="32" y="106" class="head">Target 验证本轮（3 个 draft）</text>
-<text x="498" y="106" class="head">V2 更新持久状态槽 6</text>
-<rect x="32" y="124" width="412" height="242" rx="6" fill="#edf4fe" stroke="#d8e1eb"/>
-<text x="50" y="153" class="body">旧 KV：4127 个位置（0～4126）</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600" role="img" aria-labelledby="title desc">
+<title id="title">有效 KV 的边界，决定下一轮从哪里开始</title>
+<desc id="desc">请求 A 已有 4127 个位置的 KV。本轮验证一个输入 Token 和三个候选；接受两个候选后，有效 KV 长度为 4130，新采样的 x 作为下一轮输入。</desc>
+<defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="#607086"/></marker><style>text{font-family:"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#22334b}.title{font-size:21px;font-weight:600}.head{font-size:16px;font-weight:600}.body{font-size:16px}.small{font-size:14px;fill:#607086}.mono{font-family:ui-monospace,"SFMono-Regular",Consolas,"PingFang SC",monospace;font-size:15px}.arrow{fill:none;stroke:#607086;stroke-width:1.5;marker-end:url(#arrow)}</style></defs>
+<rect width="960" height="600" fill="#fff"/>
+<text x="32" y="38" class="title">有效 KV 的边界，决定下一轮从哪里开始</text>
+<text x="32" y="65" class="small">回到本轮开始前：A 已有 4127 个 Token 的 KV；这次输入 a4127 和三个候选。</text>
+<text x="32" y="106" class="head">本轮验证 4 个 Token</text>
+<text x="498" y="106" class="head">更新请求 A 的状态</text>
+<rect x="32" y="124" width="412" height="222" rx="6" fill="#edf4fe" stroke="#d8e1eb"/>
+<text x="50" y="153" class="body">旧 KV：位置 0～4126</text>
 <text x="50" y="185" class="mono">输入 [a4127,d1,d2,d3]</text>
 <text x="50" y="217" class="mono">位置 [4127,4128,4129,4130]</text>
-<text x="50" y="249" class="body">Target 临时计算长度：4131</text>
-<text x="50" y="281" class="body">接受 d1、d2；拒绝 d3 并采样 x</text>
-<text x="50" y="335" class="mono">num_sampled=3；num_rejected=1</text>
-<path d="M444 246 H480" fill="none" stroke="#607086" stroke-width="1.5" marker-end="url(#arrow)"/>
-<rect x="498" y="124" width="430" height="242" rx="6" fill="#eaf6f3" stroke="#d8e1eb"/>
-<text x="516" y="153" class="mono">post_update(idx_mapping, …)</text>
-<text x="516" y="190" class="mono">num_computed_tokens =</text>
-<text x="516" y="220" class="mono">4127 + 4 − 1 = 4130</text>
-<text x="516" y="259" class="mono">last_sampled_tokens = x @ 4130</text>
-<text x="516" y="296" class="body">有效 KV：位置 0～4129</text>
-<text x="516" y="335" class="small">x@4130 尚未生成自身 KV</text>
-<path d="M714 366 V402 H238 V434" fill="none" stroke="#607086" stroke-width="1.5" marker-end="url(#arrow)"/>
-<rect x="32" y="436" width="896" height="142" rx="6" fill="#fff4e7" stroke="#d8e1eb"/>
-<text x="50" y="465" class="head">下一轮 K=1</text>
-<text x="250" y="465" class="mono">query=[x,e1]</text>
-<text x="500" y="465" class="mono">positions=[4130,4131]</text>
-<text x="50" y="501" class="mono">seq_len=4132</text>
-<text x="290" y="501" class="mono">slot_mapping=[10402,10403]</text>
-<text x="50" y="541" class="body">逻辑页 32 → 物理页 81；两个写槽仍在同一页，无需分配新页。</text>
-<text x="32" y="617" class="small">旧 d3@4130 的 KV 已无效，下一轮由 x@4130 覆写；临时长度 4131 不作为接续起点。</text>
-<text x="32" y="646" class="small">批次可以重排；idx_mapping 继续将本轮请求索引映射到持久状态槽。</text>
+<text x="50" y="249" class="body">接受 d1、d2；拒绝 d3 并采样 x</text>
+<text x="50" y="319" class="body">本轮输出：d1、d2、x</text>
+<path d="M444 236 H480" class="arrow"/>
+<rect x="498" y="124" width="430" height="222" rx="6" fill="#eaf6f3" stroke="#d8e1eb"/>
+<text x="516" y="153" class="head">有效 KV 长度</text>
+<text x="516" y="185" class="body">旧长度 + 本轮输入数 − 拒绝数</text>
+<text x="516" y="217" class="mono">4127 + 4 − 1 = 4130</text>
+<text x="516" y="249" class="body">有效 KV：位置 0～4129</text>
+<text x="516" y="287" class="body">最后输出的 x 位于 4130</text>
+<text x="516" y="319" class="small">x 尚未生成自己的 KV</text>
+<path d="M714 346 V380 H238 V410" class="arrow"/>
+<rect x="32" y="412" width="896" height="112" rx="6" fill="#fff4e7" stroke="#d8e1eb"/>
+<text x="50" y="443" class="head">下一轮带 1 个候选 e1</text>
+<text x="290" y="443" class="mono">输入 [x,e1]</text>
+<text x="500" y="443" class="mono">positions=[4130,4131]</text>
+<text x="50" y="490" class="body">从位置 4130 接续，为 x 生成自己的 KV。</text>
+<text x="500" y="490" class="mono">送入 Attention：seq_len=4132</text>
+<text x="32" y="565" class="small">旧 d3 在位置 4130 留下的 KV 已无效，下一轮在该位置改写为 x 的 KV。</text>
 </svg>
