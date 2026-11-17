@@ -28,7 +28,7 @@
 <text x="500" y="465" class="mono">positions=[4130,4131]</text>
 <text x="50" y="501" class="mono">seq_len=4132</text>
 <text x="290" y="501" class="mono">slot_mapping=[10402,10403]</text>
-<text x="50" y="541" class="body">逻辑块 32 → 物理块 81；两个写槽仍在同一页，无需追加块。</text>
+<text x="50" y="541" class="body">逻辑页 32 → 物理页 81；两个写槽仍在同一页，无需分配新页。</text>
 <text x="32" y="617" class="small">旧 d3@4130 的 KV 已无效，下一轮由 x@4130 覆写；临时长度 4131 不作为接续起点。</text>
 <text x="32" y="646" class="small">批次可以重排；idx_mapping 继续将本轮请求索引映射到持久状态槽。</text>
 </svg>

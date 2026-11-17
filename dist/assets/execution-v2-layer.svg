@@ -33,7 +33,7 @@
 <path d="M330 208 V274" fill="none" stroke="#607086" stroke-width="1.5" marker-end="url(#arrow)"/>
 <text x="344" y="246" class="small">K / V</text>
 <path d="M560 274 V208" fill="none" stroke="#607086" stroke-width="1.5" marker-end="url(#arrow)"/>
-<text x="574" y="246" class="small">块表 + 长度</text>
+<text x="574" y="246" class="small">页表 + 长度</text>
 <rect x="694" y="274" width="234" height="194" rx="6" fill="#fff4e7" stroke="#d8e1eb"/>
 <text x="710" y="302" class="head">末层之后</text>
 <text x="710" y="333" class="mono">取行 [0,1,2049]</text>

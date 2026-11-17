@@ -8,7 +8,7 @@
 <text x="50" y="114" class="small">请求</text>
 <text x="140" y="114" class="small">本轮前的请求进度</text>
 <text x="480" y="114" class="small">已有 KV 长度</text>
-<text x="640" y="114" class="small">本轮 query 行数</text>
+<text x="640" y="114" class="small">本轮 Token 数</text>
 <text x="812" y="114" class="small">持久槽</text>
 <rect x="32" y="126" width="896" height="38" rx="0" fill="#edf4fe" stroke="#d8e1eb"/>
 <text x="50" y="151" class="mono">A</text>
@@ -32,12 +32,12 @@
 <text x="32" y="310" class="head">全批 2050 行；下表只列首尾与跨页定位点</text>
 <text x="562" y="310" class="mono">query_start_loc=[0,1,2,2050]</text>
 <rect x="32" y="332" width="896" height="36" rx="6" fill="#f4f6f9" stroke="#d8e1eb"/>
-<text x="48" y="356" class="small">输入行</text>
+<text x="48" y="356" class="small">批内行号</text>
 <text x="144" y="356" class="small">请求 → 状态槽</text>
 <text x="292" y="356" class="small">Token</text>
 <text x="430" y="356" class="small">position</text>
-<text x="574" y="356" class="small">逻辑块 / 偏移</text>
-<text x="760" y="356" class="small">物理块 → slot</text>
+<text x="574" y="356" class="small">逻辑页 / 偏移</text>
+<text x="760" y="356" class="small">物理页 → slot</text>
 <rect x="32" y="368" width="896" height="38" rx="0" fill="#edf4fe" stroke="#d8e1eb"/>
 <text x="48" y="393" class="mono">0</text>
 <text x="144" y="393" class="mono">A → 6</text>
@@ -85,7 +85,7 @@
 <text x="574" y="643" class="mono">47 / 127</text>
 <text x="760" y="643" class="mono">305 → 39167</text>
 <text x="32" y="694" class="mono">block_size=128：slot = block_table[position // 128] × 128 + position % 128</text>
-<text x="32" y="724" class="mono">所列块表项：A[32]=81；B[64]=146；C[32]=200，C[33]=72，C[47]=305</text>
+<text x="32" y="724" class="mono">所列页表条目：A[32]=81；B[64]=146；C[32]=200，C[33]=72，C[47]=305</text>
 <text x="32" y="758" class="small">输入行连续，物理写槽可以跨页跳转。省略的是表格展示，实际前向仍有 2050 行。</text>
-<text x="32" y="784" class="small">状态槽与物理块号为教学构造；C 的 Prompt 尚有位置 6144～8191 等待后续调度。</text>
+<text x="32" y="784" class="small">状态槽与物理页号为教学构造；C 的 Prompt 尚有位置 6144～8191 等待后续调度。</text>
 </svg>
