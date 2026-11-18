@@ -1,53 +1,95 @@
 # KV 池化：单机混部与跨机 PD
 
-两条请求共用 128 个 token 的前缀，各带 1 个不同的尾 token。第一条请求算出的 KV 留在哪里？第二条请求换了实例，还能按什么找到它？沿同一个前缀块，看它从 NPU 页写入 Host 内存，再读到另一张页表里。
+两个用户把同一本《使用手册》发给模型，问了不同的问题。第一条请求由 P0 处理，第二条换成 P1。要让 P1 省掉重读手册的计算，第一条请求留下的是什么？P1 到哪里找？假如回答又由另一台机器生成，还要再搬哪一份数据？
 
-## 单机混部：一份前缀 KV 怎样存入、读回？
+## 先认机器，再认内存
 
-![同机存取。第一次请求把第 3 页的 K、V 写成一个池对象，第二次请求命中同一个键，读入新分配的第 9 页。](../dist/assets/kv-pool-colocated.svg)
+**P0、P1 都在机器 A 上。机器 C 是另一台机器。** P0、P1 是两个 Prefill 实例，负责处理输入，在这个例子里各用 A 上的一张 NPU 卡。机器 B 的两张卡分别跑 D0、D1，即接着生成回答的 Decode 实例。机器 C 给共享缓存服务 Mooncake Store 提供一段主机内存，用来保存以后可以复用的 KV。
 
-图中 Prefill 与 Decode 共用一个实例，`AscendStoreConnector` 采用 Mooncake 非逐层模式（`kv_both`）。Store 副本落在同机的 Host DRAM，所以写入是 **D2H**，读回是 **H2D**。这里取单层普通 Attention，TP、PP、CP 均为 1，每页 128 个位置，K、V 各有 1 个 64 维的 BF16 头。两份各 16 KiB 的数据组成一个 32 KiB 对象。[混部配置](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/docs/source/user_guide/feature_guide/kv_cache_pool_ascend_store.md#L416-L477) · [Worker 注册各分量地址](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/pool_worker.py#L750-L825)
+![A 上两张卡处理输入，B 上两张卡负责生成，C 的主机内存保存共享前缀。P0 和 P1 可以找到 C 上的同一份手册。](../dist/assets/kv-pool-machines.svg)
 
-第二条请求到来时，假设公共前缀的本地页已被复用，池中副本仍可读。Scheduler 将块哈希、本地命中长度和缓存组发给本实例的查询 Worker。Worker 查到 128 个可复用 token，Scheduler 据此分配目标页。Worker 成功读入第 9 页后，只剩最后 1 个输入 token 要算。若首块仍在本地 HBM，这 32 KiB 就可以原地复用。若两处都没有可用前缀，则需计算全部 129 个输入 token。[查询消息](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/lookup_key.py#L59-L88) · [命中量与分配](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/pool_scheduler.py#L247-L402) · [实际 GET](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/pool_worker.py#L1450-L1512)
+**KV** 是模型读过一段输入后，各层 Attention 为这些 token 算出的 Key 和 Value。后面接着读问题或者生成回答时，模型还会用到它们。**HBM** 是卡上的显存，Attention 在本例中从本卡 HBM 读 KV。**Host DRAM** 是机器的主机内存。A、B、C 都是主机。本例只让 C 提供共享容量，方便看清跨机的方向。实际部署可以由多台机器贡献内存段，Store 为对象选择落点。[共享池配置](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/docs/source/user_guide/feature_guide/kv_cache_pool_ascend_store.md#L245-L313) · [Mooncake 选择存储段](https://github.com/kvcache-ai/Mooncake/blob/35f41d98/mooncake-store/src/master_service.cpp#L4830-L4889)
 
-<!-- DETAILS: 展开看对象键、块号和两个地址片段 -->
+## 两次请求，跟着《使用手册》的 KV 走
 
-**查找用键，搬运用地址。** 普通完整块的哈希包含父块哈希、本块 token IDs 和适用的额外信息，如 cache salt。Ascend 在哈希前加模型名、DCP、head/TP、PP、缓存组、缓存角色（kv 或 state）和缓存类型等字段。写入者和读取者需使用兼容的权重、缓存布局和键配置。多 rank 配置下，查询端还会检查该组所需的分片，按可恢复的前缀返回长度。[vLLM 块哈希](https://github.com/vllm-project/vllm/blob/ba15685a/vllm/v1/core/kv_cache_utils.py#L703-L732) · [对象键字段](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/metadata.py#L118-L165) · [分片查询](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/pool_worker.py#L1047-L1129)
+把手册缩成恰好 128 个 token，占满一页。两位用户的问题各简写成一个不同的 token，占下一页的第一个位置。Store 用一个键来查找这页手册 KV。下面把这个键简写为 **M**。池里原本就有另一份《保修条款》，先让它留在原处。
 
-对于图中的完整页，`prepare_value` 在页表找到物理页号，对 K、V 各算一次“视图基址 + 页号 × 该视图页步幅”。本例两个分量各自紧排，取步幅 16,384 B。Worker 把键、地址列表和长度列表交给 `batch_put_from_multi_buffers` 或 `batch_get_into_multi_buffers`。Store 对象中的两个片段依次排列。本地页号、视图基址都可以改变，键仍能指向同一份副本。[地址与长度](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/metadata.py#L477-L517) · [Store PUT / GET](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/backend/mooncake_backend.py#L715-L767) · [副本内偏移](https://github.com/kvcache-ai/Mooncake/blob/35f41d98/mooncake-store/src/transfer_task.cpp#L1219-L1237)
+<!-- POOL_WALK -->
 
-默认配置按完整前缀块保存。第 129 个输入单独占用尾页，未凑满第二个传输块。普通加载步骤与保存步骤分开安排，Decode 新生成的 KV 默认留在本地，活动页仍由实例管理。[保存条件](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/metadata.py#L1129-L1183) · [Decode 保存开关](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/pool_scheduler.py#L530-L569)
+**第一次请求由 P0 和 D0 服务。** 起初 P0 的显存和共享池里都没有手册。P0 读完输入，手册的 KV 写在自己的第 3 页，第一位用户的问题写在第 4 页。接下来有两个去向，各有各的用途。
 
-<!-- /DETAILS -->
+- **给以后的请求留一份。** P0 把第 3 页的内容复制到 C 的 DRAM，Store 将对象 M 标为可读。这次写入叫 **D2rH**，字节从设备（Device）到远端主机内存（remote Host）。本例按完整页保存，只有一个有效位置的第 4 页不单独存成前缀对象。
+- **让当前请求继续生成。** D0 本地也没命中，先为这条请求分配自己的第 12、13 页。它从 P0 拉取两页，把手册和第一个问题的 KV 都接过来，交接就绪后开始 Decode。这次是 **D2D**，字节从一张卡到另一张卡。D0 的 D 指 Decode，D2D 中的两个 D 都指 Device。共享池的保存和本次交接可以分别进行。[双连接器分工](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/docs/source/user_guide/feature_guide/kv_cache_pool_ascend_store.md#L245-L251) · [D 端分配与拉取](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1947-L2009)
 
-## 两个 P、两个 D：谁命中，数据从哪台机器来？
+**第二次请求由 P1 和 D1 服务。** 假设此时 P1 本卡没有手册，C 上的 M 仍可读。P1 按键查到 M，获知前 128 个 token 可以复用。**查到的时候，KV 还在 C。** P1 分配本卡第 9 页，把 C 上的 M 复制进来，这才是 **rH2D**。P1 的 Attention 现在可以读第 9 页，只需为第二位用户的问题补算一个 token，把它的 KV 写进第 10 页。[查询与可复用长度](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/pool_scheduler.py#L247-L325) · [Store 按地址读入](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/backend/mooncake_backend.py#L748-L767)
 
-![两次请求的数据流。P0 把公共前缀写到 C，P1 从 C 读回该前缀。D0 和 D1 各自从本次请求选中的 P 读取两页 KV。](../dist/assets/kv-pool-pd.svg)
+此刻，**C 的 DRAM 和 P1 的第 9 页各有一份手册 KV**。读取保留了 C 上的副本，P1 用完无需把同一份手册写回。D1 本地也未命中，它要接着回答第二个问题，于是从 P1 的第 9、10 页拉到自己的第 20、21 页。D0 无需为第二条请求收数据。P0 的旧页此时是否仍被本地缓存保留，也不影响这次复用。[完整块保存条件](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/metadata.py#L1153-L1204) · [P 与 D 的页映射](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1013-L1064)
 
-图中机器 A 运行 P0、P1，机器 B 运行 D0、D1，每个实例有独立的 HBM 页池。两次请求分别选中 P0/D0、P1/D1。假设机器 C 提供唯一可用的 DRAM 副本，两台 D 的本地前缀均未命中。**rH 表示相对读写 NPU 而言的远端 Host 内存**。实际落点由 Store 按可用内存段和放置偏好决定。[副本偏好](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/backend/mooncake_backend.py#L626-L631) · [Master 选择内存段](https://github.com/kvcache-ai/Mooncake/blob/35f41d98/mooncake-store/src/master_service.cpp#L4830-L4889)
+![按端点读三条箭头。P0 写入 C 留给以后复用，P1 从 C 读回手册，D1 从 P1 接收当前请求的两页。D2D 中的 D 表示设备。](../dist/assets/kv-pool-pd.svg)
 
-| 动作 | KV 字节从哪里到哪里 | 本例搬多少 |
+**如果有很多个长前缀呢？** 假设手册扩成 384 个 token，即三个完整块，本次请求仍带一个问题 token。池里另有一本从开头就不同的《保修条款》。第二位用户发来手册时，P1 按这条请求从开头匹配。如果手册三个块都在池中且本地都缺，P1 读这三个块。如果只有前两个可用，就复用前 256 个 token，余下的输入继续算。《保修条款》留在池里，空闲的 P 和 D 都不用复制。若 P1 自己的显存已有可复用的前缀页，对应部分也省去从 C 读回的传输。[连续前缀与多分片查询](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/pool_worker.py#L1132-L1218)
+
+## 池化和 PD 分离各负责哪一次传输？
+
+**池化管跨请求复用。** 第二位用户即使分到一台从未读过手册的 P，只要连接同一 Store、配置兼容且对象还在，就可以取回手册的 KV。**PD 分离管同一条请求换设备续算。** 哪怕所有用户的输入都不同、共享前缀一次也没命中，选中的 D 仍需要拿到这条请求在 P 上算出的 KV。图中 D0、D1 的 Store 读写按默认设置关闭，由各自的 P 直接交接。[连接器组合](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/docs/source/user_guide/feature_guide/kv_cache_pool_ascend_store.md#L245-L251) · [D 端独立开关](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/docs/source/user_guide/feature_guide/kv_cache_pool_ascend_store.md#L1603-L1616)
+
+| 部署 | 后来的请求怎样复用手册 | 当前请求怎样从 Prefill 走到 Decode |
 | --- | --- | --- |
-| P0 冷算，PUT 公共块 | P0 HBM 页 3 → C 的 DRAM 副本。P0 发起 WRITE，方向为 **D2rH** | K、V 合计 32 KiB |
-| 随后 P1 本地未命中，GET 公共块 | P1 本实例的查询 Worker 查同一 Store 键。副本已提交且可读，P1 发起 READ，C 的 DRAM → P1 HBM 页 9，方向为 **rH2D** | 32 KiB，另算 1 个尾 token |
-| 两个 D 分别接手生成 | D0 发起 READ，从 P0 页 [3,7] 复制到 D0 页 [12,2]。D1 从 P1 页 [9,4] 复制到 D1 页 [6,11] | 每个 D 各搬两整页，即 64 KiB |
+| 单机混部，开共享池 | 本卡没命中，可以从 Store 读回 | 同一实例在自己的显存页上接着算 |
+| 跨机 PD，只开直接交接 | 各实例可用自己的本地前缀缓存 | D 从选中的 P 接收自己缺的 KV |
+| 跨机 PD，再开共享池 | P1 可以复用 P0 存到 C 的 M | D1 仍从 P1 接收当前请求缺的 KV |
 
-这里有两种 READ。**池化 READ** 用对象键查副本，P1 即使从未执行第一条请求，也能把公共前缀搬到自己的页上。**PD READ** 用本次请求选中的 P、源页号和 D 自己的目标页号。在图示的 `MultiConnector` 配置中，`MooncakeConnectorV1` 直接从该 P 的 HBM 交接给一个 D，两个 D 各有自己的接收任务。默认 D 的 Store 读写关闭，另有可选开关。[官方双连接器配置](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/docs/source/user_guide/feature_guide/kv_cache_pool_ascend_store.md#L247-L349) · [D 的接收映射](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1947-L2009) · [D 端开关](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/docs/source/user_guide/feature_guide/kv_cache_pool_ascend_store.md#L1603-L1616)
+回到单机混部。假设 Store 的副本放在这台机器自己的 DRAM，第二次请求到来时，本卡原有的手册页已被换用。第一次存入走 **D2H**（卡 → 本机内存），第二次读回走 **H2D**（本机内存 → 卡）。两次请求之间可以复用 KV，而同一请求从 Prefill 转入 Decode 时一直用同一张卡。[混部部署示例](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/docs/source/user_guide/feature_guide/kv_cache_pool_ascend_store.md#L416-L477)
 
-<!-- DETAILS: 展开看远端副本、传输描述符和尾页字节数 -->
+<!-- COLLAPSIBLE_FIGURE: 看单机图：同一张卡怎样写入和读回 M -->
+![本地页已被复用时，混部实例把保存在同机 DRAM 的 M 读入新分配的显存页。](../dist/assets/kv-pool-colocated.svg)
 
-PUT 时，Master 根据键、对象长度和放置配置返回副本描述。客户端向副本所在端点提交 WRITE，成功后提交完成状态。GET 时，前缀查询阶段用 `batch_is_exist` 判断哪些键可用，真正搬运时再查询副本描述并提交 READ。Master 处理元数据，Host 数据段由贡献内存的进程持有。[PUT 放置](https://github.com/kvcache-ai/Mooncake/blob/35f41d98/mooncake-store/src/client_service.cpp#L2793-L2805) · [WRITE](https://github.com/kvcache-ai/Mooncake/blob/35f41d98/mooncake-store/src/client_service.cpp#L3029-L3042) · [提交对象](https://github.com/kvcache-ai/Mooncake/blob/35f41d98/mooncake-store/src/client_service.cpp#L3418-L3426) · [存在性查询](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/backend/mooncake_backend.py#L600-L611) · [GET 的副本查询](https://github.com/kvcache-ai/Mooncake/blob/35f41d98/mooncake-store/src/real_client.cpp#L8764-L8778)
+## P1 读手册时，谁查键，谁分配页，谁搬字节？
 
-记 C 上副本的起始地址为 s_K。在 Transfer Engine 的分段路径中，第一个片段配对本地 K 地址与远端 s_K，第二个片段配对本地 V 地址与远端 s_K + 16,384 B，每段长度都是 16,384 B。同一组地址在 WRITE 时从本地读、向 C 写，在 READ 时从 C 读、向本地写。D2rH、rH2D 标的是数据端点，传输实现还取决于硬件和 transport 配置，例如 A3 Fabric Memory 可直接访问远端 Host，另有使用中间缓冲区的模式。[TransferRequest 的端点、偏移与长度](https://github.com/kvcache-ai/Mooncake/blob/35f41d98/mooncake-store/src/transfer_task.cpp#L1219-L1242) · [Ascend transport 的缓冲与 Fabric Memory](https://github.com/kvcache-ai/Mooncake/blob/35f41d98/docs/source/design/transfer-engine/transport/ascend_direct_transport.md#L99-L109)
+从 P1 查到 128 个可用 token，到 Attention 真能读第 9 页，中间经过这些组件。图里的 P0、P1、D0、D1 各有自己的调度器和执行计算的 Worker。它们按配置访问同一套外部 Store 服务。
 
-D1 的 P2P 路径使用另一组地址。对每个 K/V 分量，把 P1 页 9 配给 D1 页 6，把 P1 页 4 配给 D1 页 11。四个片段各 16 KiB，D1 用一次 `batch_transfer_sync_read` 提交。第二页只有 1 个有效位置，这条普通全页路径仍复制两页，共 65,536 B。按 129 个有效位置计算则是 33,024 B。[页号到 READ 描述符](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1013-L1064) · [P 导出的源页](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L2075-L2101)
+| 谁 | 在第二条请求里具体做什么 |
+| --- | --- |
+| P1 的 Scheduler（调度器） | 确认本地已命中的长度，向连接器询问还能复用多少，再为请求安排本地页。页号 9 属于 P1。 |
+| P1 的 AscendStoreConnector、Worker 中的查询线程 | 在查询阶段组合前缀键，查 Store 中哪些块可用，向调度器返回命中长度。随后执行侧 Worker 按本地页表准备 K、V 的目标地址，向 Store 客户端发起 GET。 |
+| Mooncake Store 的 Master 和内存提供进程 | Master 管对象键与副本位置。提供内存的进程持有实际数据段。在本例中，M 的副本位于 C 的 DRAM。 |
+| Mooncake 的 Transfer Engine（传输引擎） | 客户端取得副本描述后，向传输引擎提交 READ，把 C 的数据段复制到 P1 提供的目标地址。读完后 P1 才能使用这一页。 |
+
+同一套部署里还有一条独立的调用路径。vLLM 的 **MultiConnector** 把两个连接器接到实例上。**AscendStoreConnector** 按对象键访问共享池，**MooncakeConnectorV1** 负责本次 PD 拉取，把请求指定的 P 端点和源页配给 D 自己的目标页。前者回答“手册以前存过吗”，后者已经知道“这个问题由 P1 算完，要交给 D1”。两条路径都可以用 Mooncake 搬字节。[调度器和 Worker 入口](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/ascend_store_connector.py#L190-L201) · [查询消息与键](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/lookup_key.py#L59-L88) · [Store 的存在性查询](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/backend/mooncake_backend.py#L600-L631) · [客户端获取副本描述](https://github.com/kvcache-ai/Mooncake/blob/35f41d98/mooncake-store/src/real_client.cpp#L8764-L8778) · [传输引擎的地址与方向](https://github.com/kvcache-ai/Mooncake/blob/35f41d98/mooncake-store/src/transfer_task.cpp#L1219-L1242)
+
+## 同一块手册 KV，在四处分别是什么地址？
+
+把 **M 当作查找用的名字**。P1 不用知道 P0 当时分到了第几页。真的开始搬运时才需要地址。下面取单层普通 Attention、单卡、无投机，每个请求的物理页和共享缓存块都是 128 个 token。每个位置的 K 和 V 各有一个 64 维的 BF16 头。一个 K 页占 128 × 64 × 2 B = **16 KiB**，同样大小的 V 页合起来是 **32 KiB**。各卡的 K、V 分开存放，各分量内的页依次紧排；页号都是教学取值。
+
+| 存放位置 | 找到手册 K 的起始地址 | 找到同一页的 V |
+| --- | --- | --- |
+| A，P0，显存页 3 | P0 的 K 基址 + 3 × 16 KiB | P0 的 V 基址 + 3 × 16 KiB |
+| C，共享 DRAM，对象 M | Store 给出的副本起点 s | s + 16 KiB |
+| A，P1，显存页 9 | P1 的 K 基址 + 9 × 16 KiB | P1 的 V 基址 + 9 × 16 KiB |
+| B，D1，显存页 20 | D1 的 K 基址 + 20 × 16 KiB | D1 的 V 基址 + 20 × 16 KiB |
+
+P1 从 C 读 M，只读一页，合计 **32 KiB**。D1 从 P1 接手第二条请求，要取第 9、10 两页。在本例普通 Attention 的整页拉取路径里，即使尾页只有一个位置有效，也按两整页复制，合计 **64 KiB**。129 个有效位置本身只占 129 × 64 × 2 B × 2 = **33,024 B**。D1 按有效长度读这 129 个位置。[Worker 按块表计算分量地址](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/metadata.py#L477-L517) · [D 端按步幅组织整页 READ](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1013-L1064)
+
+<!-- DETAILS: 看源码中的 M、PUT 和 GET -->
+
+M 是教学简写。普通完整块的哈希包含前一块的哈希、本块的 token IDs 和适用的额外信息，例如 cache salt。Ascend 还会在对象键中加入模型名、DCP、head/TP、PP、缓存组、缓存角色和缓存类型。同名文档要产生可匹配的键，得有相同的前缀 token、兼容的模型、分片和缓存配置。[vLLM 块哈希](https://github.com/vllm-project/vllm/blob/ba15685a/vllm/v1/core/kv_cache_utils.py#L703-L732) · [Ascend 对象键](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/metadata.py#L118-L167)
+
+本例的非逐层路径中，查询调用 `batch_is_exist`。存入时，客户端取得放置结果后用 WRITE 把 K、V 片段放到副本相应偏移，成功提交对象。读回时，Worker 将键、本卡地址和长度交给 `batch_get_into_multi_buffers`，客户端取得副本描述并发起 READ。不同的硬件和传输配置可能经中间缓冲区。D2rH、rH2D 描述的是起点和终点。[Store PUT / GET](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/backend/mooncake_backend.py#L715-L767) · [提交可读对象](https://github.com/kvcache-ai/Mooncake/blob/35f41d98/mooncake-store/src/client_service.cpp#L3418-L3426) · [Ascend transport 的传输模式](https://github.com/kvcache-ai/Mooncake/blob/35f41d98/docs/source/design/transfer-engine/transport/ascend_direct_transport.md#L99-L109)
 
 <!-- /DETAILS -->
 
-## 当远端 Host 就在 D 机器上
+## 换一种交接配置，哪条箭头会变？
 
-![独立的两跳 PD 配置。D 先把 P 的 KV 拉入自己的 pinned DRAM，再从这块本地内存载入自己的 HBM。](../dist/assets/kv-pool-d2rh-staging.svg)
+**逐层 D2D 改的是 P1 → D1。** 假设 D1 已经准备好目标页。模型有多层时，P1 可以在第 1 层可发送的 KV 写好后就提交传输，继续算后面的层。这样有机会缩短最后一层算完后的交接等待。Ascend 主干已有实验性的 Mooncake V2 逐层推送，D 等本次交接所需的发送端完成后才报告就绪。若 P1 的前缀来自 C 的 DRAM，前面的 C → P1 仍然是 rH2D。[Ascend 已合入的逐层推送 PR](https://github.com/vllm-project/vllm-ascend/pull/20940) · [两端的完成条件](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/docs/source/developer_guide/Design_Documents/disaggregated_prefill.md#L65-L126)
 
-选用 `MooncakeD2RHConnectorV1` 时，第一跳的接收方变成 **D Worker 注册的 Host 暂存区**。D 上已有有效 Host 缓存的块可以省去第一跳，已有本地 HBM 前缀的部分还可省去第二跳。第一跳完成后可通知 P 释放源页，D 的 Host 页则要等使用它的 H2D 读取全部结束后才解除引用。上游部署示例标明的验证组合为 Atlas 850E（UBoE）与 DeepSeek-V4-Flash。[两跳和两级命中](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/docs/source/developer_guide/Design_Documents/disaggregated_prefill.md#L161-L189) · [首跳 READ 与通知](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_d2rh_connector.py#L1202-L1238) · [第二跳读取本机暂存](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_d2rh_connector.py#L1348-L1393) · [官方验证范围](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/docs/source/tutorials/features/pd_disaggregation_mooncake_multi_node.md#L969-L983)
+**池化本身也可以逐层。** 此时分层的是 C ↔ P1 的存取，例如 P1 算当前层时预取下一层的 KV，当前层开算前仍要等自己的数据就绪。社区 RFC 进一步提出让加载、PD 交接、消费确认和块回收按相同粒度配合，以便更早腾出工作页。具体回收哪一侧的资源仍是 RFC 的开放问题。截至 2026 年 11 月 18 日，上游逐层直写 PR 仍在评审。另有一份 Ascend 草案让 P 发布到 DRAM 池、D 从池取回，复用同一批对象来做 PD 交接。[池化逐层读写](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/docs/source/user_guide/feature_guide/mooncake_layerwise_adaptation_and_optimization.md#L43-L82) · [含现状图与规划图的 RFC](https://github.com/vllm-project/vllm/issues/61787) · [上游逐层直写 PR](https://github.com/vllm-project/vllm/pull/62504) · [经 DRAM 池交接的草案](https://github.com/vllm-project/vllm-ascend/pull/21000)
 
-图与地址算例按 2026-11-18 核查的源码绘制。KiB 数值为指定布局下的 KV 载荷推算，池化配置的传输耗时与端到端收益尚待设备实测。[PD 分离系统与 KV 生命周期](PD分离系统与KV生命周期.md)
+<!-- DETAILS: 另一种已实现的两跳交接：先落在 D 所在机器的主机内存 -->
+
+选用 `MooncakeD2RHConnectorV1` 时，D 的 Worker 可以先把 P 的 KV 拉入 D 机器注册的 Host 暂存区，再从这台机器的 DRAM 载入本卡 HBM。套用开头的机器名，就是 **A 的 P1 显存 → B 的主机内存 → B 的 D1 显存**。第一跳从 P 看是 D2rH，第二跳从 D 看是同机 H2D，这条路径用到的是 B 的暂存区。有效的 Host 缓存命中可省掉对应块的第一跳，已有本地 HBM 前缀也可减少第二跳。首跳完成后可通知 P 释放源页。所有依赖的 H2D 结束后，D 才解除 Host 页引用。[两跳与两级命中](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/docs/source/developer_guide/Design_Documents/disaggregated_prefill.md#L161-L189) · [官方验证的硬件与模型](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/docs/source/tutorials/features/pd_disaggregation_mooncake_multi_node.md#L969-L983)
+
+![独立的 PD 两跳配置。图中的 P、D 机器对应开头的 A、B。第一跳写 B 的主机暂存区，第二跳从 B 的主机内存读入 D 的显存。](../dist/assets/kv-pool-d2rh-staging.svg)
+
+<!-- /DETAILS -->
+
+本章页号和数据量来自教学算例，箭头表示复制方向。有关实际多卡服务中的地址、传输与完成时序，见相邻章节保存的拉取与推送实验。这里的池化组合及其性能尚待设备实测。[PD 分离系统与 KV 生命周期](PD分离系统与KV生命周期.md)

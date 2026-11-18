@@ -1,0 +1,56 @@
+<section class="pool-walk" id="pool-walk" aria-labelledby="pool-walk-title">
+  <header class="pool-walk-head">
+    <h3 id="pool-walk-title">跟着手册走两次请求</h3>
+    <div class="pool-walk-requests" role="group" aria-label="两条请求的输入">
+      <div><b>R1</b><span class="pool-walk-prefix">同一《手册》· 128 token</span><span class="pool-walk-tail">尾 token ①</span></div>
+      <div><b>R2</b><span class="pool-walk-prefix">同一《手册》· 128 token</span><span class="pool-walk-tail">尾 token ②</span></div>
+    </div>
+    <p class="pool-walk-setup">①、② 是不同的第 129 个 token；每页容纳 128 个位置。</p>
+  </header>
+
+  <div class="pool-walk-static" data-pool-static>
+    <p><strong>机器 A：P0、P1 各有自己的 HBM。机器 B：D0、D1 各有自己的 HBM。机器 C：共享 Store 的 DRAM。</strong></p>
+    <ol>
+      <li>初态：C 已存有独立前缀《保修条款》，还没有手册对象 M。</li>
+      <li>R1 冷算：P0 页 3 放手册 KV，页 4 放尾 token ① 的 KV。</li>
+      <li>P0 → C（D2rH）：将完整的手册块保存为 M。尾页不存入池。</li>
+      <li>P0 → D0（D2D）：D0 发起 READ，将本次请求的页 [3, 4] 复制到自己的页 [12, 13]。</li>
+      <li>C → P1（rH2D）：R2 的本地前缀未命中；从 C 的 M 读到 P1 页 9。</li>
+      <li>P1 只算新尾：第 129 个 token ② 的 KV 写入页 10。</li>
+      <li>P1 → D1（D2D）：D1 发起 READ，将本次请求的页 [9, 10] 复制到自己的页 [20, 21]。</li>
+    </ol>
+    <p>M 被读取后仍留在 C；《保修条款》一直不变。每次交接完成后的 HBM 驻留不再跟踪。</p>
+  </div>
+
+  <div class="pool-walk-interactive" data-pool-interactive hidden>
+    <div class="pool-walk-steps" role="group" aria-label="选择请求步骤">
+      <button type="button" data-pool-step="0" aria-pressed="true">0 <span>初态</span></button>
+      <button type="button" data-pool-step="1" aria-pressed="false">1 <span>R1 冷算</span></button>
+      <button type="button" data-pool-step="2" aria-pressed="false">2 <span>保存 M</span></button>
+      <button type="button" data-pool-step="3" aria-pressed="false">3 <span>交给 D0</span></button>
+      <button type="button" data-pool-step="4" aria-pressed="false">4 <span>P1 读 M</span></button>
+      <button type="button" data-pool-step="5" aria-pressed="false">5 <span>只算新尾</span></button>
+      <button type="button" data-pool-step="6" aria-pressed="false">6 <span>交给 D1</span></button>
+    </div>
+    <div class="pool-walk-current" aria-live="polite" aria-atomic="true">
+      <p class="pool-walk-position" data-pool-position></p>
+      <h4 data-pool-heading></h4>
+      <p data-pool-caption></p>
+    </div>
+    <div class="pool-walk-route" data-pool-route role="group" aria-label="本步数据流"></div>
+    <div class="pool-walk-machines" data-pool-machines role="group" aria-label="三台机器的相关 KV"></div>
+    <p class="pool-walk-observation" data-pool-observation></p>
+    <div class="pool-walk-controls" role="group" aria-label="逐步阅读">
+      <button type="button" data-pool-prev aria-label="查看上一步">← 上一步</button>
+      <button type="button" data-pool-next aria-label="查看下一步">下一步 →</button>
+      <button type="button" data-pool-reset>回到初态</button>
+    </div>
+  </div>
+
+  <details class="pool-walk-boundary">
+    <summary>这幅图跟踪到哪里？</summary>
+    <p>这是教学示意。M 是手册完整前缀的对象键简称；只画 C 上 1 个可读副本。R2 在 P1 本地未命中，且两个 D 均需接收本次请求的两页。</p>
+    <p>页号是教学地址。每页包含对应的 K、V；尾页只有 1 个有效位置。只跟踪本次交接前的相关块与交接映射，之后不推断 HBM 页仍驻留或已释放。</p>
+    <p>先保存 M、再交给 D0 是阅读顺序，两件事没有这个强制先后关系。P1 读 M 则以该副本已可读为前提；后续 Decode 不在图内。</p>
+  </details>
+</section>

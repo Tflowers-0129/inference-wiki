@@ -92,6 +92,7 @@ def render_markdown(source, key):
     ep_lab = (ROOT / 'scripts' / 'ep-lab.html').read_text(encoding='utf-8') if key == 'ep-communication' else ''
     ep_timeline = (ROOT / 'scripts' / 'ep-timeline.html').read_text(encoding='utf-8') if key == 'ep-communication' else ''
     kv_decode_player = (ROOT / 'scripts' / 'kv-decode-player.html').read_text(encoding='utf-8') if key == 'kv-cache-layouts' else ''
+    pool_walk = (ROOT / 'scripts' / 'pool-walk.html').read_text(encoding='utf-8') if key == 'kv-pooling' else ''
     figure_summary = None
     if key == 'speculation':
         fragment = (ROOT / 'scripts' / 'spec-player.html').read_text(encoding='utf-8')
@@ -119,6 +120,8 @@ def render_markdown(source, key):
             i += 1; continue
         if line == '<!-- KV_DECODE_PLAYER -->':
             flush(); parts.append(kv_decode_player); i += 1; continue
+        if line == '<!-- POOL_WALK -->':
+            flush(); parts.append(pool_walk); i += 1; continue
         if line == '<!-- OFFLOAD_LAB -->':
             flush(); parts.append(offload_lab); i += 1; continue
         if line == '<!-- EP_LAB -->':
@@ -235,10 +238,10 @@ def build_chapters():
             next_link = '<a href="sparse-offload.html">继续：稀疏 KV 卸载与 HiSparse →</a>'
             action = '<a class="primary-button" href="#kv-decode-player">播放一次 Decode 的 KV 寻址 →</a><a class="text-button" href="#kv-cache-layouts-7">按后端查缓存形状 ↓</a>'
         elif key == 'kv-pooling':
-            player_links = ''
-            extra = ''
+            player_links = '<a href="#pool-walk">跟着手册走两次请求</a>'
+            extra = f'<link rel="stylesheet" href="{asset_url("pool-walk.css")}"><script defer src="{asset_url("pool-walk.js")}"></script>'
             next_link = '<a href="pd-disaggregation.html">回看：PD 交接与 KV 生命周期 →</a>'
-            action = '<a class="primary-button" href="#kv-pooling-1">看单机混部的数据流 →</a><a class="text-button" href="#kv-pooling-2">看跨机 PD 的池化 ↓</a>'
+            action = '<a class="primary-button" href="#kv-pooling-1">认清 A、B、C 三台机器 →</a><a class="text-button" href="#pool-walk">跟着手册走两次请求 ↓</a>'
         else:
             raise ValueError(f'Unknown chapter: {key}')
         chapter_nav = chapter_navigation(key, player_links + local_nav)

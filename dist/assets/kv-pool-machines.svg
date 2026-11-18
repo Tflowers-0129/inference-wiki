@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="340" height="737" viewBox="0 0 480 1040" role="img" aria-labelledby="title desc">
+  <title id="title">三台物理机：A 上的 P0、P1，B 上的 D0、D1，与 C 上的共享 Store</title>
+  <desc id="desc">教学部署：物理机 A 运行 P0、P1 两个独立 Prefill 实例，本例每个实例各用一块 NPU，每块卡有自己的 HBM；物理机 B 同样运行 D0、D1 两个独立 Decode 实例，各用一块 NPU。A 和 B 也有自己的 CPU 与 Host DRAM。物理机 C 的 Host DRAM 提供共享 Store 容量，存放手册 KV 的共享副本，此例只有 C 向共享池提供容量。相对于 A、B 的 NPU，C 的 DRAM 是远端 Host 内存；Host 不是 C 的专有名称。</desc>
+  <defs><style>
+    text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
+    .title{font-size:30px;font-weight:700}.heading{font-size:28px;font-weight:700}.body{font-size:24px}.note{font-size:22px;fill:#475569}
+    .blue{fill:#1d4ed8}.teal{fill:#0f766e}.center{text-anchor:middle}
+    .machine{fill:#fff;stroke:#64748b;stroke-width:2}.card{fill:#eff6ff;stroke:#1d4ed8;stroke-width:2}.hbm{fill:#fff;stroke:#1d4ed8;stroke-width:2}
+  </style></defs>
+  <rect width="480" height="1040" rx="16" fill="#f8fafc"/>
+  <text x="20" y="44" class="title">先认三台机器</text>
+  <text x="20" y="82" class="note">P0/P1、D0/D1 是独立服务实例</text>
+  <text x="20" y="116" class="body">本例每个实例各用一块 NPU</text>
+  <g id="machine-a">
+    <rect x="20" y="144" width="440" height="244" rx="12" class="machine"/>
+    <text x="36" y="184" class="heading blue">物理机 A · Prefill</text>
+    <g id="instance-p0">
+      <rect x="36" y="204" width="196" height="132" rx="8" class="card"/>
+      <text x="134" y="240" class="heading blue center">P0 · NPU</text>
+      <rect x="52" y="256" width="164" height="56" rx="6" class="hbm"/>
+      <text x="134" y="292" class="body center">本卡 HBM</text>
+    </g>
+    <g id="instance-p1">
+      <rect x="248" y="204" width="196" height="132" rx="8" class="card"/>
+      <text x="346" y="240" class="heading blue center">P1 · NPU</text>
+      <rect x="264" y="256" width="164" height="56" rx="6" class="hbm"/>
+      <text x="346" y="292" class="body center">本卡 HBM</text>
+    </g>
+    <text x="36" y="368" class="note">A 也有 CPU 与 Host DRAM</text>
+  </g>
+  <g id="machine-b">
+    <rect x="20" y="412" width="440" height="244" rx="12" class="machine"/>
+    <text x="36" y="452" class="heading blue">物理机 B · Decode</text>
+    <g id="instance-d0">
+      <rect x="36" y="472" width="196" height="132" rx="8" class="card"/>
+      <text x="134" y="508" class="heading blue center">D0 · NPU</text>
+      <rect x="52" y="524" width="164" height="56" rx="6" class="hbm"/>
+      <text x="134" y="560" class="body center">本卡 HBM</text>
+    </g>
+    <g id="instance-d1">
+      <rect x="248" y="472" width="196" height="132" rx="8" class="card"/>
+      <text x="346" y="508" class="heading blue center">D1 · NPU</text>
+      <rect x="264" y="524" width="164" height="56" rx="6" class="hbm"/>
+      <text x="346" y="560" class="body center">本卡 HBM</text>
+    </g>
+    <text x="36" y="636" class="note">B 也有 CPU 与 Host DRAM</text>
+  </g>
+  <g id="machine-c">
+    <rect x="20" y="680" width="440" height="220" rx="12" class="machine"/>
+    <text x="36" y="722" class="heading teal">物理机 C · 共享 Store</text>
+    <rect x="36" y="744" width="408" height="132" rx="8" fill="#e6f4f1" stroke="#0f766e" stroke-width="2"/>
+    <text x="56" y="782" class="heading teal">Host DRAM</text>
+    <text x="56" y="820" class="body">存放手册 KV 的共享副本</text>
+    <text x="56" y="856" class="note">此例仅 C 提供池容量</text>
+  </g>
+  <text x="20" y="942" class="body">对 A、B 的 NPU 而言，</text>
+  <text x="20" y="978" class="body">C 的 DRAM 是远端 Host 内存。</text>
+  <text x="20" y="1018" class="note">Host 不是另一台机器的专有名称。</text>
+</svg>

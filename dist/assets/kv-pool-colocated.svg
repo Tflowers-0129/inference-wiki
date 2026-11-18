@@ -25,19 +25,19 @@
     <text x="310" y="163" class="body">本实例的查询 Worker</text>
     <text x="310" y="193" class="small note">组合模型、分片、组和哈希</text>
     <path d="M540 165H655" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#query)"/>
-    <text x="595" y="152" class="small blue center">查对象键 k</text>
+    <text x="595" y="152" class="small blue center">查对象键 M</text>
     <text x="678" y="163" class="body">Store 元数据</text>
     <text x="678" y="193" class="small note">这个完整前缀的对象已可读</text>
     <text x="46" y="222" class="small blue">回给 Scheduler 的是命中长度 128。分配目标页后，Worker 才按对象键发起 GET。</text>
   </g>
 
-  <text x="26" y="284" class="head">追踪同一个对象 k 的 32 KiB</text>
+  <text x="26" y="284" class="head">追踪同一个对象 M 的 32 KiB</text>
   <text x="26" y="313" class="small note">从左向右是两次请求。图中的 Host 段由 Store 的内存提供进程贡献。</text>
 
   <g id="first-request">
     <rect x="25" y="339" width="218" height="184" rx="12" fill="#eaf6f3" stroke="#438d81" class="box"/>
     <text x="43" y="373" class="head teal">首次 · NPU HBM</text>
-    <text x="43" y="408" class="body">补算后取本地页 3</text>
+    <text x="43" y="408" class="body">手册 KV 在本地页 3</text>
     <rect x="43" y="430" width="85" height="40" rx="4" fill="#fff" stroke="#438d81"/>
     <rect x="138" y="430" width="85" height="40" rx="4" fill="#fff" stroke="#438d81"/>
     <text x="85" y="456" class="body center">K[3]</text><text x="180" y="456" class="body center">V[3]</text>
@@ -47,7 +47,7 @@
   <g id="store-object">
     <rect x="368" y="339" width="264" height="184" rx="12" fill="#fff7ed" stroke="#af7137" class="box"/>
     <text x="388" y="373" class="head rust">同机 Host DRAM</text>
-    <text x="388" y="408" class="body">对象 k 的副本起点 s_K</text>
+    <text x="388" y="408" class="body">对象 M 的副本起点 s</text>
     <rect x="388" y="430" width="112" height="40" fill="#fff" stroke="#af7137"/>
     <rect x="500" y="430" width="112" height="40" fill="#ffedd5" stroke="#af7137"/>
     <text x="444" y="456" class="small center">K · 16 KiB</text><text x="556" y="456" class="small center">V · 16 KiB</text>
