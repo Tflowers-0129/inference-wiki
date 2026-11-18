@@ -26,7 +26,7 @@
 
 《稀疏 KV 卸载与 HiSparse》沿完整历史、逻辑 TopK 与设备工作集讲解 Decode Offload；五张 SVG 展示地址空间、A3 泳道、A5 两段融合以及 HiSparse 页生命周期和跨层 gather。缓存实验室可切换 CPU LRU 与 Resident/Hot/Source 解析，逐步查看命中、Host miss 与 Attention 读取的物理位置，正文把同一轮索引和回填配对落到 resolver 输出张量。正文区分已合入框架、待合入算子和 RFC 方向，性能表保留作者报告及测量边界。
 
-《KV 池化：单机混部与跨机 PD》从两台 P 机器怎样用本机 DRAM 组成同一个共享池讲起。[SQL 补全请求的 KV 池化演示](https://tflowers-0129.github.io/inference-wiki/kv-pooling.html#pool-walk)对比公共前缀的 KV 存在 P0 本机或 P1 本机时，哪一次复制需要跨机，以及 D 怎样接手第二条请求。正文把池化与 PD 交接分别对应到连接器、对象键、页表和传输地址，也给出单机混部、逐层传输与 D 本机暂存的对照。
+《KV 池化：单机混部与跨机 PD》从两台 P 机器怎样用本机 DRAM 组成同一个共享池讲起。[SQL 补全请求的 KV 池化演示](https://tflowers-0129.github.io/inference-wiki/kv-pooling.html#pool-walk)对比公共前缀的 KV 存在 P0 本机或 P1 本机时，哪一次复制需要跨机，以及 D 怎样接手第二条请求。正文把池化与 PD 交接分别对应到连接器、对象键、页表和传输地址，也给出单机混部、逐层传输与 D 本机暂存的对照。章末用同一算例核对 Prefill 工作量、首个输出的等待、稳态吞吐和传输字节数。
 
 《量化推理：位宽、尺度与算子执行》先用一组数算出量化点积，再沿线性层源码查看权重、激活和尺度如何传给算子。[量化篇正文](content/量化推理与算子执行.md)
 
