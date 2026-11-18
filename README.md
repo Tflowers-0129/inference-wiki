@@ -26,7 +26,7 @@
 
 《稀疏 KV 卸载与 HiSparse》沿完整历史、逻辑 TopK 与设备工作集讲解 Decode Offload；五张 SVG 展示地址空间、A3 泳道、A5 两段融合以及 HiSparse 页生命周期和跨层 gather。缓存实验室可切换 CPU LRU 与 Resident/Hot/Source 解析，逐步查看命中、Host miss 与 Attention 读取的物理位置，正文把同一轮索引和回填配对落到 resolver 输出张量。正文区分已合入框架、待合入算子和 RFC 方向，性能表保留作者报告及测量边界。
 
-《KV 池化：单机混部与跨机 PD》用两张数据流图，对照本地 KV、共享缓存池和跨机请求交接；源码入口与适用边界随图说明。
+《KV 池化：单机混部与跨机 PD》跟踪同一个前缀块的键、物理页和字节范围，用双 P、双 D 算例对照远端 Host 的 D2rH 写入、rH2D 读回和 P→D 交接，并展示 D 本机暂存的两跳路径。
 
 前向篇与投机篇统一使用 V2 的 `idx_mapping`、`num_sampled`、`num_rejected` 和 `post_update` 追踪持久状态。K=3、a=2 的算例区分有效 KV、输出与下一轮 anchor；正文说明谁需要 Host 长度回读、谁生成并使用 Device tiling 计划。Trace 排查要求关联依赖和整轮区间，不把机制图或 kernel 数量写成性能收益。
 

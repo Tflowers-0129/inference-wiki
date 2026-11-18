@@ -1,68 +1,118 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1120" viewBox="0 0 1080 1120" role="img" aria-labelledby="title desc">
-<title id="title">跨机 PD：P 复用前缀池，D 接收本次请求的 KV</title><desc id="desc">官方基础组合：MultiConnector 同时使用 AscendStoreConnector 与 MooncakeConnectorV1。P 与共享 Store 读写前缀副本；D 分配本地页并从 P 读取 KV。HTTP 请求和交接信息经过 proxy，KV 数据不经过 proxy。D 默认关闭池读写。共享 Store 是逻辑服务边界，不表示固定第三台机器。</desc>
-<defs><style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}</style><marker id="blue" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M1 1L8 5L1 9" fill="none" stroke="#1d4ed8" stroke-width="1.7"/></marker><marker id="green" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M1 1L8 5L1 9" fill="none" stroke="#0f766e" stroke-width="1.7"/></marker><marker id="orange" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M1 1L8 5L1 9" fill="none" stroke="#b45309" stroke-width="1.7"/></marker></defs>
-<rect width="1080" height="1120" rx="20" fill="#f8fafc"/>
-<text x="32" y="48" font-size="28" fill="#172b4d" font-weight="700" text-anchor="start">跨机 PD：P 复用前缀池，D 接收本次请求的 KV</text>
-<path d="M34 86H90" fill="none" stroke="#1d4ed8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#blue)" stroke-dasharray="7 5"/>
-<text x="104" y="92" font-size="18" fill="#1d4ed8" font-weight="400" text-anchor="start">请求 / 查询 / 元数据</text>
-<path d="M354 86H410" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)"/>
-<text x="424" y="92" font-size="18" fill="#0f766e" font-weight="400" text-anchor="start">池化 KV 数据</text>
-<path d="M660 86H716" fill="none" stroke="#b45309" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#orange)"/>
-<text x="730" y="92" font-size="18" fill="#b45309" font-weight="400" text-anchor="start">P → D 的 KV 数据</text>
-<rect x="32" y="124" width="200" height="82" rx="12" fill="#eff6ff" stroke="#648bc9" stroke-width="1.6"/>
-<text x="132" y="173" font-size="22" fill="#1d4ed8" font-weight="600" text-anchor="middle">客户端</text>
-<rect x="360" y="124" width="370" height="82" rx="12" fill="#eff6ff" stroke="#648bc9" stroke-width="1.6"/>
-<text x="545" y="156" font-size="23" fill="#1d4ed8" font-weight="700" text-anchor="middle">Proxy / 请求路由</text>
-<text x="545" y="186" font-size="19" fill="#172b4d" font-weight="400" text-anchor="middle">先 P，再把交接信息带给 D</text>
-<path d="M232 165H360" fill="none" stroke="#1d4ed8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#blue)" marker-start="url(#blue)" stroke-dasharray="7 5"/>
-<text x="296" y="146" font-size="17" fill="#1d4ed8" font-weight="400" text-anchor="middle">请求 / 输出</text>
-<path d="M420 206V260H260V350" fill="none" stroke="#1d4ed8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#blue)" marker-start="url(#blue)" stroke-dasharray="7 5"/>
-<text x="56" y="244" font-size="18" fill="#1d4ed8" font-weight="400" text-anchor="start">prompt ↓ · 源 KV 位置 ↑</text>
-<path d="M665 206V260H820V350" fill="none" stroke="#1d4ed8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#blue)" marker-start="url(#blue)" stroke-dasharray="7 5"/>
-<text x="756" y="244" font-size="18" fill="#1d4ed8" font-weight="400" text-anchor="start">交接信息 ↓ · 输出 ↑</text>
-<text x="760" y="144" font-size="18" fill="#475569" font-weight="400" text-anchor="start">HTTP：请求、交接信息</text>
-<text x="760" y="174" font-size="18" fill="#475569" font-weight="400" text-anchor="start">与生成内容。</text>
-<text x="760" y="204" font-size="18" fill="#475569" font-weight="400" text-anchor="start">KV 走下方连接器。</text>
-<rect x="32" y="350" width="460" height="374" rx="12" fill="#fff" stroke="#64748b" stroke-width="1.6"/>
-<rect x="588" y="350" width="460" height="374" rx="12" fill="#fff" stroke="#64748b" stroke-width="1.6"/>
-<text x="56" y="388" font-size="24" fill="#1d4ed8" font-weight="700" text-anchor="start">机器 P · Prefill 实例</text>
-<text x="612" y="388" font-size="24" fill="#1d4ed8" font-weight="700" text-anchor="start">机器 D · Decode 实例</text>
-<rect x="64" y="414" width="396" height="102" rx="12" fill="#fff7ed" stroke="#b77637" stroke-width="1.6"/>
-<text x="88" y="447" font-size="21" fill="#b45309" font-weight="600" text-anchor="start">复用命中前缀，补算剩余输入</text>
-<text x="88" y="478" font-size="18" fill="#172b4d" font-weight="400" text-anchor="start">各自持有 Scheduler 与 NPU Worker</text>
-<text x="88" y="503" font-size="18" fill="#475569" font-weight="400" text-anchor="start">池化连接器 + P2P 连接器</text>
-<rect x="620" y="414" width="396" height="102" rx="12" fill="#fff7ed" stroke="#b77637" stroke-width="1.6"/>
-<text x="644" y="447" font-size="21" fill="#b45309" font-weight="600" text-anchor="start">KV 就绪后，继续 Decode</text>
-<text x="644" y="478" font-size="19" fill="#172b4d" font-weight="400" text-anchor="start">先分配目标页，再发起 READ</text>
-<text x="644" y="503" font-size="18" fill="#475569" font-weight="400" text-anchor="start">各自持有 Scheduler 与 NPU Worker</text>
-<path d="M262 516V568" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)" marker-start="url(#green)"/>
-<text x="280" y="548" font-size="17" fill="#0f766e" font-weight="400" text-anchor="start">计算读写 KV</text>
-<path d="M818 568V516" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)" marker-start="url(#green)"/>
-<text x="836" y="548" font-size="17" fill="#0f766e" font-weight="400" text-anchor="start">计算读写 KV</text>
-<rect x="64" y="568" width="396" height="102" rx="12" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
-<text x="88" y="605" font-size="23" fill="#0f766e" font-weight="700" text-anchor="start">P 的 NPU HBM</text>
-<text x="88" y="640" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">本地页：命中载入 + 新算 KV</text>
-<rect x="620" y="568" width="396" height="102" rx="12" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
-<text x="644" y="605" font-size="23" fill="#0f766e" font-weight="700" text-anchor="start">D 的 NPU HBM</text>
-<text x="644" y="640" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">目标页：接收 KV + 后续追加</text>
-<path d="M460 615H620" fill="none" stroke="#b45309" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#orange)"/>
-<text x="540" y="595" font-size="20" fill="#b45309" font-weight="700" text-anchor="middle">P → D</text>
-<text x="540" y="646" font-size="18" fill="#b45309" font-weight="500" text-anchor="middle">KV 数据</text>
-<text x="620" y="703" font-size="18" fill="#475569" font-weight="400" text-anchor="start">页号属于 D；与 P 页号无须相同</text>
-<path d="M156 832V670" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)"/>
-<text x="62" y="769" font-size="20" fill="#0f766e" font-weight="600" text-anchor="start">GET</text>
-<text x="62" y="798" font-size="18" fill="#0f766e" font-weight="400" text-anchor="start">命中前缀</text>
-<path d="M360 670V832" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)"/>
-<text x="378" y="769" font-size="20" fill="#0f766e" font-weight="600" text-anchor="start">PUT</text>
-<text x="378" y="798" font-size="18" fill="#0f766e" font-weight="400" text-anchor="start">可保存块</text>
-<rect x="588" y="750" width="460" height="68" rx="12" fill="#fff7ed" stroke="#b77637" stroke-width="1.6"/>
-<text x="610" y="777" font-size="18" fill="#b45309" font-weight="600" text-anchor="start">MooncakeConnectorV1：D 发起 READ</text>
-<text x="610" y="804" font-size="18" fill="#172b4d" font-weight="400" text-anchor="start">KV 从 P 直达 D，本次交接不经过 Store</text>
-<rect x="32" y="832" width="1016" height="185" rx="12" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
-<text x="56" y="871" font-size="24" fill="#0f766e" font-weight="700" text-anchor="start">共享 KV 前缀池 · Mooncake Store</text>
-<text x="56" y="910" font-size="21" fill="#172b4d" font-weight="400" text-anchor="start">DRAM 数据段保存 KV 副本；Master 管理键与位置。</text>
-<text x="56" y="947" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">其他 P 实例也可复用兼容前缀；物理存储可与推理节点同机或独立部署。</text>
-<text x="56" y="985" font-size="18" fill="#475569" font-weight="400" text-anchor="start">这是逻辑服务边界；不表示固定的第三台机器。</text>
-<text x="32" y="1063" font-size="21" fill="#172b4d" font-weight="600" text-anchor="start">基础配置：P 读写 Store；D 的池读写关闭；两端各有自己的 NPU KV 页池。</text>
-<text x="32" y="1098" font-size="18" fill="#475569" font-weight="400" text-anchor="start">示意采用非逐层路径。箭头表达数据方向，不表达耗时、传输重叠或性能收益。</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1700" viewBox="0 0 1200 1700" role="img" aria-labelledby="title desc">
+<title id="title">2P2D：共享前缀跨 P 复用，P 到 D 分别交接</title>
+<desc id="desc">三机教学部署：Host A 上有 P0 和 P1，Host B 上有 D0 和 D1，Host C 提供所选 Mooncake Store DRAM 数据段。R0 与 R1 具有相同的 128 Token 前缀 A 和各自不同的一个 Token 后缀 x、y。R0 先到，P0 冷计算并将页 3 的公共前缀 KV PUT 到 Host C；PUT 完成且副本仍可用后，R1 在 P1 本地未命中、共享命中，将该副本 GET 到 P1 页 9。P0 页表为 3、7，D0 目标页表为 12、2；P1 页表为 9、4，D1 目标页表为 6、11。D0、D1 分别发起 READ，KV 字节沿 P0 到 D0、P1 到 D1 点对点复制。各实例保留自己的页号和地址。D2rH 和 rH2D 只表示设备与远端 Host 之间的数据方向。</desc>
+<defs><style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;fill:#172b4d}.small{fill:#475569}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}</style>
+<marker id="blue" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M1 1L8 5L1 9" fill="none" stroke="#1d4ed8" stroke-width="1.7"/></marker>
+<marker id="green" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M1 1L8 5L1 9" fill="none" stroke="#0f766e" stroke-width="1.7"/></marker>
+<marker id="orange" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M1 1L8 5L1 9" fill="none" stroke="#b45309" stroke-width="1.7"/></marker>
+</defs>
+<rect x="0" y="0" width="1200" height="1700" rx="20" fill="#f8fafc" stroke="#f8fafc" stroke-width="1.6"/>
+<text x="32" y="48" font-size="30" style="fill:#172b4d" font-weight="700" text-anchor="start" class="">2P2D：共享前缀跨 P 复用，P → D 分别交接</text>
+<text x="32" y="84" font-size="21" style="fill:#475569" font-weight="400" text-anchor="start" class="">三机教学部署：Host A、B 各跑两个独立实例；Host C 提供所选 Store DRAM 段。</text>
+<rect x="32" y="110" width="1136" height="172" rx="12" fill="#fff" stroke="#64748b" stroke-width="1.6"/>
+<text x="56" y="165" font-size="23" style="fill:#172b4d" font-weight="700" text-anchor="start" class="">R0</text>
+<rect x="120" y="134" width="500" height="46" rx="6" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
+<text x="370" y="164" font-size="22" style="fill:#0f766e" font-weight="600" text-anchor="middle" class="">相同前缀 A：128 Token</text>
+<rect x="640" y="134" width="190" height="46" rx="6" fill="#fff7ed" stroke="#b77637" stroke-width="1.6"/>
+<text x="735" y="164" font-size="20" style="fill:#b45309" font-weight="600" text-anchor="middle" class="">不同后缀 x：1 Token</text>
+<text x="868" y="164" font-size="22" style="fill:#172b4d" font-weight="600" text-anchor="start" class="">先到：P0 → D0</text>
+<text x="56" y="225" font-size="23" style="fill:#172b4d" font-weight="700" text-anchor="start" class="">R1</text>
+<rect x="120" y="194" width="500" height="46" rx="6" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
+<text x="370" y="224" font-size="22" style="fill:#0f766e" font-weight="600" text-anchor="middle" class="">相同前缀 A：128 Token</text>
+<rect x="640" y="194" width="190" height="46" rx="6" fill="#fff7ed" stroke="#b77637" stroke-width="1.6"/>
+<text x="735" y="224" font-size="20" style="fill:#b45309" font-weight="600" text-anchor="middle" class="">不同后缀 y：1 Token</text>
+<text x="868" y="224" font-size="22" style="fill:#172b4d" font-weight="600" text-anchor="start" class="">后到：P1 → D1</text>
+<text x="56" y="268" font-size="19" style="fill:#475569" font-weight="400" text-anchor="start" class="">教学参数：页与传输块均为 128 Token；单层、1 个 KV head、head_dim=64、BF16。</text>
+<rect x="32" y="310" width="390" height="1018" rx="12" fill="#fff" stroke="#64748b" stroke-width="1.6"/>
+<text x="56" y="350" font-size="25" style="fill:#1d4ed8" font-weight="700" text-anchor="start" class="">Host A · Prefill</text>
+<text x="56" y="379" font-size="19" style="fill:#475569" font-weight="400" text-anchor="start" class="">P0 / P1 各自持有本地 HBM 页池</text>
+<rect x="778" y="310" width="390" height="1018" rx="12" fill="#fff" stroke="#64748b" stroke-width="1.6"/>
+<text x="802" y="350" font-size="25" style="fill:#1d4ed8" font-weight="700" text-anchor="start" class="">Host B · Decode</text>
+<text x="802" y="379" font-size="19" style="fill:#475569" font-weight="400" text-anchor="start" class="">D0 / D1 各自持有本地 HBM 页池</text>
+<rect x="56" y="400" width="342" height="270" rx="12" fill="#f8fafc" stroke="#64748b" stroke-width="1.6"/>
+<text x="80" y="438" font-size="24" style="fill:#1d4ed8" font-weight="700" text-anchor="start" class="">P0 · R0 冷计算</text>
+<text x="80" y="474" font-size="21" style="fill:#172b4d" font-weight="400" text-anchor="start" class="">计算 A + x，写入本地页</text>
+<rect x="80" y="500" width="138" height="80" rx="8" fill="#fff7ed" stroke="#b77637" stroke-width="1.6"/>
+<text x="149" y="531" font-size="22" style="fill:#b45309" font-weight="700" text-anchor="middle" class="">页 7 · x</text>
+<text x="149" y="562" font-size="18" style="fill:#172b4d" font-weight="400" text-anchor="middle" class="">1 个有效位置</text>
+<rect x="236" y="500" width="138" height="80" rx="8" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
+<text x="305" y="531" font-size="22" style="fill:#0f766e" font-weight="700" text-anchor="middle" class="">页 3 · A</text>
+<text x="305" y="562" font-size="18" style="fill:#172b4d" font-weight="400" text-anchor="middle" class="">128 个有效位置</text>
+<text x="80" y="617" font-size="21" style="fill:#172b4d" font-weight="400" text-anchor="start" class="mono">block_table = [3, 7]</text>
+<rect x="802" y="400" width="342" height="270" rx="12" fill="#f8fafc" stroke="#64748b" stroke-width="1.6"/>
+<text x="826" y="438" font-size="24" style="fill:#1d4ed8" font-weight="700" text-anchor="start" class="">D0 · 接收 R0</text>
+<text x="826" y="474" font-size="21" style="fill:#172b4d" font-weight="400" text-anchor="start" class="">接收完成，再读取本地 KV</text>
+<rect x="826" y="500" width="138" height="80" rx="8" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
+<text x="895" y="531" font-size="22" style="fill:#0f766e" font-weight="700" text-anchor="middle" class="">页 12 · A</text>
+<text x="895" y="562" font-size="18" style="fill:#172b4d" font-weight="400" text-anchor="middle" class="">128 个有效位置</text>
+<rect x="982" y="500" width="138" height="80" rx="8" fill="#fff7ed" stroke="#b77637" stroke-width="1.6"/>
+<text x="1051" y="531" font-size="22" style="fill:#b45309" font-weight="700" text-anchor="middle" class="">页 2 · x</text>
+<text x="1051" y="562" font-size="18" style="fill:#172b4d" font-weight="400" text-anchor="middle" class="">1 个有效位置</text>
+<text x="826" y="617" font-size="21" style="fill:#172b4d" font-weight="400" text-anchor="start" class="mono">block_table = [12, 2]</text>
+<path d="M802 452H398" fill="none" stroke="#1d4ed8" stroke-width="3" stroke-linejoin="round" marker-end="url(#blue)" stroke-dasharray="7 6"/>
+<text x="600" y="434" font-size="20" style="fill:#1d4ed8" font-weight="600" text-anchor="middle" class="">D0 分配目标页，发起 READ</text>
+<path d="M398 510H802" fill="none" stroke="#b45309" stroke-width="3" stroke-linejoin="round" marker-end="url(#orange)"/>
+<text x="600" y="488" font-size="22" style="fill:#b45309" font-weight="700" text-anchor="middle" class="">P0 → D0：KV 64 KiB</text>
+<text x="600" y="548" font-size="20" style="fill:#b45309" font-weight="500" text-anchor="middle" class="">整页复制：3 → 12，7 → 2</text>
+<rect x="56" y="742" width="342" height="154" rx="12" fill="#eff6ff" stroke="#648bc9" stroke-width="1.6"/>
+<text x="80" y="779" font-size="23" style="fill:#1d4ed8" font-weight="700" text-anchor="start" class="">同一 Host，独立页池</text>
+<text x="80" y="816" font-size="21" style="fill:#172b4d" font-weight="400" text-anchor="start" class="">P1 的共享命中载入页 9，</text>
+<text x="80" y="851" font-size="21" style="fill:#172b4d" font-weight="400" text-anchor="start" class="">页 9 由 P1 自己分配。</text>
+<rect x="802" y="742" width="342" height="154" rx="12" fill="#fff7ed" stroke="#b77637" stroke-width="1.6"/>
+<text x="826" y="779" font-size="23" style="fill:#b45309" font-weight="700" text-anchor="start" class="">P → D 复制 KV 字节</text>
+<text x="826" y="816" font-size="21" style="fill:#172b4d" font-weight="400" text-anchor="start" class="">目标页号属于 D；</text>
+<text x="826" y="851" font-size="21" style="fill:#172b4d" font-weight="400" text-anchor="start" class="">本例 D0 / D1 不访问池。</text>
+<rect x="468" y="750" width="264" height="212" rx="12" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
+<text x="492" y="786" font-size="23" style="fill:#0f766e" font-weight="700" text-anchor="start" class="">Host C · DRAM</text>
+<text x="492" y="820" font-size="21" style="fill:#172b4d" font-weight="400" text-anchor="start" class="">Store 所选数据段</text>
+<rect x="492" y="842" width="216" height="98" rx="8" fill="#fff" stroke="#438d81" stroke-width="1.6"/>
+<text x="600" y="870" font-size="20" style="fill:#0f766e" font-weight="700" text-anchor="middle" class="">key(A) → KV 副本</text>
+<text x="600" y="898" font-size="19" style="fill:#172b4d" font-weight="500" text-anchor="middle" class="">K / V 共 32 KiB</text>
+<text x="600" y="926" font-size="19" style="fill:#172b4d" font-weight="500" text-anchor="middle" class="">K 区地址 s_K</text>
+<path d="M374 542H446V868H492" fill="none" stroke="#0f766e" stroke-width="3" stroke-linejoin="round" marker-end="url(#green)"/>
+<text x="464" y="710" font-size="21" style="fill:#0f766e" font-weight="700" text-anchor="start" class="">① PUT · D2rH · 32 KiB</text>
+<text x="464" y="740" font-size="18" style="fill:#0f766e" font-weight="400" text-anchor="start" class="">P0 的 NPU → 远端 Host</text>
+<rect x="56" y="992" width="342" height="310" rx="12" fill="#f8fafc" stroke="#64748b" stroke-width="1.6"/>
+<text x="80" y="1030" font-size="24" style="fill:#1d4ed8" font-weight="700" text-anchor="start" class="">P1 · R1 本地 miss</text>
+<text x="80" y="1066" font-size="21" style="fill:#172b4d" font-weight="400" text-anchor="start" class="">载入 A，只补算后缀 y</text>
+<rect x="80" y="1092" width="138" height="80" rx="8" fill="#fff7ed" stroke="#b77637" stroke-width="1.6"/>
+<text x="149" y="1123" font-size="22" style="fill:#b45309" font-weight="700" text-anchor="middle" class="">页 4 · y</text>
+<text x="149" y="1154" font-size="18" style="fill:#172b4d" font-weight="400" text-anchor="middle" class="">1 个有效位置</text>
+<rect x="236" y="1092" width="138" height="80" rx="8" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
+<text x="305" y="1123" font-size="22" style="fill:#0f766e" font-weight="700" text-anchor="middle" class="">页 9 · A</text>
+<text x="305" y="1154" font-size="18" style="fill:#172b4d" font-weight="400" text-anchor="middle" class="">128 个有效位置</text>
+<text x="80" y="1208" font-size="21" style="fill:#172b4d" font-weight="400" text-anchor="start" class="mono">block_table = [9, 4]</text>
+<rect x="802" y="992" width="342" height="310" rx="12" fill="#f8fafc" stroke="#64748b" stroke-width="1.6"/>
+<text x="826" y="1030" font-size="24" style="fill:#1d4ed8" font-weight="700" text-anchor="start" class="">D1 · 接收 R1</text>
+<text x="826" y="1066" font-size="21" style="fill:#172b4d" font-weight="400" text-anchor="start" class="">接收完成，再读取本地 KV</text>
+<rect x="826" y="1092" width="138" height="80" rx="8" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
+<text x="895" y="1123" font-size="22" style="fill:#0f766e" font-weight="700" text-anchor="middle" class="">页 6 · A</text>
+<text x="895" y="1154" font-size="18" style="fill:#172b4d" font-weight="400" text-anchor="middle" class="">128 个有效位置</text>
+<rect x="982" y="1092" width="138" height="80" rx="8" fill="#fff7ed" stroke="#b77637" stroke-width="1.6"/>
+<text x="1051" y="1123" font-size="22" style="fill:#b45309" font-weight="700" text-anchor="middle" class="">页 11 · y</text>
+<text x="1051" y="1154" font-size="18" style="fill:#172b4d" font-weight="400" text-anchor="middle" class="">1 个有效位置</text>
+<text x="826" y="1208" font-size="21" style="fill:#172b4d" font-weight="400" text-anchor="start" class="mono">block_table = [6, 11]</text>
+<path d="M492 914H446V1134H374" fill="none" stroke="#0f766e" stroke-width="3" stroke-linejoin="round" marker-end="url(#green)"/>
+<text x="470" y="1000" font-size="21" style="fill:#0f766e" font-weight="700" text-anchor="start" class="">② GET · rH2D · 32 KiB</text>
+<text x="470" y="1030" font-size="18" style="fill:#0f766e" font-weight="400" text-anchor="start" class="">远端 Host → P1 的 NPU</text>
+<text x="470" y="1073" font-size="20" style="fill:#475569" font-weight="400" text-anchor="start" class="">前提：PUT 已成功，</text>
+<text x="470" y="1104" font-size="20" style="fill:#475569" font-weight="400" text-anchor="start" class="">且该远端副本仍可命中。</text>
+<path d="M398 1236H802" fill="none" stroke="#b45309" stroke-width="3" stroke-linejoin="round" marker-end="url(#orange)"/>
+<text x="600" y="1215" font-size="22" style="fill:#b45309" font-weight="700" text-anchor="middle" class="">P1 → D1：KV 64 KiB</text>
+<path d="M802 1280H398" fill="none" stroke="#1d4ed8" stroke-width="3" stroke-linejoin="round" marker-end="url(#blue)" stroke-dasharray="7 6"/>
+<text x="600" y="1310" font-size="20" style="fill:#1d4ed8" font-weight="600" text-anchor="middle" class="">D1 分配目标页，发起 READ</text>
+<rect x="32" y="1360" width="1136" height="220" rx="12" fill="#fff" stroke="#64748b" stroke-width="1.6"/>
+<text x="56" y="1400" font-size="24" style="fill:#172b4d" font-weight="700" text-anchor="start" class="">同一份 A：源页、Store 副本、目标页各有自己的地址</text>
+<text x="56" y="1435" font-size="19" style="fill:#475569" font-weight="400" text-anchor="start" class="">本例 K / V 是两个独立视图，各自页步幅 S=16 KiB；下方只列 K，a / b 为各实例 K 视图基址。</text>
+<text x="56" y="1477" font-size="20" style="fill:#0f766e" font-weight="700" text-anchor="start" class="">池化复用</text>
+<text x="184" y="1477" font-size="23" style="fill:#0f766e" font-weight="500" text-anchor="start" class="mono">P0: a0 + 3S   →   Store: s_K   →   P1: a1 + 9S</text>
+<text x="56" y="1521" font-size="20" style="fill:#b45309" font-weight="700" text-anchor="start" class="">R0 交接</text>
+<text x="184" y="1521" font-size="23" style="fill:#b45309" font-weight="500" text-anchor="start" class="mono">P0: a0 + 3S   →   D0: b0 + 12S</text>
+<text x="650" y="1521" font-size="20" style="fill:#475569" font-weight="400" text-anchor="start" class="">尾页 7 → 2</text>
+<text x="56" y="1560" font-size="20" style="fill:#b45309" font-weight="700" text-anchor="start" class="">R1 交接</text>
+<text x="184" y="1560" font-size="23" style="fill:#b45309" font-weight="500" text-anchor="start" class="mono">P1: a1 + 9S   →   D1: b1 + 6S</text>
+<text x="650" y="1560" font-size="20" style="fill:#475569" font-weight="400" text-anchor="start" class="">尾页 4 → 11</text>
+<text x="32" y="1618" font-size="20" style="fill:#475569" font-weight="400" text-anchor="start" class="">P → D 每请求一次 batch：K / V 各 2 段，共 4 × 16 KiB = 64 KiB；尾页仍按整页传输。</text>
+<text x="32" y="1652" font-size="20" style="fill:#475569" font-weight="400" text-anchor="start" class="">D2rH / rH2D 表示两端相对位置。图示前提是所选副本在 Host C；图不表示传输耗时或重叠。</text>
+<text x="32" y="1684" font-size="18" style="fill:#475569" font-weight="400" text-anchor="start" class="">池化：AscendStoreConnector   ·   P2P：MooncakeConnectorV1   ·   实例编号与页号均为教学构造。</text>
 </svg>
