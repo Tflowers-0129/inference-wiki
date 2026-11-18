@@ -21,7 +21,7 @@
   function pageCard(page) {
     const node = element('div', `pool-walk-page ${page.kind === 'prefix' ? 'is-prefix' : 'is-tail'}`);
     node.append(element('b', '', `页 ${page.number}`));
-    node.append(element('span', '', page.kind === 'prefix' ? 'M · 手册 128' : `${page.request} · 尾 1`));
+    node.append(element('span', '', page.kind === 'prefix' ? '公共前缀 · 128 token' : page.token));
     return node;
   }
 
@@ -36,7 +36,7 @@
       instance.pages.forEach(page => pages.append(pageCard(page)));
       node.append(pages);
     } else {
-      node.append(element('p', 'pool-walk-untracked', instance.status === 'past' ? '已交接；后续驻留未跟踪' : '尚未跟踪到本例的 KV'));
+      node.append(element('p', 'pool-walk-untracked', instance.status === 'past' ? '已完成交接，图中不再跟踪这些页' : '尚无本例的 KV 页'));
     }
     return node;
   }
@@ -54,23 +54,16 @@
     const segment = element('section', `pool-walk-segment${state.active.includes(`segment-${host}`) ? ' is-active' : ''}`);
     segment.dataset.poolSegment = host;
     segment.append(element('h5', '', `共享 ${host} 段 · Host DRAM`));
-    if (state.store.M && state.store.M.location === host) {
-      const manual = element('div', 'pool-walk-object is-stored');
-      manual.dataset.poolObject = 'M';
-      manual.append(element('b', '', 'M ·《手册》'));
-      manual.append(element('span', '', '128 token 的 KV · 1 副本'));
-      manual.append(element('small', '', state.step === 4 ? '读出后仍在本段' : '可按相同键读取'));
-      segment.append(manual);
+    const prefixBlock = state.store.prefixBlock;
+    if (prefixBlock && prefixBlock.location === host) {
+      const card = element('div', 'pool-walk-object');
+      card.dataset.poolObject = 'prefixBlock';
+      card.append(element('b', '', '前缀块'));
+      card.append(element('span', '', '公共前缀的 KV · 128 token'));
+      card.append(element('small', '', state.step === 4 ? '读取后，副本仍在本段' : '共享池中的唯一副本'));
+      segment.append(card);
     } else {
-      segment.append(element('p', 'pool-walk-segment-empty', state.store.M ? '本段没有 M' : 'M 尚未保存'));
-    }
-    if (state.store.warranty.location === host) {
-      const warranty = element('div', 'pool-walk-object pool-walk-warranty');
-      warranty.dataset.poolObject = 'warranty';
-      warranty.append(element('b', '', '《保修条款》'));
-      warranty.append(element('span', '', '独立前缀 · 1 副本'));
-      warranty.append(element('small', '', '早已存在，始终不动'));
-      segment.append(warranty);
+      segment.append(element('p', 'pool-walk-segment-empty', prefixBlock ? '此段未保存前缀块' : '前缀块尚未写入'));
     }
     return segment;
   }
@@ -80,7 +73,7 @@
     hostA.append(instanceCard('P0', state.instances.P0, state.active.includes('P0')), storeSegment('A', state));
     const hostB = machine('P 机 B', 'P1 + 本机共享 DRAM 段', 'pool-walk-host-b');
     hostB.append(instanceCard('P1', state.instances.P1, state.active.includes('P1')), storeSegment('B', state));
-    const decode = machine('Decode 机', 'D0、D1 各用独立卡接着生成', 'pool-walk-host-decode');
+    const decode = machine('Decode 机', 'D0、D1 各用一张卡做 Decode', 'pool-walk-host-decode');
     ['D0', 'D1'].forEach(name => decode.append(instanceCard(name, state.instances[name], state.active.includes(name))));
     find('machines').replaceChildren(hostA, hostB, decode);
   }
@@ -89,7 +82,7 @@
     const route = find('route');
     route.className = `pool-walk-route is-${state.flow.kind}`;
     if (state.flow.kind === 'idle') {
-      route.replaceChildren(element('p', '', '从 R1 开始：手册前缀在本地和共享池中都未命中。'));
+      route.replaceChildren(element('p', '', 'P0 的显存和共享池中都没有 R1 所需的前缀块。'));
       return;
     }
     const source = element('div', 'pool-walk-endpoint');
@@ -105,7 +98,7 @@
     const state = model.getSnapshot(selection.step, selection.placement);
     stepButtons.forEach((button, step) => button.setAttribute('aria-pressed', String(step === selection.step)));
     placementButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.poolPlacement === selection.placement)));
-    find('position').textContent = `步骤 ${selection.step} / ${model.steps.length - 1} · M 落 ${selection.placement} 段的推演`;
+    find('position').textContent = `步骤 ${selection.step} / ${model.steps.length - 1} · 将前缀块保存在 ${selection.placement} 段`;
     find('heading').textContent = state.title;
     find('caption').textContent = state.caption;
     find('observation').textContent = state.observation;
@@ -133,54 +126,58 @@
   find('interactive').hidden = false;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const page = (number, kind, request) => ({ number, kind, request, validTokens: kind === 'prefix' ? 128 : 1, capacity: 128 });
+  function page(number, kind, request) {
+    const data = { number, kind, request, validTokens: kind === 'prefix' ? 128 : 1, capacity: 128 };
+    if (kind === 'tail') data.token = request === 'R1' ? '100' : '500';
+    return data;
+  }
   const statusLabels = { pending: '本例尚未到达', tracked: '本次相关页', source: '本步源页', target: '本步目标页', past: '不再跟踪' };
   const steps = [
     {
-      title: '初态：两条请求，尚无手册 KV 副本',
-      caption: 'B 段已有《保修条款》的 KV，它与这两条请求的前缀不同。',
-      observation: 'M 是手册公共前缀的对象键简称；页号属于各个实例。',
+      title: '两次请求的前 128 个 token 相同',
+      caption: 'R1 在阈值为 100 时请求补全。把阈值改为 500 后，编辑器发出 R2。',
+      observation: '图中的页号是各实例自己的物理页号。',
       active: [], flow: { kind: 'idle' },
     },
     {
       title: 'R1 未命中缓存，P0 计算全部输入',
-      caption: 'P0 计算全部 129 个输入 token，写入两页。',
-      observation: '页 3 已满；页 4 只有尾 token ① 的 KV。',
+      caption: 'P0 计算 R1 的全部 129 个输入 token，将 KV 写入两页。',
+      observation: '公共前缀的 128 个位置填满第 3 页。第 4 页只保存 100 对应的 KV。',
       active: ['P0'],
-      flow: { kind: 'compute', from: 'R1 输入', fromDetail: '手册 128 + 尾 1', label: '计算 129 token', initiator: 'P0 执行 Prefill', to: 'P 机 A · P0 HBM', toDetail: '页 3、4' },
+      flow: { kind: 'compute', from: 'R1 输入', fromDetail: '公共前缀 + 100', label: '计算 129 token', initiator: 'P0 执行 Prefill', to: 'P 机 A · P0 HBM', toDetail: '页 3、4' },
     },
     {
-      title: 'P0 → A 段：保存完整的手册块 M',
-      caption: '将页 3 的 KV 复制到共享 Store；尾页 4 不入池。',
-      observation: '本例先保存 M；保存与交给 D0 没有强制先后。',
+      title: 'P0 将前缀块写入 A 段',
+      caption: 'P0 只将已填满的第 3 页写入共享池。第 4 页留在 P0，供本次 PD 交接使用。',
+      observation: '图中先保存前缀块，再由 D0 读取请求的 KV。这两项操作没有固定的先后顺序。',
       active: ['P0', 'segment-A'],
-      flow: { kind: 'store', operation: 'PUT', direction: 'D2H', from: 'P 机 A · P0 HBM', fromDetail: '页 3 · 手册 KV', label: '保存 M · D2H', initiator: 'P0 发起 WRITE', to: 'P 机 A · DRAM', toDetail: 'A 段 · M 的唯一副本', source: 'P0', sourcePages: [3], destination: 'segment-A', key: 'M' },
+      flow: { kind: 'store', operation: 'PUT', direction: 'D2H', from: 'P 机 A · P0 HBM', fromDetail: '页 3 · 公共前缀', label: '保存前缀块 · D2H', initiator: 'P0 发起 WRITE', to: 'P 机 A · DRAM', toDetail: 'A 段 · 一份前缀块', source: 'P0', sourcePages: [3], destination: 'segment-A', object: 'prefixBlock' },
     },
     {
-      title: 'P0 → D0：交接 R1 的两页 KV',
-      caption: 'D0 发起 READ，复制字节到自己的目标页；两侧页号不用相同。',
+      title: 'D0 从 P0 读取 R1 的两页 KV',
+      caption: 'D0 发起 READ，把公共前缀和 100 对应的 KV 复制到本机的两页中。两侧的页号可以不同。',
       observation: '本次映射：P0 [3, 4] → D0 [12, 13]。不经过 Store。',
       active: ['P0', 'D0'],
       flow: { kind: 'handoff', operation: 'READ', direction: 'D2D', from: 'P 机 A · P0 HBM', fromDetail: '源页 3、4', label: 'D2D · 两页 KV', initiator: 'D0 发起 READ', to: 'Decode 机 · D0 HBM', toDetail: '目标页 12、13', source: 'P0', sourcePages: [3, 4], destination: 'D0', destinationPages: [12, 13], request: 'R1' },
     },
     {
-      title: 'A 段 → P1：R2 读回同一个 M',
-      caption: 'P1 显存未命中；A 段的副本可读，将手册 KV 读入页 9。',
-      observation: 'M 仍留在 A 段。R1 交接后的 HBM 驻留不再跟踪。',
+      title: 'P1 从 A 段读取 R2 的公共前缀',
+      caption: 'P1 的显存没有缓存这段前缀。A 段的副本已可读取，P1 将其读入第 9 页。',
+      observation: '读取后，前缀块仍在 A 段。图中只追踪 R1 的显存页到交接完成为止。',
       active: ['segment-A', 'P1'],
-      flow: { kind: 'store', operation: 'GET', direction: 'rH2D', from: 'P 机 A · DRAM', fromDetail: 'A 段 · M 的手册 KV', label: '读取 M · rH2D', initiator: 'P1 发起 READ', to: 'P 机 B · P1 HBM', toDetail: '目标页 9', source: 'segment-A', key: 'M', destination: 'P1', destinationPages: [9] },
+      flow: { kind: 'store', operation: 'GET', direction: 'rH2D', from: 'P 机 A · DRAM', fromDetail: 'A 段 · 前缀块', label: '读取前缀块 · rH2D', initiator: 'P1 发起 READ', to: 'P 机 B · P1 HBM', toDetail: '目标页 9', source: 'segment-A', object: 'prefixBlock', destination: 'P1', destinationPages: [9] },
     },
     {
-      title: 'P1 只计算第 129 个 token',
-      caption: '页 9 的手册 KV 直接复用，尾 token ② 的 KV 写入页 10。',
-      observation: '两条请求的手册相同，尾 token 不同；只有手册块共享。',
+      title: 'P1 只计算第 129 个 token（500）',
+      caption: 'P1 复用第 9 页的 KV，只处理最后一个 token（500），并将新生成的 KV 写入第 10 页。',
+      observation: 'R1 的第 129 个 token 是 100，R2 的是 500。两次请求只能复用此前 128 个位置的 KV。',
       active: ['P1'],
-      flow: { kind: 'compute', from: 'R2 的最后一个 token', fromDetail: '不同的尾 token ②', label: '只计算 1 token', initiator: 'P1 执行剩余 Prefill', to: 'P 机 B · P1 HBM', toDetail: '写入页 10；复用页 9' },
+      flow: { kind: 'compute', from: 'R2 的最后一个 token', fromDetail: '500', label: '只计算 1 token', initiator: 'P1 执行剩余 Prefill', to: 'P 机 B · P1 HBM', toDetail: '写入页 10；复用页 9' },
     },
     {
-      title: 'P1 → D1：交接 R2 的两页 KV',
-      caption: 'D1 从 P1 读取手册和第二个问题对应的 KV，然后继续生成。',
-      observation: '本次映射：P1 [9, 10] → D1 [20, 21]。Store 中的两个对象均不变。',
+      title: 'D1 从 P1 读取 R2 的两页 KV',
+      caption: 'D1 读取公共前缀和 500 对应的 KV，继续为 R2 生成补全结果。',
+      observation: '本次映射：P1 [9, 10] → D1 [20, 21]。共享池中仍然只有一份前缀块。',
       active: ['P1', 'D1'],
       flow: { kind: 'handoff', operation: 'READ', direction: 'D2D', from: 'P 机 B · P1 HBM', fromDetail: '源页 9、10', label: 'D2D · 两页 KV', initiator: 'D1 发起 READ', to: 'Decode 机 · D1 HBM', toDetail: '目标页 20、21', source: 'P1', sourcePages: [9, 10], destination: 'D1', destinationPages: [20, 21], request: 'R2' },
     },
@@ -202,9 +199,8 @@
     if (!Number.isInteger(index) || index < 0 || index >= steps.length) throw new RangeError('Unknown pool walkthrough step');
     validatePlacement(placement);
     const instances = Object.fromEntries(['P0', 'P1', 'D0', 'D1'].map(name => [name, { status: 'pending', pages: [] }]));
-    const store = { M: null, warranty: { label: '保修条款', unchanged: true, location: 'B', replicas: 1 } };
+    const store = { prefixBlock: index >= 2 ? { validTokens: 128, replicas: 1, location: placement } : null };
     if (index >= 1 && index <= 3) instances.P0 = { status: index === 3 ? 'source' : 'tracked', pages: [page(3, 'prefix', 'R1'), page(4, 'tail', 'R1')] };
-    if (index >= 2) store.M = { key: 'M', validTokens: 128, replicas: 1, location: placement };
     if (index === 3) instances.D0 = { status: 'target', pages: [page(12, 'prefix', 'R1'), page(13, 'tail', 'R1')] };
     if (index >= 4) {
       instances.P0.status = instances.D0.status = 'past';
@@ -214,16 +210,16 @@
     if (index === 6) instances.D1 = { status: 'target', pages: [page(20, 'prefix', 'R2'), page(21, 'tail', 'R2')] };
     const state = { ...steps[index], step: index, placement, instances, store };
     if (placement === 'B' && index === 2) {
-      state.title = 'P0 → B 段：保存完整的手册块 M';
+      state.title = 'P0 将前缀块写入 B 段';
       state.active = ['P0', 'segment-B'];
-      state.flow = { ...state.flow, direction: 'D2rH', label: '保存 M · D2rH', to: 'P 机 B · DRAM', toDetail: 'B 段 · M 的唯一副本', destination: 'segment-B' };
+      state.flow = { ...state.flow, direction: 'D2rH', label: '保存前缀块 · D2rH', to: 'P 机 B · DRAM', toDetail: 'B 段 · 一份前缀块', destination: 'segment-B' };
     }
     if (placement === 'B' && index === 4) {
-      state.title = 'B 段 → P1：R2 读回同一个 M';
-      state.caption = 'P1 显存未命中；B 段的副本可读，将手册 KV 读入页 9。';
-      state.observation = 'M 仍留在 B 段。R1 交接后的 HBM 驻留不再跟踪。';
+      state.title = 'P1 从 B 段读取 R2 的公共前缀';
+      state.caption = 'P1 的显存没有缓存这段前缀。B 段的副本已可读取，P1 将其读入第 9 页。';
+      state.observation = '读取后，前缀块仍在 B 段。图中只追踪 R1 的显存页到交接完成为止。';
       state.active = ['segment-B', 'P1'];
-      state.flow = { ...state.flow, direction: 'H2D', label: '读取 M · H2D', from: 'P 机 B · DRAM', fromDetail: 'B 段 · M 的手册 KV', source: 'segment-B' };
+      state.flow = { ...state.flow, direction: 'H2D', label: '读取前缀块 · H2D', from: 'P 机 B · DRAM', fromDetail: 'B 段 · 前缀块', source: 'segment-B' };
     }
     return freeze(state);
   }

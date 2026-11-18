@@ -1,87 +1,87 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="340" height="1326" viewBox="0 0 480 1872" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="340" height="1332" viewBox="0 0 480 1880" role="img" aria-labelledby="title desc">
   <title id="title">两次请求中的三段 KV 复制：P0 到共享池、共享池到 P1、P1 到 D1</title>
-  <desc id="desc">P 机 A 运行 P0 并贡献 Host DRAM 段 A，P 机 B 运行 P1 并贡献段 B；两段组成同一个逻辑 Store，无额外存储机。主例手册对象 M 实际落在 A 段。先处理 R1：手册加问题一，P0 将本卡 HBM 第 3 页的手册 KV PUT 复制到本机 A 段，方向为 D2H。PUT 成功且 M 仍可用后，R2 的相同手册加问题二由 B 上的 P1 处理；P1 的 HBM 未命中，但命中兼容的共享对象 M，将远端 A 段的 M GET 到自己分配的 HBM 第 9 页，方向为 rH2D，A 段仍保留 M。P1 补算问题二，将其 KV 写到第 10 页。独立 Decode 机上的 D1 分配第 20、21 页并发起 READ，KV 从 B 的 P1 第 9 页到 D1 第 20 页、第 10 页到 D1 第 21 页直接复制，方向为 D2D；本请求所需 KV 就绪后，D1 继续生成。未展开的 R1 交接为 P0 第 3、4 页到 Decode 机 D0 第 12、13 页。本教学例手册为 128 Token、问题为 1 Token，页大小为 128 Token；只统计一层，K 和 V 各 16 KiB，每整页合计 32 KiB。两段池化复制各 32 KiB，R2 的 PD 交接复制两整页共 64 KiB，尾页只有一个有效位置。反事实只比较手册 M 改放 B 段，此时 P0 写入为 D2rH，P1 读回为 H2D；保修条款始终在 B 段，不随 M 改变。该对照不是迁移过程。箭头表示数据方向，不表示耗时；M 是教学对象名，不是实现中的实际键字符串。</desc>
+  <desc id="desc">P 机 A 运行 P0，P 机 B 运行 P1，各贡献一段 Host DRAM 给同一个 Store。两条 SQL 代码补全请求的前 128 个 token 相同，末尾 WHERE latency_ms &gt; 100 在 R2 中改为 WHERE latency_ms &gt; 500。示例假定 100 和 500 各占一个 token，每页 128 个 token。R1 的 P0 将 HBM 页 3 的公共前缀 KV 写入 A 段，PUT 方向为 D2H。R1 的页 3、4 另由 D0 拉取到页 12、13。R2 的 P1 本地未命中，从远端 A 段 GET 到本卡页 9，方向为 rH2D，A 段仍保留副本。P1 计算末尾的 500，将 KV 写入页 10。D1 发起 READ，从 P1 页 9、10 分别复制到 D1 页 20、21，方向为 D2D。D1 在所需 KV 就绪后继续生成。按一层计算，K、V 每页各 16 KiB，PUT 和 GET 各复制 32 KiB，R2 的 PD 交接传两整页共 64 KiB。作为另一种放置方式，若公共前缀从一开始就存在 B 段，P0 写入方向为 D2rH，P1 读取方向为 H2D。</desc>
   <defs>
     <style>
       text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
       .title{font-size:30px;font-weight:700}.heading{font-size:26px;font-weight:700}.body{font-size:24px}.note{font-size:22px;fill:#475569}
       .blue{fill:#1d4ed8}.teal{fill:#0f766e}.orange{fill:#b45309}.center{text-anchor:middle}.number{font-size:22px;font-weight:700;fill:#fff;text-anchor:middle}
       .panel{fill:#fff;stroke:#64748b;stroke-width:2}.device{fill:#eff6ff;stroke:#1d4ed8;stroke-width:2}.store{fill:#e6f4f1;stroke:#0f766e;stroke-width:2}
-      .manual{fill:#e6f4f1;stroke:#0f766e;stroke-width:2}.question{fill:#fff7ed;stroke:#b45309;stroke-width:2}
+      .prefix{fill:#e6f4f1;stroke:#0f766e;stroke-width:2}.suffix{fill:#fff7ed;stroke:#b45309;stroke-width:2}
       .pool-flow{fill:none;stroke:#0f766e;stroke-width:4;marker-end:url(#pool-arrow)}.pd-flow{fill:none;stroke:#b45309;stroke-width:4;marker-end:url(#pd-arrow)}
     </style>
     <marker id="pool-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#0f766e" stroke-width="1.7"/></marker>
     <marker id="pd-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#b45309" stroke-width="1.7"/></marker>
   </defs>
-  <rect width="480" height="1872" rx="16" fill="#f8fafc"/>
-  <text x="20" y="44" class="title">一份手册 KV，三段复制</text>
-  <text x="20" y="82" class="body">先 R1，再 R2；手册 M 放 A 段。</text>
-  <text x="20" y="116" class="body">单层每整页 K + V = 32 KiB。</text>
-  <g id="r1-p0-to-store">
+  <rect width="480" height="1880" rx="16" fill="#f8fafc"/>
+  <text x="20" y="44" class="title">公共前缀的 KV 如何跨机复用</text>
+  <text x="20" y="82" class="body">R1　… WHERE latency_ms &gt; 100</text>
+  <text x="20" y="116" class="body">R2　… WHERE latency_ms &gt; 500</text>
+  <text x="20" y="152" class="note">前 128 个 token 相同。100、500 各占 1 个。</text>
+  <g id="r1-p0-to-store" transform="translate(0,40)">
     <rect x="20" y="144" width="440" height="390" rx="12" class="panel"/>
     <circle cx="48" cy="178" r="17" fill="#0f766e"/><text x="48" y="186" class="number">1</text>
-    <text x="78" y="188" class="heading">R1 把手册 KV 存入池</text>
+    <text x="78" y="188" class="heading">P0 将 R1 的公共前缀存入池</text>
     <rect x="36" y="212" width="408" height="84" rx="8" class="device"/>
     <text x="56" y="244" class="body blue">A / P0 · 本卡 HBM</text>
-    <text x="56" y="278" class="heading teal">页 3 · 手册 KV</text>
+    <text x="56" y="278" class="heading teal">页 3 · 公共前缀 KV</text>
     <path d="M72 296V386" class="pool-flow"/>
     <text x="104" y="336" class="heading teal">PUT · D2H</text>
     <text x="104" y="370" class="body">复制 32 KiB</text>
     <rect x="36" y="386" width="408" height="90" rx="8" class="store"/>
     <text x="56" y="420" class="body">A · 本机 Host DRAM</text>
-    <text x="56" y="456" class="heading teal">Store 段 A · 手册 M</text>
-    <text x="36" y="512" class="note">PUT 完成后，M 才可供 R2 复用。</text>
+    <text x="56" y="456" class="heading teal">Store 段 A · 公共前缀 KV</text>
+    <text x="36" y="512" class="note">PUT 成功后，R2 才能复用这个前缀。</text>
   </g>
-  <g id="r2-store-to-p1">
+  <g id="r2-store-to-p1" transform="translate(0,40)">
     <rect x="20" y="558" width="440" height="430" rx="12" class="panel"/>
     <circle cx="48" cy="592" r="17" fill="#0f766e"/><text x="48" y="600" class="number">2</text>
-    <text x="78" y="602" class="heading">R2 在 P1 命中共享手册</text>
-    <text x="36" y="636" class="note">同一手册 + 问题二；P1 HBM 未命中</text>
+    <text x="78" y="602" class="heading">P1 为 R2 读取公共前缀</text>
+    <text x="36" y="636" class="note">P1 本地未命中，查询共享池时命中。</text>
     <rect x="36" y="654" width="408" height="84" rx="8" class="store"/>
-    <text x="56" y="686" class="body teal">A · Store 段 A / 手册 M</text>
+    <text x="56" y="686" class="body teal">Store 段 A · 公共前缀 KV</text>
     <text x="56" y="720" class="body">GET 后 A 段仍保留此副本</text>
     <path d="M72 738V826" class="pool-flow"/>
     <text x="104" y="776" class="heading teal">GET · rH2D</text>
     <text x="104" y="810" class="body">复制 32 KiB</text>
     <rect x="36" y="826" width="408" height="98" rx="8" class="device"/>
     <text x="56" y="860" class="body blue">B / P1 · 本卡 HBM</text>
-    <text x="56" y="898" class="heading teal">页 9 · 手册 KV</text>
-    <text x="36" y="964" class="note">P1 再计算问题二，写入页 10。</text>
+    <text x="56" y="898" class="heading teal">页 9 · 公共前缀 KV</text>
+    <text x="36" y="964" class="note">P1 计算末尾的 500，将 KV 写入页 10。</text>
   </g>
-  <g id="r2-p1-to-d1">
+  <g id="r2-p1-to-d1" transform="translate(0,40)">
     <rect x="20" y="1012" width="440" height="582" rx="12" class="panel"/>
     <circle cx="48" cy="1046" r="17" fill="#b45309"/><text x="48" y="1054" class="number">3</text>
-    <text x="78" y="1056" class="heading">R2 将本请求 KV 交给 D1</text>
+    <text x="78" y="1056" class="heading">D1 接收 R2 的两页 KV</text>
     <rect x="36" y="1082" width="408" height="142" rx="8" class="device"/>
     <text x="56" y="1116" class="body blue">B / P1 · 本卡 HBM</text>
-    <rect x="52" y="1134" width="180" height="72" rx="6" class="manual"/>
+    <rect x="52" y="1134" width="180" height="72" rx="6" class="prefix"/>
     <text x="142" y="1164" class="heading teal center">页 9</text>
-    <text x="142" y="1194" class="body center">手册</text>
-    <rect x="248" y="1134" width="180" height="72" rx="6" class="question"/>
+    <text x="142" y="1194" class="body center">公共前缀</text>
+    <rect x="248" y="1134" width="180" height="72" rx="6" class="suffix"/>
     <text x="338" y="1164" class="heading orange center">页 10</text>
-    <text x="338" y="1194" class="body center">问题二</text>
+    <text x="338" y="1194" class="body center">500</text>
     <path d="M72 1224V1350" class="pd-flow"/>
     <text x="104" y="1264" class="heading orange">D2D · 共 64 KiB</text>
     <text x="104" y="1298" class="body">页 9 → 页 20</text>
     <text x="104" y="1332" class="body">页 10 → 页 21</text>
     <rect x="36" y="1350" width="408" height="142" rx="8" class="device"/>
     <text x="56" y="1384" class="body blue">Decode 机 / D1 · HBM</text>
-    <rect x="52" y="1402" width="180" height="72" rx="6" class="manual"/>
+    <rect x="52" y="1402" width="180" height="72" rx="6" class="prefix"/>
     <text x="142" y="1432" class="heading teal center">页 20</text>
-    <text x="142" y="1462" class="body center">手册</text>
-    <rect x="248" y="1402" width="180" height="72" rx="6" class="question"/>
+    <text x="142" y="1462" class="body center">公共前缀</text>
+    <rect x="248" y="1402" width="180" height="72" rx="6" class="suffix"/>
     <text x="338" y="1432" class="heading orange center">页 21</text>
-    <text x="338" y="1462" class="body center">问题二</text>
-    <text x="36" y="1530" class="note">D1 发起 READ，接收完再生成。</text>
-    <text x="36" y="1566" class="note">数据从 P1 直接复制到 D1。</text>
+    <text x="338" y="1462" class="body center">500</text>
+    <text x="36" y="1530" class="note">D1 发起 READ，所需 KV 就绪后继续生成。</text>
+    <text x="36" y="1566" class="note">每页按一层计算，K 和 V 各占 16 KiB。</text>
   </g>
-  <g id="alternate-manual-placement">
-    <rect x="20" y="1618" width="440" height="164" rx="12" class="panel"/>
-    <text x="36" y="1654" class="heading">若只把手册 M 改放 B 段</text>
-    <text x="36" y="1690" class="note">P0 写入：D2rH；P1 读回：H2D。</text>
-    <text x="36" y="1728" class="note">保修条款仍在 B 段。</text>
-    <text x="36" y="1764" class="note">只比较落点，不表示迁移过程。</text>
+  <g id="alternate-prefix-placement" transform="translate(0,40)">
+    <rect x="20" y="1618" width="440" height="132" rx="12" class="panel"/>
+    <text x="36" y="1654" class="heading">如果公共前缀从一开始就存在 B 段</text>
+    <text x="36" y="1690" class="note">P0 跨机写入 B 段（D2rH）。</text>
+    <text x="36" y="1728" class="note">P1 从本机 B 段读回（H2D）。</text>
   </g>
-  <text x="20" y="1818" class="note">页号属于各自实例；尾页仍整页传输。</text>
-  <text x="20" y="1852" class="note">箭头是 KV 字节方向，不表示耗时。</text>
+  <text x="20" y="1826" class="note">各实例独立分配页号。尾页也按整页传输。</text>
+  <text x="20" y="1860" class="note">箭头表示 KV 的复制方向。</text>
 </svg>

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="744" viewBox="0 0 1000 744" role="img" aria-labelledby="title desc">
   <title id="title">单机混部的 KV 路径：同一前缀从 HBM 页 3 存入 Host，再载入 HBM 页 9</title>
-  <desc id="desc">两条 129-token 请求共享完整的前 128 个 token。第一次计算后，Worker 将第 3 页的 K 与 V 写入同机 Store 段。同一实例第二次本地未命中时，Scheduler 查询得到 128 个命中 token。Worker 读取这个对象，把 K、V 写入新分配的第 9 页，再补算尾 token。图下给出一次读写的字节地址。</desc>
+  <desc id="desc">两条 SQL 代码补全请求的前 128 个 token 相同，最后一个 token 从 R1 的 100 改成 R2 的 500。这个变体在同一台机器、同一个混部实例上执行。第一次计算后，Worker 将第 3 页的 K 与 V 写入同机 Store 段。第二次本地未命中时，Scheduler 查询得知共享池命中 128 个 token。Worker 将公共前缀的 K、V 读入新分配的第 9 页，再计算 500。下方给出一次读写的字节地址。</desc>
   <defs>
     <style>
       text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;fill:#172b4d}
@@ -13,7 +13,7 @@
   </defs>
   <rect width="1000" height="744" rx="16" fill="#f8fafc"/>
   <text x="26" y="43" class="title">单机混部的一次存入与一次命中</text>
-  <text x="26" y="74" class="body note">同一个 P/D 混部实例、同机 DRAM 池。两条请求的前 128 个 token 相同，最后 1 个不同。</text>
+  <text x="26" y="74" class="body note">同一混部实例先处理 R1，再处理 R2。前 128 个 token 相同，末尾的 100 换成 500。</text>
 
   <g id="lookup">
     <rect x="24" y="98" width="952" height="143" rx="12" fill="#eff6ff" stroke="#7294ce" class="box"/>
@@ -23,21 +23,21 @@
     <path d="M164 165H292" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#query)"/>
     <text x="220" y="152" class="small blue center">块哈希 / 组号</text>
     <text x="310" y="163" class="body">本实例的查询 Worker</text>
-    <text x="310" y="193" class="small note">组合模型、分片、组和哈希</text>
+    <text x="310" y="193" class="small note">用模型、分片、组和哈希生成键</text>
     <path d="M540 165H655" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#query)"/>
-    <text x="595" y="152" class="small blue center">查对象键 M</text>
+    <text x="595" y="152" class="small blue center">按键查找</text>
     <text x="678" y="163" class="body">Store 元数据</text>
-    <text x="678" y="193" class="small note">这个完整前缀的对象已可读</text>
-    <text x="46" y="222" class="small blue">回给 Scheduler 的是命中长度 128。分配目标页后，Worker 才按对象键发起 GET。</text>
+    <text x="678" y="193" class="small note">确认公共前缀的 KV 可读</text>
+    <text x="46" y="222" class="small blue">Scheduler 得到命中长度（128 个 token）后分配目标页，Worker 再按键发起 GET。</text>
   </g>
 
-  <text x="26" y="284" class="head">追踪同一个对象 M 的 32 KiB</text>
-  <text x="26" y="313" class="small note">从左向右是两次请求。图中的 Host 段由 Store 的内存提供进程贡献。</text>
+  <text x="26" y="284" class="head">公共前缀的 32 KiB 如何写入、读回</text>
+  <text x="26" y="313" class="small note">从左至右依次是 R1 写出和 R2 读回。Store 的内存段位于同一台机器。</text>
 
   <g id="first-request">
     <rect x="25" y="339" width="218" height="184" rx="12" fill="#eaf6f3" stroke="#438d81" class="box"/>
-    <text x="43" y="373" class="head teal">首次 · NPU HBM</text>
-    <text x="43" y="408" class="body">手册 KV 在本地页 3</text>
+    <text x="43" y="373" class="head teal">R1 · NPU HBM</text>
+    <text x="43" y="408" class="body">页 3 · 公共前缀 KV</text>
     <rect x="43" y="430" width="85" height="40" rx="4" fill="#fff" stroke="#438d81"/>
     <rect x="138" y="430" width="85" height="40" rx="4" fill="#fff" stroke="#438d81"/>
     <text x="85" y="456" class="body center">K[3]</text><text x="180" y="456" class="body center">V[3]</text>
@@ -47,7 +47,7 @@
   <g id="store-object">
     <rect x="368" y="339" width="264" height="184" rx="12" fill="#fff7ed" stroke="#af7137" class="box"/>
     <text x="388" y="373" class="head rust">同机 Host DRAM</text>
-    <text x="388" y="408" class="body">对象 M 的副本起点 s</text>
+    <text x="388" y="408" class="body">公共前缀 KV 的起始地址 s</text>
     <rect x="388" y="430" width="112" height="40" fill="#fff" stroke="#af7137"/>
     <rect x="500" y="430" width="112" height="40" fill="#ffedd5" stroke="#af7137"/>
     <text x="444" y="456" class="small center">K · 16 KiB</text><text x="556" y="456" class="small center">V · 16 KiB</text>
@@ -56,12 +56,12 @@
 
   <g id="second-request">
     <rect x="757" y="339" width="218" height="184" rx="12" fill="#eaf6f3" stroke="#438d81" class="box"/>
-    <text x="775" y="373" class="head teal">再次 · NPU HBM</text>
+    <text x="775" y="373" class="head teal">R2 · NPU HBM</text>
     <text x="775" y="408" class="body">已分配本地页 9</text>
     <rect x="775" y="430" width="85" height="40" rx="4" fill="#fff" stroke="#438d81"/>
     <rect x="869" y="430" width="85" height="40" rx="4" fill="#fff" stroke="#438d81"/>
     <text x="817" y="456" class="body center">K[9]</text><text x="911" y="456" class="body center">V[9]</text>
-    <text x="775" y="499" class="small note">载入后补算 1 个尾 token</text>
+    <text x="775" y="499" class="small note">载入后再计算 500</text>
   </g>
 
   <g id="copy">
@@ -75,7 +75,7 @@
     <rect x="24" y="550" width="952" height="167" rx="12" class="box panel"/>
     <text x="46" y="582" class="head">Worker 如何填地址与长度</text>
     <text x="46" y="617" class="body">每个 K 或 V 页有 128 × 1 个 KV head × 64 维 × 2 B（BF16）= 16,384 B。</text>
-    <text x="46" y="650" class="body">本例 K、V 分开存放，每个分量内相邻页紧排。写 K 取 K 基址 + 3 × 16,384 B。</text>
+    <text x="46" y="650" class="body">本例 K、V 分开存放，各自的页按页号连续排列。写 K 取 K 基址 + 3 × 16,384 B。</text>
     <text x="46" y="683" class="body">读回 K 写到 K 基址 + 9 × 16,384 B。V 使用自己的基址，读取对象后半段。</text>
   </g>
 </svg>

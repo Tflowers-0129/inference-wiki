@@ -3,16 +3,15 @@ const assert = require('node:assert/strict');
 const model = require('../dist/pool-walk.js');
 
 for (const placement of ['A', 'B']) {
-  test(`${placement} 段放置：共享池只新增一个完整手册块，GET 不搬走副本`, () => {
+  test(`${placement} 段放置：共享池只保存一份完整前缀块，读取后副本仍在原段`, () => {
     const states = model.steps.map((_, index) => model.getSnapshot(index, placement));
-    assert.equal(states[0].store.M, null);
-    assert.equal(states[1].store.M, null);
+    assert.equal(states[0].store.prefixBlock, null);
+    assert.equal(states[1].store.prefixBlock, null);
     for (const state of states.slice(2)) {
-      assert.deepEqual(state.store.M, { key: 'M', validTokens: 128, replicas: 1, location: placement });
+      assert.deepEqual(state.store, { prefixBlock: { validTokens: 128, replicas: 1, location: placement } });
     }
-    for (const state of states) {
-      assert.deepEqual(state.store.warranty, { label: '保修条款', unchanged: true, location: 'B', replicas: 1 });
-    }
+    assert.equal(states[2].flow.object, 'prefixBlock');
+    assert.equal(states[4].flow.object, states[2].flow.object);
     assert.deepEqual(states[2].flow.sourcePages, [3]);
     assert.equal(states[2].instances.P0.pages.find(page => page.number === 4).validTokens, 1);
   });
@@ -20,7 +19,7 @@ for (const placement of ['A', 'B']) {
   test(`${placement} 段放置：R2 先读完整前缀，再计算不同的尾 token`, () => {
     const loaded = model.getSnapshot(4, placement);
     const computed = model.getSnapshot(5, placement);
-    assert.equal(loaded.flow.key, 'M');
+    assert.equal(loaded.flow.object, 'prefixBlock');
     assert.deepEqual(loaded.flow.destinationPages, [9]);
     assert.deepEqual(loaded.instances.P1.pages.map(page => [page.number, page.kind, page.validTokens]), [[9, 'prefix', 128]]);
     assert.deepEqual(computed.instances.P1.pages[0], loaded.instances.P1.pages[0]);
@@ -28,7 +27,8 @@ for (const placement of ['A', 'B']) {
     assert.equal(tail.number, 10);
     assert.equal(tail.validTokens, 1);
     assert.equal(tail.capacity, 128);
-    assert.notEqual(tail.request, model.getSnapshot(1, placement).instances.P0.pages[1].request);
+    assert.equal(tail.token, '500');
+    assert.equal(model.getSnapshot(1, placement).instances.P0.pages[1].token, '100');
   });
 
   test(`${placement} 段放置：两次 PD 交接的源/目标页映射固定，不经过 Store`, () => {
@@ -49,7 +49,7 @@ for (const placement of ['A', 'B']) {
       assert.deepEqual(target.map(page => page.number), flow.destinationPages);
       assert.deepEqual(target.map(({ number, ...content }) => content), source.map(({ number, ...content }) => content));
       assert.equal(source.reduce((sum, page) => sum + page.validTokens, 0), 129);
-      assert.equal(flow.key, undefined);
+      assert.equal(flow.object, undefined);
       assert.deepEqual(state.store, model.getSnapshot(index - 1, placement).store);
     }
   });
@@ -87,7 +87,7 @@ test('物理落点决定两跳方向：A 段 D2H/rH2D，B 段 D2rH/H2D', () => {
   assert.deepEqual(model.getSnapshot(4), model.getSnapshot(4, 'A'));
 });
 
-test('切换放置保留步骤；只改变 M 落点与 PUT/GET，两次推演互不累积', () => {
+test('切换存储段保留当前步骤，只有前缀块的位置和存取路径发生变化', () => {
   for (let step = 0; step < model.steps.length; step++) {
     const initial = model.selectStep({ step: 0, placement: 'A' }, step);
     const switched = model.selectPlacement(initial, 'B');
@@ -96,7 +96,15 @@ test('切换放置保留步骤；只改变 M 落点与 PUT/GET，两次推演互
     const a = model.getSnapshot(initial.step, initial.placement);
     const b = model.getSnapshot(switched.step, switched.placement);
     assert.deepEqual(a.instances, b.instances);
-    assert.deepEqual(a.store.warranty, b.store.warranty);
+    if (step >= 2) {
+      assert.equal(a.store.prefixBlock.location, 'A');
+      assert.equal(b.store.prefixBlock.location, 'B');
+      assert.equal(a.store.prefixBlock.replicas, 1);
+      assert.equal(b.store.prefixBlock.replicas, 1);
+    } else {
+      assert.deepEqual(a.store, { prefixBlock: null });
+      assert.deepEqual(b.store, a.store);
+    }
     if (![2, 4].includes(step)) assert.deepEqual(a.flow, b.flow);
     assert.deepEqual(model.selectPlacement(switched, 'A'), initial);
   }
@@ -124,7 +132,7 @@ test('快照独立且不可变，不接受不存在的放置', () => {
   const first = model.getSnapshot(0);
   const last = model.getSnapshot(6, 'B');
   assert.deepEqual(model.getSnapshot(0), first);
-  assert.equal(model.getSnapshot(1, 'B').store.M, null);
+  assert.equal(model.getSnapshot(1, 'B').store.prefixBlock, null);
   assert.equal(model.getSnapshot(4, 'B').instances.P1.pages.length, 1);
   assert.ok(Object.isFrozen(last.instances.P1.pages));
   assert.throws(() => last.instances.P1.pages.push({ number: 99 }), TypeError);

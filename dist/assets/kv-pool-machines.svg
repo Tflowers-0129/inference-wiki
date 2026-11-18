@@ -1,18 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="340" height="782" viewBox="0 0 480 1104" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="340" height="674" viewBox="0 0 480 952" role="img" aria-labelledby="title desc">
   <title id="title">P 机 A 与 P 机 B 各贡献 Host DRAM 段，共同组成一个逻辑 Store</title>
-  <desc id="desc">教学部署：P 机 A 运行 Prefill 实例 P0，并向共享 Store 贡献本机 Host DRAM 段 A；P 机 B 运行 P1，并贡献 Host DRAM 段 B。P0、P1 各用一块 NPU，各有本卡 HBM。段 A 与段 B 共同组成同一个逻辑 Store，无额外存储机。默认手册对象 M 实际存放在 A 段，保修条款对象一直存放在 B 段；讨论 M 改放 B 段的反事实时，保修条款不会随 M 改变。另一台独立 Decode 机运行 D0、D1，各用一块 NPU，只接收本次请求的 PD 交接；本例 D Worker 的 global_segment_size 为 0，不向 Store 贡献容量。Host DRAM 是主机内存，HBM 是卡上内存；本地或远端取决于所访问对象的实际存放位置。</desc>
+  <desc id="desc">P 机 A 运行 P0，P 机 B 运行 P1。两台机器各提供一段主机内存，组成同一个 Mooncake Store。图中公共前缀的 KV 保存在 A 段，P1 可以从 B 机读取它。另一台机器运行 D0 和 D1，分别接收 R1 和 R2 的 KV 后继续生成。每个实例使用一块 NPU。D Worker 的 global_segment_size 为 0，不向共享池提供容量。</desc>
   <defs><style>
     text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
     .title{font-size:30px;font-weight:700}.heading{font-size:28px;font-weight:700}.body{font-size:24px}.note{font-size:22px;fill:#475569}
     .blue{fill:#1d4ed8}.teal{fill:#0f766e}.center{text-anchor:middle}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
     .machine{fill:#fff;stroke:#64748b;stroke-width:2}.card{fill:#eff6ff;stroke:#1d4ed8;stroke-width:2}.hbm{fill:#fff;stroke:#1d4ed8;stroke-width:2}.store{fill:#e6f4f1;stroke:#0f766e;stroke-width:2}
   </style></defs>
-  <rect width="480" height="1104" rx="16" fill="#f8fafc"/>
+  <rect width="480" height="952" rx="16" fill="#f8fafc"/>
   <text x="20" y="44" class="title">两台 P 机，共享一个 Store</text>
-  <text x="20" y="84" class="body">本例每个实例各用一块 NPU</text>
+  <text x="20" y="84" class="body">每个实例使用一块 NPU</text>
 
   <g id="machine-a">
-    <rect x="20" y="126" width="440" height="250" rx="12" class="machine"/>
+    <rect x="20" y="114" width="440" height="260" rx="12" class="machine"/>
     <text x="36" y="166" class="heading blue">P 机 A · P0</text>
     <g id="instance-p0">
       <rect x="36" y="184" width="188" height="148" rx="8" class="card"/>
@@ -25,34 +25,31 @@
       <text x="342" y="222" class="body teal center">Host DRAM</text>
       <text x="342" y="260" class="body teal center">Store 段 A</text>
       <rect x="256" y="278" width="172" height="36" rx="5" fill="#fff" stroke="#0f766e" stroke-width="2"/>
-      <text x="342" y="304" class="note center">手册 M</text>
+      <text x="342" y="304" class="note center">公共前缀 KV</text>
     </g>
-    <text x="36" y="358" class="note">图中 M 的共享副本存放在 A 段</text>
+    <text x="36" y="360" class="note">R1 的前缀写入本机的 A 段</text>
   </g>
 
-  <text x="240" y="420" class="body teal center">段 A + 段 B = 同一个 Store</text>
+  <text x="240" y="398" class="body teal center">A、B 两段组成同一个 Store</text>
 
-  <g id="machine-b">
-    <rect x="20" y="444" width="440" height="250" rx="12" class="machine"/>
+  <g id="machine-b" transform="translate(0,-24)">
+    <rect x="20" y="444" width="440" height="196" rx="12" class="machine"/>
     <text x="36" y="484" class="heading blue">P 机 B · P1</text>
     <g id="instance-p1">
-      <rect x="36" y="502" width="188" height="148" rx="8" class="card"/>
+      <rect x="36" y="502" width="188" height="120" rx="8" class="card"/>
       <text x="130" y="542" class="heading blue center">P1 · NPU</text>
-      <rect x="52" y="566" width="156" height="60" rx="6" class="hbm"/>
-      <text x="130" y="604" class="body center">本卡 HBM</text>
+      <rect x="52" y="556" width="156" height="48" rx="6" class="hbm"/>
+      <text x="130" y="588" class="body center">本卡 HBM</text>
     </g>
     <g id="store-segment-b">
-      <rect x="240" y="502" width="204" height="148" rx="8" class="store"/>
-      <text x="342" y="540" class="body teal center">Host DRAM</text>
-      <text x="342" y="578" class="body teal center">Store 段 B</text>
-      <rect x="256" y="596" width="172" height="36" rx="5" fill="#fff" stroke="#0f766e" stroke-width="2"/>
-      <text x="342" y="622" class="note center">保修条款</text>
+      <rect x="240" y="502" width="204" height="120" rx="8" class="store"/>
+      <text x="342" y="550" class="body teal center">Host DRAM</text>
+      <text x="342" y="590" class="body teal center">Store 段 B</text>
     </g>
-    <text x="36" y="676" class="note">保修条款始终留在 B 段</text>
   </g>
 
-  <g id="decode-machine">
-    <rect x="20" y="724" width="440" height="284" rx="12" class="machine"/>
+  <g id="decode-machine" transform="translate(0,-82)">
+    <rect x="20" y="724" width="440" height="248" rx="12" class="machine"/>
     <text x="36" y="766" class="heading blue">Decode 机 · 接收 KV，继续生成</text>
     <g id="instance-d0">
       <rect x="36" y="786" width="196" height="132" rx="8" class="card"/>
@@ -66,9 +63,7 @@
       <rect x="264" y="838" width="164" height="56" rx="6" class="hbm"/>
       <text x="346" y="874" class="body center">本卡 HBM</text>
     </g>
-    <text x="36" y="954" class="note">本例 D Worker 贡献池容量为 0</text>
-    <text x="36" y="990" class="note mono">global_segment_size = 0</text>
+    <text x="36" y="952" class="note">D Worker 不向 Store 提供容量</text>
   </g>
-  <text x="20" y="1048" class="note">Host DRAM 在主机上，HBM 在卡上。</text>
-  <text x="20" y="1082" class="note">本地 / 远端，取决于实际存放位置。</text>
+  <text x="20" y="926" class="note">Host DRAM 在主机上，HBM 在卡上。</text>
 </svg>

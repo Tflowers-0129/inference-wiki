@@ -1,41 +1,41 @@
 <section class="pool-walk" id="pool-walk" aria-labelledby="pool-walk-title">
   <header class="pool-walk-head">
-    <h3 id="pool-walk-title">两次请求怎样复用手册的 KV</h3>
-    <div class="pool-walk-requests" role="group" aria-label="两条请求的输入">
-      <div><b>R1</b><span class="pool-walk-prefix">同一《手册》· 128 token</span><span class="pool-walk-tail">尾 token ①</span></div>
-      <div><b>R2</b><span class="pool-walk-prefix">同一《手册》· 128 token</span><span class="pool-walk-tail">尾 token ②</span></div>
+    <h3 id="pool-walk-title">两次 SQL 补全请求怎样复用前缀 KV</h3>
+    <p>编辑器先在 <code>WHERE latency_ms &gt; 100</code> 处请求代码补全（R1）。用户把阈值改成 <code>500</code>，在同一处再次请求补全（R2）。</p>
+    <div class="pool-walk-requests" role="group" aria-label="两条请求分词后的输入">
+      <div><b>R1</b><span class="pool-walk-prefix">公共前缀 · 128 token</span><span class="pool-walk-tail">100</span></div>
+      <div><b>R2</b><span class="pool-walk-prefix">公共前缀 · 128 token</span><span class="pool-walk-tail">500</span></div>
     </div>
-    <p class="pool-walk-setup">①、② 是不同的第 129 个 token；每页容纳 128 个位置。</p>
+    <p class="pool-walk-setup">本例假设分词后，前 128 个 token 完全相同，100 和 500 各占一个 token。每页容纳 128 个位置。</p>
   </header>
 
   <div class="pool-walk-static" data-pool-static>
-    <p><strong>P 机 A 运行 P0，P 机 B 运行 P1；两机各贡献一段 Host DRAM，组成同一个逻辑 Mooncake Store。Decode 机运行 D0、D1，各用独立卡，本例只接 PD。</strong></p>
+    <p><strong>P 机 A 运行 P0，P 机 B 运行 P1。两台机器各提供一段 Host DRAM，组成一个逻辑上的 Mooncake Store。独立的 Decode 机上，D0 和 D1 各用一张卡，从相应的 P 实例接收 KV。</strong></p>
     <ol>
-      <li>初态：B 段已存有独立前缀《保修条款》，还没有手册对象 M。</li>
-      <li>R1 未命中缓存：P0 计算全部输入，把手册 KV 写入页 3，把尾 token ① 的 KV 写入页 4。</li>
-      <li>P0 → A 段（D2H）：将完整的手册块保存为 M。尾页不存入池。</li>
-      <li>P 机 A → Decode 机（D2D）：D0 发起 READ，将 P0 的页 [3, 4] 复制到自己的页 [12, 13]。</li>
-      <li>A 段 → P1（rH2D）：R2 在 P1 显存中未命中前缀；从 A 段的 M 读到 P 机 B 的 P1 页 9。</li>
-      <li>P1 只计算第 129 个 token ② 的 KV，写入页 10。</li>
-      <li>P 机 B → Decode 机（D2D）：D1 发起 READ，将 P1 的页 [9, 10] 复制到自己的页 [20, 21]。</li>
+      <li>起初，P0 的显存和共享池中都没有这个前缀块。</li>
+      <li>R1 未命中缓存。P0 计算全部 129 个输入 token，把公共前缀的 KV 写入页 3，把 100 对应的 KV 写入页 4。</li>
+      <li>P0 → A 段（D2H）：P0 将完整的前缀块写入共享池。页 4 只有一个有效位置，不写入共享池。</li>
+      <li>P 机 A → Decode 机（D2D）：D0 发起 READ，从 P0 的页 [3, 4] 复制到自己的页 [12, 13]。</li>
+      <li>A 段 → P1（rH2D）：P1 的显存没有缓存 R2 的公共前缀，于是从 A 段读取前缀块，写入自己的页 9。</li>
+      <li>P1 只计算第 129 个 token（500），将对应的 KV 写入页 10。</li>
+      <li>P 机 B → Decode 机（D2D）：D1 发起 READ，从 P1 的页 [9, 10] 复制到自己的页 [20, 21]。</li>
     </ol>
-    <p>另一种独立放置推演把 M 放到 B 段：保存改为 P0 → B 段（D2rH），读回改为 B 段 → P1（H2D）。其余步骤相同，不表示运行时迁移。</p>
-    <p>M 被读取后仍留在所选段；《保修条款》固定在 B 段。两者各只有 1 个副本。每次交接完成后的 HBM 驻留不再跟踪。</p>
+    <p>如果一开始就选择将前缀块保存在 B 段，P0 会跨机写入 B 段（D2rH），P1 再从本机 B 段读取（H2D）。两种配置下，共享池都只保存一份前缀块，P1 读取后，这份副本仍在原处。</p>
   </div>
 
   <div class="pool-walk-interactive" data-pool-interactive hidden>
-    <div class="pool-walk-placement" role="group" aria-label="选择 M 的放置推演">
-      <button type="button" data-pool-placement="A" aria-pressed="true">M 落 A 段</button>
-      <button type="button" data-pool-placement="B" aria-pressed="false">M 落 B 段</button>
+    <div class="pool-walk-placement" role="group" aria-label="选择前缀块的存储位置">
+      <button type="button" data-pool-placement="A" aria-pressed="true">存入 A 段</button>
+      <button type="button" data-pool-placement="B" aria-pressed="false">存入 B 段</button>
     </div>
-    <p class="pool-walk-placement-note">两次独立放置推演；切换保留当前步骤，不表示运行时迁移。</p>
+    <p class="pool-walk-placement-note">选择前缀块最初的写入位置，可在同一步比较两种配置。每种配置都只保存一个副本。</p>
     <div class="pool-walk-steps" role="group" aria-label="选择请求步骤">
-      <button type="button" data-pool-step="0" aria-pressed="true">0 <span>初态</span></button>
+      <button type="button" data-pool-step="0" aria-pressed="true">0 <span>初始状态</span></button>
       <button type="button" data-pool-step="1" aria-pressed="false">1 <span>R1 未命中缓存</span></button>
-      <button type="button" data-pool-step="2" aria-pressed="false">2 <span>保存 M</span></button>
+      <button type="button" data-pool-step="2" aria-pressed="false">2 <span>保存前缀块</span></button>
       <button type="button" data-pool-step="3" aria-pressed="false">3 <span>交给 D0</span></button>
-      <button type="button" data-pool-step="4" aria-pressed="false">4 <span>P1 读 M</span></button>
-      <button type="button" data-pool-step="5" aria-pressed="false">5 <span>计算尾 token</span></button>
+      <button type="button" data-pool-step="4" aria-pressed="false">4 <span>P1 读取前缀块</span></button>
+      <button type="button" data-pool-step="5" aria-pressed="false">5 <span>计算 token 500</span></button>
       <button type="button" data-pool-step="6" aria-pressed="false">6 <span>交给 D1</span></button>
     </div>
     <div class="pool-walk-current" aria-live="polite" aria-atomic="true">
@@ -55,10 +55,9 @@
   </div>
 
   <details class="pool-walk-boundary">
-    <summary>这幅图跟踪到哪里？</summary>
-    <p>这是教学示意。M 是手册完整前缀的对象键简称；只在所选 A 段或 B 段保存 1 个副本。《保修条款》一直只有 B 段的副本。两段属于同一个逻辑 Store，没有额外存储主机。</p>
-    <p>R2 在 P1 显存未命中。Decode 机的 D0、D1 各用独立卡，本例只从对应 P 接收两页，不读写 Store。</p>
-    <p>页号是教学地址。每页包含对应的 K、V；尾页只有 1 个有效位置。只跟踪本次交接前的相关块与交接映射，之后不推断 HBM 页仍驻留或已释放。</p>
-    <p>先保存 M、再交给 D0 是阅读顺序，两件事没有这个强制先后关系。P1 读 M 则以该副本已可读为前提；后续 Decode 不在图内。</p>
+    <summary>图中记录了哪些页和副本？</summary>
+    <p>两段 DRAM 属于同一个逻辑 Store。前缀块只存放在选定的段。D0、D1 分别从 P0、P1 接收本次请求的两页 KV，无需访问 Store。</p>
+    <p>页号为教学示例。每页都包含 K 和 V，最后一页只有一个有效位置。图中追踪显存页到该请求完成交接为止，后续是否仍在显存中，取决于实际运行情况。</p>
+    <p>P0 保存前缀块和向 D0 交接 KV 可以独立进行。图中先演示保存。P1 读取前缀块时，该块必须已经写入并可读。</p>
   </details>
 </section>

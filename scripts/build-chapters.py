@@ -240,10 +240,10 @@ def build_chapters():
             next_link = '<a href="sparse-offload.html">继续：稀疏 KV 卸载与 HiSparse →</a>'
             action = '<a class="primary-button" href="#kv-decode-player">播放一次 Decode 的 KV 寻址 →</a><a class="text-button" href="#kv-cache-layouts-7">按后端查缓存形状 ↓</a>'
         elif key == 'kv-pooling':
-            player_links = '<a href="#pool-walk">两次请求怎样复用手册的 KV</a>'
+            player_links = '<a href="#pool-walk">两次 SQL 补全怎样复用前缀 KV</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("pool-walk.css")}"><script defer src="{asset_url("pool-walk.js")}"></script>'
             next_link = '<a href="quantization.html">继续阅读量化推理 →</a>'
-            action = '<a class="primary-button" href="#kv-pooling-1">看两台 P 机器怎样组成共享池 →</a><a class="text-button" href="#pool-walk">两次请求怎样复用手册的 KV ↓</a>'
+            action = '<a class="primary-button" href="#kv-pooling-1">看两台 P 机器怎样组成共享池 →</a><a class="text-button" href="#pool-walk">两次 SQL 补全怎样复用前缀 KV ↓</a>'
         elif key == 'quantization':
             player_links = ''
             extra = ''
