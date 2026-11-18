@@ -53,9 +53,9 @@ Scheduler 管理每条请求算到了哪里，以及它使用哪些物理页。�
 
 已有请求保留仍需要的页，跨过页边界时才追加页号。新请求第一次进入 Worker 时收到完整页表；已有请求通常只收到新增页号。需要清零新页，或复制共享页后再修改其中的数据（copy-on-write）时，也由调度结果指定。
 
-本轮请求顺序可以改变。V2 用 `idx_mapping` 找到各请求在状态数组中的下标，再通过 `add_requests()` 或 `update_requests()` 更新相应记录。这是请求状态数组的下标，与 KV 页内偏移无关。 [V2 新请求](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/model_runner.py#L1181-L1267)
+V2 先通过 `add_requests()` 或 `update_requests()` 按请求 ID 更新状态和页号，`req_id_to_index` 记录请求在状态数组中的下标。本轮请求顺序可以改变，准备输入时再按本批顺序构造 `idx_mapping`，用它找到各请求保存的状态。这些下标与 KV 页内偏移无关。 [V2 请求更新](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/model_runner.py#L1181-L1267) · [按本批顺序构造映射](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/model_runner.py#L1289-L1303)
 
-准备前向时，Runner 为本轮各请求取出页表，并用 Token 位置计算 `slot_mapping`，告诉算子把新 KV 写在哪里。读取历史还需要有效长度、可见窗口或稀疏索引。metadata builder 把这些信息整理成各后端需要的格式，再交给相应层。递归状态不一定使用 `slot_mapping`，它的后端可以改用状态数组下标。
+准备前向时，Runner 为本轮各请求取出页表，并用 Token 位置计算 `slot_mapping`，告诉算子把新 KV 写在哪里。读取历史还需要有效长度、可见窗口或稀疏索引。metadata builder 把这些信息整理成各后端需要的格式，再交给相应层。递归状态不一定使用 `slot_mapping`，它的后端可以改用递归缓存中的状态下标。
 
 <!-- DETAILS: 页表和 metadata 的 V2 调用入口 -->
 
@@ -324,10 +324,10 @@ C4 更新压缩 KV 的同时更新 Indexer，并返回 TopK；C128 更新后直�
 
 ### C4 的一个 TopK 索引怎样找到数据和尺度？
 
-C4 每收到四个原始 Token，才产生一条完整压缩记录。读写时都先把原始位置换成压缩记录编号，再查压缩 KV 的页表：
+C4 每收到四个原始 Token，才产生一条完整压缩记录。写入时先由原始位置计算压缩记录编号；读侧 TopK 已经给出压缩记录编号，不再除以 4。两者从这个编号开始，共用压缩 KV 的页表换算：
 
 ```text
-压缩记录编号 = position // 4
+写侧形成完整记录时：压缩记录编号 = position // 4
 页表下标 = 压缩记录编号 // 每页记录数
 页内偏移 = 压缩记录编号 % 每页记录数
 ```
@@ -390,7 +390,7 @@ Ascend MRv2 通过页 stride 绑定卷积与递归视图。取 Qwen 单行载荷
 
 <!-- /DETAILS -->
 
-V2 同样用 `KVCacheConfig` 规划和分配递归状态。这里的一页保存某个计算位置的状态，后端用状态数组下标找到它，而不一定生成普通 Token 的 `slot_mapping`。
+V2 同样用 `KVCacheConfig` 规划和分配递归状态。这里的一页保存某个计算位置的状态，后端用递归缓存中的状态下标找到它，而不一定生成普通 Token 的 `slot_mapping`。例如 GDN builder 根据递归缓存组的页表和序列长度选择状态；这不是 `idx_mapping` 中的请求状态数组下标。 [GDN 状态下标的来源](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/attention/backends/gdn_attn.py#L249-L261)
 
 以 Ascend KDA 为例，非投机 Prefill 先通过 `state_copy.gather()` 取出初始递归矩阵，处理当前分块，再通过 `scatter()` 写回。Decode 则把状态下标交给 recurrent kernel，直接继续更新。卷积状态另有自己的读取和写回，两份状态一起决定下一轮从哪里继续。
 

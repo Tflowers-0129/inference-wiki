@@ -34,9 +34,11 @@
 
 ## 实操验证
 
-[实验脚本、结果与待验证清单](experiments/README.md) 保留历史 padded 输入与跨轮进度辅助函数微实验（不作为 V2 主线的执行证据），并覆盖真实 SSE 缓冲、A5 双卡 MC2／CANN MegaMoE，以及上下文并行、[PD 分离系统](experiments/pd-disaggregation/README.md)。上下文并行实验验证 PCP 布局、生产 DCP 归并与三种双卡 ModelRunnerV2 拓扑。PD 分离实验用实际 HTTP 服务、官方 proxy 和 Mooncake 完成两条交接路径。两组实验均保留原生设备截图与 Host／Device 观察边界。[DP 协调与 SP 实验](experiments/parallel-graph/README.md)在服务器 CPU/Gloo 上验证多 rank 模式与档位选择，以及归约、分片和 Norm 的数值等价，单独保留受控夹具与非 NPU 的边界。教学模拟继续保留原有标识，预训练完整模型、调度、负载均衡和稀疏 KV 的未测项目逐项列出。
+[实验脚本、结果与待验证清单](experiments/README.md) 保留历史 padded 输入与跨轮进度辅助函数微实验（不作为 V2 主线的执行证据），并覆盖真实 SSE 缓冲、A5 双卡 MC2／CANN MegaMoE，以及上下文并行、[PD 分离系统](experiments/pd-disaggregation/README.md)。上下文并行实验验证 PCP 布局、生产 DCP 归并与三种双卡 ModelRunnerV2 拓扑。PD 分离实验用实际 HTTP 服务、官方 proxy 和 Mooncake 完成两条交接路径。两组实验均保留原生设备截图与 Host／Device 观察边界。[DP 协调与 SP 实验](experiments/parallel-graph/README.md)保留服务器 CPU/Gloo 的数值检查，另以 A5 HCCL/NPUGraph 验证受控档位、空 rank 和回退；标量专家 payload 与完整模型的边界分别说明。教学模拟继续保留原有标识，预训练完整模型、调度、负载均衡和稀疏 KV 的未测项目逐项列出。
 
 机器实操按[特性前后对照的固定流程](experiments/README.md#特性前后对照的固定流程)交付配置、正确性、无 profiler 的重复性能测量、前后 Trace、timeline 与指标核对。涉及多 rank 时同时展示相关计算、通信、拷贝与同步轨道；未校准时钟的数据只能使用标明独立起点的分面图，不能从截图拼接推断跨 rank 等待。
+
+新一轮 [SP 与 MoE 图回放对照](experiments/profiling-ab/README.md)保留 A5 双卡 SP 的 400 条、MC2 eager/replay 的 480 条无 profiler 样本，以及 12 份 Trace；多 rank SVG 展示前后计算、通信与同步，MC2 回放的 flow 导出缺口单独标明。本次 SP 小形状中分片路径更慢，正文保留这一观察及设备既有告警，避免把计算行数减少直接写成性能收益。
 
 ## 本地预览
 

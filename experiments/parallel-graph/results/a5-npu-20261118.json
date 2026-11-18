@@ -1,0 +1,719 @@
+{
+  "schema_version": "wiki-dp-npu-public/1",
+  "measured_on": "2026-11-18",
+  "status": "passed",
+  "scope": "Pinned vLLM ced6857a DP protocol AST on CPU/Gloo, followed by a two-rank HCCL/NPUGraph scalar-expert teaching payload; no complete ModelRunnerV2 or EP model",
+  "health_condition": {
+    "warning": "81AF8009 UB bus error",
+    "provenance": "Pre-existing device warning reported by the external resource audit",
+    "limit": "Passing correctness checks does not establish device health; warning impact was not isolated"
+  },
+  "summary": {
+    "independent_launches": 1,
+    "world_size": 2,
+    "capture_records": 8,
+    "zero_input_replay_checks": 8,
+    "captured_capacities_per_rank": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "rank_case_count": 10,
+    "scenario_output_checks": 16,
+    "scenario_graph_replay_checks": 8,
+    "scenario_eager_checks": 8,
+    "nonzero_graph_input_capacities": [
+      8
+    ],
+    "zero_input_only_capacities": [
+      1,
+      2,
+      4
+    ],
+    "all_protocol_assertions_passed": true,
+    "all_outputs_exact": true,
+    "all_padding_zero": true,
+    "all_buffer_addresses_unchanged": true
+  },
+  "measurement": {
+    "profiling_collected": false,
+    "latency_samples_collected": false,
+    "performance_claim": null,
+    "launch_note": "This launch did not enable --profile; no timing or profiling benefit is reported"
+  },
+  "limits": [
+    "Capture catalogue, dummy input and batches are controlled fixtures; Scheduler, full Runner initialization and production capture-catalogue construction were not executed.",
+    "Protocol functions execute unchanged AST extracted from the pinned sources. This does not establish behavior of every function in the installed framework.",
+    "Each rank captures capacities 1,2,4,8 and checks one zero-input replay per graph. Only capacity 8 receives changed nonzero inputs and destinations in scenario replay.",
+    "The 16 scenario checks include 8 graph replay and 8 eager checks; the 8 initial zero-input replay checks are counted separately.",
+    "The empty partner retains zero output while participating in the collective; its one-row protocol dummy is supplied by the fixture.",
+    "All-idle cases validate only the protocol return and execute no device payload.",
+    "Eager protocol lengths remain local. The teaching HCCL payload separately pads per-rank inputs to the maximum length, recorded as payload_capacity_per_rank.",
+    "No Attention, MC2, MegaMoE, complete EP model, service timing, or profiler trace was executed in this probe."
+  ],
+  "runs": [
+    {
+      "schema_version": "wiki-parallel-graph/1",
+      "rank": 0,
+      "world_size": 2,
+      "device": "npu",
+      "status": "passed",
+      "script_sha256": "afceb8a8e8544a97133b7adeb7c2deb4f820c751ff15ba13d2846fb9fc7b31ef",
+      "sources": {
+        "manifest": {
+          "checked_date": "2026-11-16",
+          "sources": [
+            {
+              "file": "compilation.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/config/compilation.py",
+              "sha256": "c9cec5c7200e8e559810ec8c30113ad61dab6780f9f7fb3c116bd0d9b5a43065",
+              "license": "Apache-2.0"
+            },
+            {
+              "file": "cudagraph_utils.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/v1/worker/gpu/cudagraph_utils.py",
+              "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+              "license": "Apache-2.0"
+            },
+            {
+              "file": "dp_utils.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/v1/worker/gpu/dp_utils.py",
+              "sha256": "e26867bc89e6bfc933cabc5ed13e5dc7b8d2d3030118ca1ca64c8785dabc0fc1",
+              "license": "Apache-2.0"
+            }
+          ]
+        },
+        "extracted_nodes": [
+          {
+            "file": "compilation.py",
+            "sha256": "c9cec5c7200e8e559810ec8c30113ad61dab6780f9f7fb3c116bd0d9b5a43065",
+            "nodes": [
+              {
+                "name": "CUDAGraphMode",
+                "line": 53,
+                "end_line": 110,
+                "ast_sha256": "d284235e7e60b62b9506e3d1a34afb8f8e05dfcd5a5911f5278b920ad0c44d01"
+              }
+            ]
+          },
+          {
+            "file": "cudagraph_utils.py",
+            "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+            "nodes": [
+              {
+                "name": "BatchExecutionDescriptor",
+                "line": 63,
+                "end_line": 76,
+                "ast_sha256": "1f4cc7b5f27842c23048ac63be325836e8ddb6bca2513351fa6f15ba7e979415"
+              },
+              {
+                "name": "_is_compatible",
+                "line": 102,
+                "end_line": 129,
+                "ast_sha256": "7faf678b50169661cce11b3d9df21b6f9f3a40bda224ce791cc81254c085da2e"
+              }
+            ]
+          },
+          {
+            "file": "cudagraph_utils.py",
+            "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+            "nodes": [
+              {
+                "name": "_resolve_effective_loras",
+                "line": 214,
+                "end_line": 219,
+                "ast_sha256": "16dcb52d1a0088a6afd15f881c2efb412ab33c557a21755293627045b377dbd2"
+              },
+              {
+                "name": "dispatch",
+                "line": 496,
+                "end_line": 527,
+                "ast_sha256": "88a219edc8ee7a59ec9f48a20575884f0a08363517d64ce1cb5596f63c10144a"
+              }
+            ]
+          },
+          {
+            "file": "dp_utils.py",
+            "sha256": "e26867bc89e6bfc933cabc5ed13e5dc7b8d2d3030118ca1ca64c8785dabc0fc1",
+            "nodes": [
+              {
+                "name": "DPSyncState",
+                "line": 22,
+                "end_line": 41,
+                "ast_sha256": "44ef977c078efaec1688e2d36329d0d2eca0a309308df7a98974c7bf1e7a8153"
+              },
+              {
+                "name": "sync_cudagraph_and_dp_padding",
+                "line": 44,
+                "end_line": 211,
+                "ast_sha256": "aa2cf7cbce79e7864bcb906a4d53bcf021bf5a05cbf404b33d3ac4dcfb0c2947"
+              },
+              {
+                "name": "dispatch_cg_and_sync_dp",
+                "line": 214,
+                "end_line": 318,
+                "ast_sha256": "28a1744a0bcd8e448adde359856c57805c166f89ada8e923d19350a412a05148"
+              }
+            ]
+          }
+        ],
+        "method_bodies_modified": false,
+        "controlled_fields": [
+          "capture catalogue",
+          "get_dp_group",
+          "should_skip_dp_coordination=False"
+        ],
+        "excluded": [
+          "DBO",
+          "LoRA",
+          "speculation",
+          "varlen decode",
+          "model runner",
+          "attention"
+        ]
+      },
+      "environment": {
+        "python": "3.12.16",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0.post7",
+        "device_name": "Ascend950DT_9572",
+        "HCCL_OP_EXPANSION_MODE": "unset"
+      },
+      "fixture": {
+        "topology": "two DP participants, one scalar expert each",
+        "capture_sizes": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "width": 4,
+        "dtype": "float32",
+        "repetitions": 2
+      },
+      "capture_events": [
+        {
+          "capacity": 1,
+          "capture_returned": true,
+          "zero_input_replay_passed": true
+        },
+        {
+          "capacity": 2,
+          "capture_returned": true,
+          "zero_input_replay_passed": true
+        },
+        {
+          "capacity": 4,
+          "capture_returned": true,
+          "zero_input_replay_passed": true
+        },
+        {
+          "capacity": 8,
+          "capture_returned": true,
+          "zero_input_replay_passed": true
+        }
+      ],
+      "cases": [
+        {
+          "name": "uneven_decode",
+          "scheduled_tokens": [
+            3,
+            5
+          ],
+          "local_protocol_tokens": 3,
+          "mode": "FULL",
+          "descriptor_tokens": 8,
+          "tokens_across_dp": [
+            8,
+            8
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": [
+            {
+              "repetition": 0,
+              "valid_rows": 3,
+              "payload_capacity_per_rank": 8,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": true,
+              "output_checksum": 56.0
+            },
+            {
+              "repetition": 1,
+              "valid_rows": 3,
+              "payload_capacity_per_rank": 8,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": true,
+              "output_checksum": 2070.0
+            }
+          ]
+        },
+        {
+          "name": "empty_partner_dummy",
+          "scheduled_tokens": [
+            0,
+            5
+          ],
+          "local_protocol_tokens": 1,
+          "mode": "FULL",
+          "descriptor_tokens": 8,
+          "tokens_across_dp": [
+            8,
+            8
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": [
+            {
+              "repetition": 0,
+              "valid_rows": 0,
+              "payload_capacity_per_rank": 8,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": true,
+              "output_checksum": 0.0
+            },
+            {
+              "repetition": 1,
+              "valid_rows": 0,
+              "payload_capacity_per_rank": 8,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": true,
+              "output_checksum": 0.0
+            }
+          ]
+        },
+        {
+          "name": "mixed_prefill",
+          "scheduled_tokens": [
+            3,
+            5
+          ],
+          "local_protocol_tokens": 3,
+          "mode": "NONE",
+          "descriptor_tokens": 3,
+          "tokens_across_dp": [
+            3,
+            5
+          ],
+          "uniform_token_count": null,
+          "protocol_assertions": "passed",
+          "device_checks": [
+            {
+              "repetition": 0,
+              "valid_rows": 3,
+              "payload_capacity_per_rank": 5,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": false,
+              "output_checksum": 56.0
+            },
+            {
+              "repetition": 1,
+              "valid_rows": 3,
+              "payload_capacity_per_rank": 5,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": false,
+              "output_checksum": 2070.0
+            }
+          ]
+        },
+        {
+          "name": "outside_capture_catalogue",
+          "scheduled_tokens": [
+            3,
+            9
+          ],
+          "local_protocol_tokens": 3,
+          "mode": "NONE",
+          "descriptor_tokens": 3,
+          "tokens_across_dp": [
+            3,
+            9
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": [
+            {
+              "repetition": 0,
+              "valid_rows": 3,
+              "payload_capacity_per_rank": 9,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": false,
+              "output_checksum": 56.0
+            },
+            {
+              "repetition": 1,
+              "valid_rows": 3,
+              "payload_capacity_per_rank": 9,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": false,
+              "output_checksum": 2070.0
+            }
+          ]
+        },
+        {
+          "name": "all_idle",
+          "scheduled_tokens": [
+            0,
+            0
+          ],
+          "local_protocol_tokens": 0,
+          "mode": "NONE",
+          "descriptor_tokens": 0,
+          "tokens_across_dp": null,
+          "uniform_token_count": null,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        }
+      ],
+      "source_result_sha256": "ef5182973f725e4971eb6ef0ba007188dc6cd015f3e29b7fa45a8ff2bc7f007d"
+    },
+    {
+      "schema_version": "wiki-parallel-graph/1",
+      "rank": 1,
+      "world_size": 2,
+      "device": "npu",
+      "status": "passed",
+      "script_sha256": "afceb8a8e8544a97133b7adeb7c2deb4f820c751ff15ba13d2846fb9fc7b31ef",
+      "sources": {
+        "manifest": {
+          "checked_date": "2026-11-16",
+          "sources": [
+            {
+              "file": "compilation.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/config/compilation.py",
+              "sha256": "c9cec5c7200e8e559810ec8c30113ad61dab6780f9f7fb3c116bd0d9b5a43065",
+              "license": "Apache-2.0"
+            },
+            {
+              "file": "cudagraph_utils.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/v1/worker/gpu/cudagraph_utils.py",
+              "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+              "license": "Apache-2.0"
+            },
+            {
+              "file": "dp_utils.py",
+              "url": "https://raw.githubusercontent.com/vllm-project/vllm/ced6857a/vllm/v1/worker/gpu/dp_utils.py",
+              "sha256": "e26867bc89e6bfc933cabc5ed13e5dc7b8d2d3030118ca1ca64c8785dabc0fc1",
+              "license": "Apache-2.0"
+            }
+          ]
+        },
+        "extracted_nodes": [
+          {
+            "file": "compilation.py",
+            "sha256": "c9cec5c7200e8e559810ec8c30113ad61dab6780f9f7fb3c116bd0d9b5a43065",
+            "nodes": [
+              {
+                "name": "CUDAGraphMode",
+                "line": 53,
+                "end_line": 110,
+                "ast_sha256": "d284235e7e60b62b9506e3d1a34afb8f8e05dfcd5a5911f5278b920ad0c44d01"
+              }
+            ]
+          },
+          {
+            "file": "cudagraph_utils.py",
+            "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+            "nodes": [
+              {
+                "name": "BatchExecutionDescriptor",
+                "line": 63,
+                "end_line": 76,
+                "ast_sha256": "1f4cc7b5f27842c23048ac63be325836e8ddb6bca2513351fa6f15ba7e979415"
+              },
+              {
+                "name": "_is_compatible",
+                "line": 102,
+                "end_line": 129,
+                "ast_sha256": "7faf678b50169661cce11b3d9df21b6f9f3a40bda224ce791cc81254c085da2e"
+              }
+            ]
+          },
+          {
+            "file": "cudagraph_utils.py",
+            "sha256": "6e9c042890603535e300a40df8ee159dbed1058a64a83ae50ff0329e332e05ff",
+            "nodes": [
+              {
+                "name": "_resolve_effective_loras",
+                "line": 214,
+                "end_line": 219,
+                "ast_sha256": "16dcb52d1a0088a6afd15f881c2efb412ab33c557a21755293627045b377dbd2"
+              },
+              {
+                "name": "dispatch",
+                "line": 496,
+                "end_line": 527,
+                "ast_sha256": "88a219edc8ee7a59ec9f48a20575884f0a08363517d64ce1cb5596f63c10144a"
+              }
+            ]
+          },
+          {
+            "file": "dp_utils.py",
+            "sha256": "e26867bc89e6bfc933cabc5ed13e5dc7b8d2d3030118ca1ca64c8785dabc0fc1",
+            "nodes": [
+              {
+                "name": "DPSyncState",
+                "line": 22,
+                "end_line": 41,
+                "ast_sha256": "44ef977c078efaec1688e2d36329d0d2eca0a309308df7a98974c7bf1e7a8153"
+              },
+              {
+                "name": "sync_cudagraph_and_dp_padding",
+                "line": 44,
+                "end_line": 211,
+                "ast_sha256": "aa2cf7cbce79e7864bcb906a4d53bcf021bf5a05cbf404b33d3ac4dcfb0c2947"
+              },
+              {
+                "name": "dispatch_cg_and_sync_dp",
+                "line": 214,
+                "end_line": 318,
+                "ast_sha256": "28a1744a0bcd8e448adde359856c57805c166f89ada8e923d19350a412a05148"
+              }
+            ]
+          }
+        ],
+        "method_bodies_modified": false,
+        "controlled_fields": [
+          "capture catalogue",
+          "get_dp_group",
+          "should_skip_dp_coordination=False"
+        ],
+        "excluded": [
+          "DBO",
+          "LoRA",
+          "speculation",
+          "varlen decode",
+          "model runner",
+          "attention"
+        ]
+      },
+      "environment": {
+        "python": "3.12.16",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0.post7",
+        "device_name": "Ascend950DT_9572",
+        "HCCL_OP_EXPANSION_MODE": "unset"
+      },
+      "fixture": {
+        "topology": "two DP participants, one scalar expert each",
+        "capture_sizes": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "width": 4,
+        "dtype": "float32",
+        "repetitions": 2
+      },
+      "capture_events": [
+        {
+          "capacity": 1,
+          "capture_returned": true,
+          "zero_input_replay_passed": true
+        },
+        {
+          "capacity": 2,
+          "capture_returned": true,
+          "zero_input_replay_passed": true
+        },
+        {
+          "capacity": 4,
+          "capture_returned": true,
+          "zero_input_replay_passed": true
+        },
+        {
+          "capacity": 8,
+          "capture_returned": true,
+          "zero_input_replay_passed": true
+        }
+      ],
+      "cases": [
+        {
+          "name": "uneven_decode",
+          "scheduled_tokens": [
+            3,
+            5
+          ],
+          "local_protocol_tokens": 5,
+          "mode": "FULL",
+          "descriptor_tokens": 8,
+          "tokens_across_dp": [
+            8,
+            8
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": [
+            {
+              "repetition": 0,
+              "valid_rows": 5,
+              "payload_capacity_per_rank": 8,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": true,
+              "output_checksum": 464.0
+            },
+            {
+              "repetition": 1,
+              "valid_rows": 5,
+              "payload_capacity_per_rank": 8,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": true,
+              "output_checksum": 3206.0
+            }
+          ]
+        },
+        {
+          "name": "empty_partner_dummy",
+          "scheduled_tokens": [
+            0,
+            5
+          ],
+          "local_protocol_tokens": 5,
+          "mode": "FULL",
+          "descriptor_tokens": 8,
+          "tokens_across_dp": [
+            8,
+            8
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": [
+            {
+              "repetition": 0,
+              "valid_rows": 5,
+              "payload_capacity_per_rank": 8,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": true,
+              "output_checksum": 464.0
+            },
+            {
+              "repetition": 1,
+              "valid_rows": 5,
+              "payload_capacity_per_rank": 8,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": true,
+              "output_checksum": 3206.0
+            }
+          ]
+        },
+        {
+          "name": "mixed_prefill",
+          "scheduled_tokens": [
+            3,
+            5
+          ],
+          "local_protocol_tokens": 5,
+          "mode": "NONE",
+          "descriptor_tokens": 5,
+          "tokens_across_dp": [
+            3,
+            5
+          ],
+          "uniform_token_count": null,
+          "protocol_assertions": "passed",
+          "device_checks": [
+            {
+              "repetition": 0,
+              "valid_rows": 5,
+              "payload_capacity_per_rank": 5,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": false,
+              "output_checksum": 464.0
+            },
+            {
+              "repetition": 1,
+              "valid_rows": 5,
+              "payload_capacity_per_rank": 5,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": false,
+              "output_checksum": 3206.0
+            }
+          ]
+        },
+        {
+          "name": "outside_capture_catalogue",
+          "scheduled_tokens": [
+            3,
+            9
+          ],
+          "local_protocol_tokens": 9,
+          "mode": "NONE",
+          "descriptor_tokens": 9,
+          "tokens_across_dp": [
+            3,
+            9
+          ],
+          "uniform_token_count": 1,
+          "protocol_assertions": "passed",
+          "device_checks": [
+            {
+              "repetition": 0,
+              "valid_rows": 9,
+              "payload_capacity_per_rank": 9,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": false,
+              "output_checksum": 924.0
+            },
+            {
+              "repetition": 1,
+              "valid_rows": 9,
+              "payload_capacity_per_rank": 9,
+              "exact_output": true,
+              "padding_zero": true,
+              "buffer_addresses_unchanged": true,
+              "graph_replay": false,
+              "output_checksum": 6058.0
+            }
+          ]
+        },
+        {
+          "name": "all_idle",
+          "scheduled_tokens": [
+            0,
+            0
+          ],
+          "local_protocol_tokens": 0,
+          "mode": "NONE",
+          "descriptor_tokens": 0,
+          "tokens_across_dp": null,
+          "uniform_token_count": null,
+          "protocol_assertions": "passed",
+          "device_checks": []
+        }
+      ],
+      "source_result_sha256": "6f87875ed5da40333d553db0fd15aa2f081e7ddf1c03e8bd88c132863529031f"
+    }
+  ]
+}

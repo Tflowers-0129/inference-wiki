@@ -8,3 +8,5 @@
 .chapter-article .technical-figure img{width:1000px;min-width:1000px;max-width:none}
 .ep-token-detail{margin:16px 0;padding:12px 14px;border:1px solid #d2e0e9;border-radius:9px;background:#fff}.ep-token-detail summary{cursor:pointer;font-size:13px;font-weight:600}.ep-token-detail label{margin:16px 0 10px}.ep-token-detail td:nth-child(2){text-align:left}.ep-lab select:focus-visible,.ep-token-detail summary:focus-visible{outline:3px solid #73b7d8;outline-offset:3px}
 @media(max-width:760px){.ep-lab{padding:19px 15px}.ep-controls{align-items:flex-start;flex-direction:column;gap:10px}.ep-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ep-matrices{grid-template-columns:1fr}.ep-lab header h4{font-size:21px}.ep-matrix{padding:12px}.ep-lab th,.ep-lab td{padding:8px 6px}.ep-token-detail label{flex-wrap:wrap}}
+
+.chapter-article .technical-figure img[src*="moe-graph-rank-streams.svg"]{width:100%;min-width:900px;max-width:none}

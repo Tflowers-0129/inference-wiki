@@ -177,11 +177,11 @@ MRV2 的描述符除 `num_tokens` 外还带请求数、uniform query 长度等�
 
 通信方法也必须一致。Ascend V2 用跨 DP 的最大 Token 数选择 MoE 通信，避免小批次的 rank 走 MC2、大批次的 rank 走另一条路线。Router 每轮仍可选不同专家，但通信实现必须能在已捕获的容量内处理变化，不能在回放途中随意增加 CPU 分支。[MRV2 跨 DP 统一选择](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/platform.py#L727-L744)
 
-例如本章的 AllToAllV 路径会把 split 计数转为 CPU / NumPy 数据。只设置 `FULL_DECODE_ONLY`，不足以证明这条动态 Host 路径能收进 full graph；还要核对实际选择的通信类、量化实现和图支持条件。已有 A5 MC2／MegaMoE 实验采用 eager，尚未验证本节的跨 DP 捕获和回放。后续实测应同时保留各 rank 的协调前后描述符、实际 replay 记录、空 rank 与回退场景，并在同权重、同输入下核对输出，再比较未带 profiler 的整轮时延。[AllToAllV 的 Host split 数据](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/ops/fused_moe/token_dispatcher.py#L643-L668)
+例如本章的 AllToAllV 路径会把 split 计数转为 CPU / NumPy 数据。只设置 `FULL_DECODE_ONLY`，不足以证明这条动态 Host 路径能收进 full graph；还要核对实际选择的通信类、量化实现和图支持条件。已有 A5 MC2／MegaMoE 实验采用 eager，尚未验证真实 MoE 模型的跨 DP FULL 捕获和回放。后续模型实测应同时保留各 rank 的协调前后描述符、实际 replay 记录、空 rank 与回退场景，并在同权重、同输入下核对输出，再比较未带 profiler 的整轮时延。[AllToAllV 的 Host split 数据](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/ops/fused_moe/token_dispatcher.py#L643-L668)
 
-### 在服务器 CPU 上核对跨 DP 协调
+### 先核对跨 DP 协调，再验证 HCCL 图回放
 
-服务器实验启动两个进程，用真实 Gloo CPU 通信验证上述协调规则。测试直接提取固定源码中的协调函数和图匹配方法，函数体未改动；测试程序提供 `[1,2,4,8]` 这组捕获档位和请求形状。它没有启动模型或捕获设备图，验证的是模型图外的模式与容量选择。[脚本与固定来源](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/parallel-graph)
+CPU 实验先启动两个进程，用 Gloo 通信验证上述协调规则。测试直接提取固定源码中的协调函数和图匹配方法，函数体未改动；测试程序提供 `[1,2,4,8]` 这组捕获档位和请求形状。它没有启动模型或捕获设备图，验证的是模型图外的模式与容量选择。[脚本与固定来源](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/parallel-graph)
 
 | 双 rank 输入场景 | 协调入口 token 数 | 返回模式与各 rank 行数 |
 | --- | --- | --- |
@@ -191,7 +191,15 @@ MRV2 的描述符除 `num_tokens` 外还带请求数、uniform query 长度等�
 | 第二侧超过最大捕获档位 | `[3,9]` | NONE，`[3,9]` |
 | 两侧都空闲 | `[0,0]` | NONE，`[0,0]` |
 
-五种场景各独立启动两次，共得到 `5 场景×2 rank×2 次=20` 条记录，返回模式和行数全部符合预期。全空闲案例只检查辅助函数返回零行，不表示真实引擎还会执行一次空模型前向。CPU AllReduce、描述符匹配和回退已运行；EP kernel、ACLGraph capture/replay 与服务时延尚未在这组实验中运行。[逐 rank 输入、返回描述符和环境](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/parallel-graph/results/dp-protocol-cpu.json)
+CPU 实验中，五种场景各独立启动两次，共得到 `5 场景×2 rank×2 次=20` 条记录，返回模式和行数全部符合预期。全空闲案例只检查辅助函数返回零行，不表示真实引擎还会执行一次空模型前向。这组 CPU 结果验证了 AllReduce、描述符匹配和回退，没有捕获设备图。[CPU 逐 rank 结果](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/parallel-graph/results/dp-protocol-cpu.json)
+
+A5 双卡实验继续使用同一份固定源码 AST 和受控档位，在 CPU/Gloo 上完成 DP 协调，再运行 HCCL 设备通信与 `NPUGraph`。图内把激活和目标专家编号 AllGather 到两侧，每个 rank 用一个标量专家处理属于自己的行，最后 AllReduce 合并结果。每行包含 4 个 FP32 值，两个专家分别乘以 1 和 2；它用于核对通信与回放，不是实际 MoE 层。
+
+两个 rank 都完成容量 1、2、4、8 的捕获及零输入回放，共 8 条捕获记录。五种场景共留下 10 条逐 rank 记录，全部符合上表；全空闲不运行设备计算。其余场景各用两组输入，16 次逐 rank 输出检查全部通过，其中 8 次为图回放、8 次为 eager，输出与 Python 参考逐元素相等，padding 为零，缓冲地址保持不变。
+
+改变 Token 值和目标专家的图回放只覆盖容量 8；容量 1、2、4 仍只有零输入结果。eager 时，教学通信另把每侧输入补到最大行数，不能把这个容量误读成 DP 协议返回的行数。
+
+这次设备已有 UB 总线告警 `81AF8009`，通过校验不表示设备健康。探针没有执行完整 ModelRunnerV2、Attention、MC2 或真实 EP 模型；本次也没有 profiling 或时延测量，不能据此推导 FULL 图的性能收益。[A5 捕获与输出检查、源码校验值](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/parallel-graph/results/a5-npu-20261118.json) · [复现方法与边界](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/parallel-graph)
 
 ## MC2 的局部融合与 Fused-MC2 的全链融合
 
@@ -420,6 +428,29 @@ event 包围的是 Python 函数提交的整条链，可能包含设备等待 Ho
 
 <!-- /DETAILS -->
 
+### 同一条 MC2 算子链，从 eager 改成图回放后变了什么？
+
+前面的实验比较 MC2 与 MegaMoE 两种实现。这里固定使用 MC2、同一份 W4A8MXFP 权重、输入和专家路由，只把逐次调用改成已捕获图的回放。两张 A5 每卡输入 32 个 Token，`H=1024`、专家中间宽度 1024，八个专家、TopK=2，总计 128 次专家任务；这次分布为 rank 0 的 60 次与 rank 1 的 68 次。
+
+两个 rank 的首次回放，以及计时与 profiling 完成后的复查，都与自身 eager 输出精确一致，专家任务计数正确，输入与输出缓冲地址不变。每个 rank 按 eager→replay→replay→eager 运行两轮，每块预热后采样 30 次，因此每种模式各有 120 个无 profiler 样本。
+
+| rank | eager 的本地 NPU event 中位数 | replay 的本地 NPU event 中位数 | Host 提交中位数：eager → replay |
+| --- | --- | --- | --- |
+| 0 | 842.36 µs | 65.54 µs | 770.7 → 17.8 µs |
+| 1 | 813.88 µs | 54.50 µs | 779.7 → 21.5 µs |
+
+Host 指标只包围执行提交，不包括等待设备完成；NPU event 区间可能包含提交空隙和通信依赖。这个小形状里，Python 逐次提交占用了很长的区间；图回放大幅缩短了 Host 提交，但不能把表中比值当成专家计算速度或完整模型的吞吐提升。
+
+![同一 MC2 链的 eager 与图回放：两个 rank 的真实 Host 提交与设备轨道；完整活动窗口使用同一比例，回放细节另行放大并标注比例。](../dist/assets/moe-graph-rank-streams.svg)
+
+图保留各模式的完整活动采集窗口，每份包含三次执行。eager 的五个外部算子任务出现在 Stream 61；回放窗口另出现 Stream 61 的图执行、完成等待，以及 Stream 26 上的计算与通知。这里的轨道身份来自实际导出，不把 MC2 内部通信补画成一条不存在的独立 HCCL 流。
+
+回放的 profiler 导出报出 ACL→NPU flow 关联失败：文件保留设备任务，却缺少相应 Host 起点，重复回放还复用了部分 ID。因此，图不声称某一组设备任务已经逐条归到 Host 的 iteration 2，也不画跨 rank 的等待箭头。真实回放是否执行成功由捕获记录、调用对象与输出校验确认；逐次调用到设备任务的精确关联仍有采集缺口。图中 profiling 时长也不替代上表的独立计时。[结果、原始样本与关联限制](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/profiling-ab/results/moe-graph-ab.json)
+
+这次重跑还把 custom OPP 路径设置移到了 Python 启动前：首次进入 eager 检查时报出 SwiGLU 量化输出必须为 HIF8 的错误；脚本、权重和算子文件保持相同，在启动 Python 进程前设置匹配的 custom OPP 路径，随后两卡检查通过。这里只改变了该实验进程的环境，未更换 dtype。对照支持注册时机这个解释，失败进程没有留下实际加载库的直接记录。[环境修正与文件校验](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/profiling-ab/results/moe-preflight.json)
+
+设备仍有既存的 `81AF8009` UB 总线告警，本次没有隔离它的影响。实验也没有运行 Scheduler、完整 ModelRunnerV2、Attention 或跨 DP 的整模型调度，不能据此宣布完整模型的 `FULL_DECODE_ONLY` 或服务性能已经验证。[脚本与复现条件](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/profiling-ab)
+
 <!-- DETAILS: 实操命令：在 Linux 解析并查看原始 Trace -->
 
 ### 在 Linux 上解析并查看 Trace
@@ -438,7 +469,7 @@ TRACE_FILE=/path/to/ASCEND_PROFILER_OUTPUT/trace_view.json
 
 本地另开终端运行 `ssh -N -L 9001:127.0.0.1:9001 <SSH别名>`，打开 Perfetto UI，选择匹配版本及“YES, use loaded trace”，即可使用远端解析结果。服务只监听 loopback。小 trace 也可以直接在浏览器打开本地文件；Perfetto 本地查看默认不上传 trace。[远端解析与大 trace](https://perfetto.dev/docs/visualization/large-traces) · [本地数据处理说明](https://perfetto.dev/docs/getting-started/system-tracing)
 
-查看时先定位实验的 `record_function` 范围，再沿原始 flow ID 关联外部调用与设备任务，检查 active iteration 与预热是否混入。本次八份 MoE trace 都能导入 Perfetto，但均出现 flow 的 enclosing-slice 告警；原始导出中也存在 Host→Device 终点早于起点数微秒的情况。因此保留原始 JSON 关联，细粒度派发延迟暂不从这组时间差计算。设备内部阶段或跨 rank 等待，还需要更细的采样及独立时钟校验。
+查看时先定位实验的 `record_function` 范围，再沿原始 flow ID 关联外部调用与设备任务，检查 active iteration 与预热是否混入。前面 MC2/MegaMoE 对照的八份 trace 都能导入 Perfetto，但均出现 flow 的 enclosing-slice 告警；原始导出中也存在 Host→Device 终点早于起点数微秒的情况。因此保留原始 JSON 关联，细粒度派发延迟暂不从这组时间差计算。设备内部阶段或跨 rank 等待，还需要更细的采样及独立时钟校验。
 
 需要 Ascend 专项分析时，MindStudio Insight 提供 Linux x86_64、aarch64 GUI 包；无桌面服务器需配合桌面转发或 VNC。保留完整 `*_ascend_pt` 目录，既可看 Timeline，也保留算子和通信分析所需的 CSV／JSON；只拿走一张截图会丢掉这些证据。[Linux 安装条件](https://msinsight.readthedocs.io/zh-cn/26.1.0/zh/install_guide/mindstudio_insight_install_guide.html) · [采集目录导入](https://www.hiascend.com/doc_center/source/en/mindstudio/830/GUI_baseddevelopmenttool/MindStudioInsight/Insight_userguide_0032.html)
 

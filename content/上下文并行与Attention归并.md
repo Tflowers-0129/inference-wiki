@@ -4,7 +4,7 @@
 
 本章先解释这个限制，再看两种分工：PCP 分配本轮要计算的输入 Token，DCP 分配跨轮保存的 KV 历史。两者都需要通信，但收集的数据和合并方法不同。
 
-> 本章沿核查的 vLLM-Ascend ModelRunnerV2 与普通 GQA/MQA Attention 主线展开，MLA 的缓存单独说明；SP 的层间激活另以 `DeepseekV2DecoderLayer` 为例。机制 SVG 是可复算的教学构造，实测事件图另行标明。SP 的通信与 Norm 另有服务器 CPU 验证，A5 校验和设备时间线来自 PCP/DCP 实操。正文的源码链接用于定位，实操对应的固定源码、软件环境、脚本和结果见实验材料。[上下文并行实验材料](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/context-parallel)
+> 本章沿核查的 vLLM-Ascend ModelRunnerV2 与普通 GQA/MQA Attention 主线展开，MLA 的缓存单独说明；SP 的层间激活另以 `DeepseekV2DecoderLayer` 为例。机制 SVG 是可复算的教学构造，实测事件图另行标明。SP 的通信与 Norm 同时保留 CPU 数值检查和 A5 双卡前后对照；PCP/DCP 另有算子与 Runner 实操。正文的源码链接用于定位，实操对应的固定源码、软件环境、脚本和结果见实验材料。[上下文并行实验材料](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/context-parallel)
 
 ## TP 下的 KV head 切分与复制
 
@@ -96,7 +96,7 @@ SP 分配的是本轮部分层的激活计算。Attention 前可以恢复完整�
 
 ### 在服务器 CPU 上核对归约、分片与 Norm
 
-双进程 CPU 实验对照了“完整激活上做 Norm”和“分行做 Norm 后收集”，输出逐元素一致，补齐行保持为零。这验证了分片后的数值结果，没有测量 NPU、模型服务或 KV 容量。
+先用双进程 CPU 实验检查分片后的数值等价，再在 A5 双卡上运行实际 HCCL 和 NPU RMSNorm。两组结果分开保留：CPU 检查帮助排除算例错误，设备实验才用于观察通信与计算轨道。
 
 <!-- DETAILS: 服务器 CPU 实验：归约、分片与 Norm 的数值检查 -->
 
@@ -104,9 +104,30 @@ SP 分配的是本轮部分层的激活计算。Attention 前可以恢复完整�
 
 两条通信路线的输出逐元素一致，PAD 行保持为零；相对独立 FP64 参考，FP32 最大绝对误差约 `1.18×10⁻⁷`，BF16 约 `0.0036121`。五行输入时，每 rank 的 Norm 张量从 `[6,8]` 变成 `[3,8]`，元素数由 48 变为 24；rank 0 有三行有效输入，rank 1 有两行有效输入和一行 PAD。[双 rank 结果与误差](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/parallel-graph/results/sp-gloo.json)
 
-该实验确认了真实 CPU collective 下的分片与数值等价，没有运行 vLLM 模型、Router、Ascend FlashComm 或 NPU kernel，也没有测服务时延和 KV 容量。下文的 A5 实操验证了 PCP/DCP，没有启用 SP；完整 SP MoE 的输出、专家计数和设备收益仍需另测。
+该实验确认了真实 CPU collective 下的分片与数值等价，没有运行 vLLM 模型、Router、Ascend FlashComm 或 NPU kernel，也没有测服务时延和 KV 容量。本节下面的 A5 微实验进一步验证 HCCL 与 NPU RMSNorm；完整 SP MoE 的输出、专家计数和设备收益仍需另测。
 
 <!-- /DETAILS -->
+
+### A5 双卡：Norm 少算一半，整条路径就更快吗？
+
+这次对照固定 BF16、`H=4096` 和同一组部分和输入。A 路径运行 `AllReduce → 完整 RMSNorm`；B 路径运行 `ReduceScatter → 本地 RMSNorm → AllGather`。128 行时，B 的每个 rank 只计算 64 行 Norm；129 行先补成 130 行，再各算 65 行；收集后仍有 130 行，其中前 129 行有效，补齐行保持为零。
+
+两个 rank、两种行数和两组输入全部通过校验：A/B 输出逐元素相等，padding 输出为零；相对独立 FP64 参考结果，最大绝对误差为 0.003868。之后每组分别采集 50 次无 profiler 样本，按 AB、BA 交替执行，再单独采集前后 Trace。下面列出本地 NPU event 区间的中位数，包含调用提交和通信依赖造成的空隙，不是纯 Norm 时间。
+
+| 有效行数 | rank | A：AllReduce＋完整 Norm | B：分片 Norm＋收集 |
+| --- | --- | --- | --- |
+| 128 | 0 | 148.92 µs | 200.17 µs |
+| 128 | 1 | 147.32 µs | 200.45 µs |
+| 129 | 0 | 158.59 µs | 208.23 µs |
+| 129 | 1 | 158.95 µs | 209.13 µs |
+
+本次小形状下，B 虽然减少了每卡 Norm 的行数，整条路径仍更慢。它把一次 AllReduce 改成了 ReduceScatter 与 AllGather，中间节省的计算需要与整条通信、提交和同步路径一起衡量。不能用“每卡只算一半行”直接推导时延减半，也不能把这组只有一个 Norm 的结果推广为完整模型中 SP 的效果。
+
+![SP 前后对照：两种路径各展示 rank 0 与 rank 1 的真实计算、通信与同步轨道，同尺度、独立时间原点。](../dist/assets/sp-measured-rank-streams.svg)
+
+图选取同一次采集中的相同活动迭代，各 rank 内保留真实轨道关系；不同分面使用相同时间比例，但分别归零。它们没有完成跨设备时钟校准，因此不能用条形的左右位置判定哪个 rank 先到或让另一个 rank 等了多久。图内时长来自 profiling，性能表来自前面的独立计时，两者不混用。
+
+这次机器在运行前已有 UB 总线告警 `81AF8009`，正确性与采集成功后也不据此宣布设备健康；表中数字只描述这次带告警环境的观察。实验没有运行完整模型、FlashComm 的 MoE 入口/出口或 KV 管理，不提供正常健康机器上的性能基线。[脚本、配置与复现步骤](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/profiling-ab) · [无 profiler 样本与 Trace 关联](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/profiling-ab/results/sp-ab.json)
 
 ## PCP 的 query 分片、DCP 的 KV 分片与调度切块
 

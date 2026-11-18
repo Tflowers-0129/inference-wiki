@@ -1,0 +1,246 @@
+{
+  "schema_version": "wiki-moe-preflight/1",
+  "date": "2026-11-18",
+  "device_family": "Ascend A5",
+  "world_size": 2,
+  "scope": "Controlled MoE startup correction and two-rank correctness smoke; no performance conclusion.",
+  "script": {
+    "basename": "moe_ab.py",
+    "sha256_before": "e9e9b633c8b081c439c00e424523e070aa7f9c9160b2e333726673f8e954d3ed",
+    "sha256_after": "e9e9b633c8b081c439c00e424523e070aa7f9c9160b2e333726673f8e954d3ed",
+    "same_bytes": true
+  },
+  "config": {
+    "implementation": "mc2",
+    "tokens": 32,
+    "experts": 8,
+    "hidden": 1024,
+    "intermediate": 1024,
+    "topk": 2,
+    "activation": "silu",
+    "input_scale": 1.0,
+    "seed": 20260928,
+    "warmup": 3,
+    "repeats": 2,
+    "rounds": 1,
+    "profile": false,
+    "profile_iterations": 2,
+    "profile_level": "Level1",
+    "graph_rtol": 0.0,
+    "graph_atol": 0.0,
+    "timeout_seconds": 120,
+    "smoke": true
+  },
+  "comparison": {
+    "before": "both ranks failed during eager_correctness before graph capture",
+    "after": "both ranks passed eager correctness and MC2 NPUGraph capture/replay",
+    "only_intentional_execution_configuration_change": {
+      "variable": "ASCEND_CUSTOM_OPP_PATH",
+      "action": "Prepend the installed vllm_ascend custom_transformer vendor directory before Python starts, preserving any existing entries."
+    },
+    "launch_commands_equal_after_removing_this_export_and_normalizing_job_id": true,
+    "all_other_launch_spec_fields_equal": true,
+    "experiment_config_equal_except_job_id": true,
+    "same_input_and_weight_hashes_per_rank": true,
+    "same_recorded_software_environment": true,
+    "dtype_changed": false,
+    "LD_LIBRARY_PATH_changed": false,
+    "bookkeeping_difference": "The rerun used a new job identifier and result directory."
+  },
+  "failure": {
+    "type": "RuntimeError",
+    "operator": "aclnnSwigluGroupQuant",
+    "stage": "eager_correctness",
+    "error_code": "EZ1008",
+    "summary": "SwigluGroupQuant tiling rejected output dtype 36: y dtype must be hifloat8.",
+    "reported_source_basename": "swiglu_group_quant_hifp8_tiling.cpp",
+    "reported_source_line": 103,
+    "requested_activation_dtype": "torch.float8_e4m3fn",
+    "quant_mode": 2,
+    "capture_reached": false
+  },
+  "success": {
+    "passed_ranks": 2,
+    "process_status": "succeeded",
+    "quiet": true,
+    "exit_code": 0,
+    "descendants_drained": true,
+    "capture_implementation": "mc2",
+    "graph_rtol": 0.0,
+    "graph_atol": 0.0,
+    "eager_fallback": false,
+    "global_route_assignments_per_forward": 128,
+    "rank_results": [
+      {
+        "rank": 0,
+        "status": "passed",
+        "expected_expert_counts": [
+          13,
+          20,
+          16,
+          11
+        ],
+        "eager_cross_implementation": {
+          "relative_rmse": 0.0,
+          "cosine": 1.0000000000000002,
+          "max_abs_error": 0.0,
+          "thresholds": {
+            "relative_rmse_lt": 0.03,
+            "cosine_gt": 0.999
+          },
+          "expert_counts_exact": true
+        },
+        "mc2_capture": {
+          "status": "passed",
+          "eager_fallback": false,
+          "output_matches_own_eager": true,
+          "expert_counts_exact": true,
+          "rtol": 0.0,
+          "atol": 0.0,
+          "input_addresses_stable": true,
+          "output_addresses_stable": true
+        },
+        "mc2_final_correctness_check": "passed"
+      },
+      {
+        "rank": 1,
+        "status": "passed",
+        "expected_expert_counts": [
+          14,
+          18,
+          21,
+          15
+        ],
+        "eager_cross_implementation": {
+          "relative_rmse": 0.0,
+          "cosine": 1.0,
+          "max_abs_error": 0.0,
+          "thresholds": {
+            "relative_rmse_lt": 0.03,
+            "cosine_gt": 0.999
+          },
+          "expert_counts_exact": true
+        },
+        "mc2_capture": {
+          "status": "passed",
+          "eager_fallback": false,
+          "output_matches_own_eager": true,
+          "expert_counts_exact": true,
+          "rtol": 0.0,
+          "atol": 0.0,
+          "input_addresses_stable": true,
+          "output_addresses_stable": true
+        },
+        "mc2_final_correctness_check": "passed"
+      }
+    ]
+  },
+  "software": {
+    "python": "3.12.16",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0.post7",
+    "vllm_ascend_commit": "f9c8e0bdb263d7a8c0270536f1ea00fa7373a84e",
+    "vllm_commit": "5df63a7203cdb9328d824a27b682e77c7b9928be"
+  },
+  "artifact_comparison": {
+    "meaning": "These file bytes matched between the currently inspected environment and the stopped historical environment. They are identity evidence, not proof of which library a failed process loaded.",
+    "files": [
+      {
+        "role": "source_or_kernel_configuration",
+        "basename": "utils.py",
+        "sha256": "3f4a97c258cdbb2067867846c1d4943f8dac7f3c8a8a789b4a8c8a5dffb924c8"
+      },
+      {
+        "role": "custom_binary",
+        "basename": "vllm_ascend_C.cpython-312-aarch64-linux-gnu.so",
+        "sha256": "e71d5e3e5421a5955f0ea987743450af879fe16294e1cf9d2b896f4429b70c14"
+      },
+      {
+        "role": "custom_binary",
+        "basename": "libcust_opapi.so",
+        "sha256": "8e4a7845a26e6230cc7b3fd2978e7b19b674dd314aeeed493f304e82dde30ab9"
+      },
+      {
+        "role": "custom_binary",
+        "basename": "libcust_opmaster_rt2.0.so",
+        "sha256": "cfb269dc74ffe9fc9d8b02423d12e281600157b7c34d27ed8eab69bbf9bd7641"
+      },
+      {
+        "role": "source_or_kernel_configuration",
+        "basename": "swiglu_group_quant_tiling.cpp",
+        "sha256": "01dc02150368006b22348103669a64ba4574522657b586c711b26f5f992f3b8f"
+      },
+      {
+        "role": "source_or_kernel_configuration",
+        "basename": "swiglu_group_quant_def.cpp",
+        "sha256": "f01320795762fe0d333d69fcfe1b4d70b52797c1b51c71fcd07e89ab7f3141f3"
+      },
+      {
+        "role": "source_or_kernel_configuration",
+        "basename": "swiglu_group_quant.json",
+        "sha256": "42a3ff0bafa130be05949530bbb54072cacc363f086e19c985b4b5a5c093607e"
+      },
+      {
+        "role": "cann",
+        "basename": "libopapi_transformer.so",
+        "sha256": "a9fa9bcb92c256d7765c3bc26c139f92cf8e6d8309e3daaf52b98e6f15d3925b"
+      },
+      {
+        "role": "cann",
+        "basename": "libophost_transformer.so",
+        "sha256": "b245af1bff54deb24c60b2ed28b2c8b6c19b721615ffdee6139172f636ee088d"
+      },
+      {
+        "role": "cann",
+        "basename": "libtiling_device_transformer.so",
+        "sha256": "e761467f5f7160b143ddf627e22fcf6896d54deebd47520469b5168ab1e8ed67"
+      }
+    ]
+  },
+  "source_evidence": [
+    {
+      "basename": "utils.py",
+      "lines": "452-461",
+      "finding": "bootstrap_custom_op_env prepends the custom_transformer vendor path; changing LD_LIBRARY_PATH is a separate opt-in operation."
+    },
+    {
+      "basename": "op_api_common.h",
+      "lines": "192-211,256-257,278-332",
+      "finding": "Custom API search paths are read into namespace-scope const vectors; lookup checks explicit vendors before the transformer/common API fallback."
+    },
+    {
+      "basename": "swiglu_group_quant_def.cpp",
+      "lines": "39-53",
+      "finding": "The custom operator declares FP8 E4M3FN/E5M2 outputs and E8M0 scales."
+    },
+    {
+      "basename": "swiglu_group_quant_tiling.cpp",
+      "lines": "94-99,504-540",
+      "finding": "The custom tiler supports MX_QUANT alongside static and FP8 quantization."
+    }
+  ],
+  "interpretation": {
+    "supported": "The controlled preflight passed after configuring the custom OPP search path before Python initialization, with the same script, dtype, inputs and weights.",
+    "loaded_library_direct_evidence": false,
+    "not_established": [
+      "The exact binary selected by the failed process.",
+      "The exact point at which CANN cached operator registration.",
+      "Full-model Runner, Attention or cross-DP FULL_DECODE_ONLY correctness.",
+      "Stable performance from the short smoke samples."
+    ]
+  },
+  "health_condition": {
+    "known_pre_existing_status": "Warning",
+    "reported_code": "81AF8009",
+    "reported_description": "UB RAS bus error",
+    "isolated_by_this_comparison": false,
+    "resolved_by_this_change": false,
+    "limitation": "Successful operator and graph correctness checks do not certify hardware health or remove this condition from subsequent timing observations."
+  },
+  "privacy": {
+    "server_endpoints_included": false,
+    "process_ids_included": false,
+    "absolute_filesystem_paths_included": false,
+    "raw_profiler_data_included": false
+  }
+}

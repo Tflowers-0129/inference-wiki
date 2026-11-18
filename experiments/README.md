@@ -1,6 +1,6 @@
 # Wiki 实操实验
 
-这些脚本保存推理机制在真实运行环境中的核对结果。`padded-inputs.py` 与 `batch-change.py` 是历史辅助函数微实验，不作为正文 ModelRunnerV2 输入、采样或状态更新调用链的证据；其原始结果继续保留。前四项结果采集于 2026-11-04；固定源码身份、软件组合和量化条件保存在 [A5 结果](results/a5-moe.json)。上下文并行实验采集于 2026-11-05，另有[独立环境与复现说明](context-parallel/README.md)。PD 分离同日运行，[独立说明](pd-disaggregation/README.md)记录拉取式与逐层推送式的实际配置、请求结果及多 rank 证据。2026-11-16 的[并行协议实验](parallel-graph/README.md)另在服务器 CPU 上验证双进程 DP 协调与 SP 集合通信；它们不属于 NPU 图回放或整模型性能数据。公开目录只保留脚本、数值结果及选定设备事件，不包含服务器端点、凭据或整份原始 trace。
+这些脚本保存推理机制在真实运行环境中的核对结果。`padded-inputs.py` 与 `batch-change.py` 是历史辅助函数微实验，不作为正文 ModelRunnerV2 输入、采样或状态更新调用链的证据；其原始结果继续保留。前四项结果采集于 2026-11-04；固定源码身份、软件组合和量化条件保存在 [A5 结果](results/a5-moe.json)。上下文并行实验采集于 2026-11-05，另有[独立环境与复现说明](context-parallel/README.md)。PD 分离同日运行，[独立说明](pd-disaggregation/README.md)记录拉取式与逐层推送式的实际配置、请求结果及多 rank 证据。2026-11-16 的[并行协议实验](parallel-graph/README.md)另在服务器 CPU 上验证双进程 DP 协调与 SP 集合通信；它们不属于 NPU 图回放或整模型性能数据。2026-11-18 又完成 A5 的 HCCL 图探针、SP 两路径和 MC2 eager/replay 对照，保留既有设备告警及各自范围。公开目录只保留脚本、数值结果及选定设备事件，不包含服务器端点、凭据或整份原始 trace。
 
 | 实验 | 实际执行内容 | 已确认的范围 |
 | --- | --- | --- |
@@ -10,7 +10,9 @@
 | [a5-moe.py](a5-moe.py) | 相同 W4A8MXFP 权重、输入和路由下的 MC2 拆分链与 CANN MegaMoE | EP2，8/32 行，两个 rank 输出逐元素一致；独立专家计数通过，8 份 NPU trace 已采 |
 | [上下文并行](context-parallel/README.md) | PCP 源码方法回放、实际 Q 交换/FIA/DCP 归并、三种双卡 ModelRunnerV2 拓扑 | 16 组布局回放、12 条算子检查通过；三拓扑两轮 greedy tokens 一致，保留 logprob 差异；真实 Perfetto 截图另列来源 |
 | [PD 分离系统](pd-disaggregation/README.md) | 四 NPU 上的实际 P TP2、D TP2、官方 HTTP proxy 与 Mooncake；分别运行拉取 GQA/DCP1、逐层推送 MQA/DCP2 | 每组四次测量的 greedy 输出与各自本地参考一致；双 rank READ／逐层 WRITE、D 就绪及请求释放调用有记录；首次 push 预热的生命周期边界单独保留 |
-| [DP 协调与 SP](parallel-graph/README.md) | 真实 CPU/Gloo 双进程；固定源码的 DP 协调函数与受控图目录，另做 ReduceScatter／Norm／AllGather 对照 | DP 两次独立 launch 共 20 条 rank-case 通过；SP 共 16 条 rank-case 两路径逐元素一致；未运行 NPU 图或完整模型 |
+| [DP 协调与 SP 的 CPU 检查](parallel-graph/README.md) | 真实 CPU/Gloo 双进程；固定源码的 DP 协调函数与受控图目录，另做 ReduceScatter／Norm／AllGather 对照 | 历史 CPU DP 共 20 条 rank-case；CPU SP 共 16 条 rank-case；不作为 NPU 性能数据 |
+| [DP 的 A5 图探针](parallel-graph/results/a5-npu-20261118.json) | 固定协议 AST＋真实 HCCL/NPUGraph，标量专家教学 payload | 8 次捕获及零输入回放、10 条 rank-case、16 次输出检查；无性能或整模型结论 |
+| [SP 与 MC2 图回放前后对照](profiling-ab/README.md) | SP 的两种 HCCL/Norm 路径；同一 MC2 链 eager/replay，分别采两 rank | SP 400 个、MC2 480 个无 profiler 样本，12 份 Trace；带告警条件及回放 flow 缺口分别说明 |
 
 ## 特性前后对照的固定流程
 
@@ -48,6 +50,10 @@
 | KV 布局、稀疏卸载 | 地址/布局转换、索引、Host↔Device 拷贝、Attention、预取流及使用前的等待 | 命中率、搬运字节、有效容量与地址正确性、整轮时间 |
 
 现有 [MC2/MegaMoE 双 rank 图](../dist/assets/a5-mc2-megamoe-measured.svg)和 [DCP1/DCP2 双 rank 图](../dist/assets/cp-dcp-ranks-measured.svg)按保存的设备事件生成，使用同一时间比例、各 rank 独立起点。它们改善已有单次采集的可读性，没有补出跨设备时钟校准或新的服务性能结果。重建命令为 `python3 scripts/render-measured-moe.py` 和 `python3 scripts/render-measured-cp.py`（在仓库根目录运行）。
+
+## 新一轮特性前后对照
+
+[MoE 图回放与 SP 实验](profiling-ab/README.md)使用同一计算函数完成正确性、无 profiler 重复计时和独立 Trace 采集。SP 的 A5 双卡结果已保留两种行数、两个 rank 的原始样本与前后轨道；这次机器存在已记录的 UB 告警，不能作为正常健康机器的性能基线。MoE 的旧脚本只在计时函数内部切换 graph，新的对照脚本同时修正了 profiling 的调用路径；每次真实捕获及回放仍须由结果记录确认。
 
 ## 运行条件与命令
 

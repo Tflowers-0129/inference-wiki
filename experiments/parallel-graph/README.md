@@ -1,14 +1,14 @@
 # DP 图协议与 SP 集体通信实验
 
-这里保存 2026-11-16 在服务器上实际执行的两组 **CPU/Gloo** 实验，以及尚未获得空闲设备执行的 NPU 图探针。DP 实验直接执行固定源码的函数体；SP 实验执行真实集体通信和 RMSNorm。二者均不构成完整模型、Ascend FlashComm 或 NPU 图性能测量。
+这里保存 2026-11-16 的两组 CPU/Gloo 实验，以及 2026-11-18 完成的 A5 双卡 HCCL／NPUGraph 探针。DP 实验直接执行固定源码的协调函数；NPU 分支再用标量专家教学计算检查捕获、回放和 eager 回退。SP 实验执行真实 CPU 集体通信和 RMSNorm。这些结果不构成完整模型、Ascend FlashComm 或 NPU 图性能测量。
 
 | 实验 | 实际执行与计数 | 结果 |
 | --- | --- | --- |
 | [DP 协调源码探针](parallel_graph_probe.py) | 2 次独立启动 × 2 rank × 5 场景，共 20 个 rank-case | [协议结果](results/dp-protocol-cpu.json)全部符合预期；没有捕获设备图 |
 | [SP 集体通信探针](sp_gloo_probe.py) | 2 种 dtype × 2 种有效行数 × 2 组输入 × 2 rank，共 16 个 rank-case | [SP 结果](results/sp-gloo.json)中，两条路径逐元素一致，并通过独立数值 oracle |
-| 同脚本的 `--device npu` 分支 | 计划验证真实 HCCL + NPUGraph，未执行 | 未取得独占 NPU 窗口，未启动设备实验或停止现有服务 |
+| DP 探针的 `--device npu` 分支 | 1 次启动 × 2 rank；8 次捕获和零输入回放、10 个 rank-case、16 次场景输出检查 | [A5 NPU 结果](results/a5-npu-20261118.json)全部通过；场景输出含 8 次图回放、8 次 eager，未计时或采集 profiling |
 
-[执行清单](results/manifest.json)记录最终脚本校验值、计数、环境与执行边界，其结构见 [manifest schema](run-manifest.schema.json)。公开结果不包含服务器地址、凭据、设备进程列表或原始 profiler 目录。
+[CPU 执行清单](results/manifest.json)记录 2026-11-16 的脚本校验值、计数、环境与执行边界，其结构见 [manifest schema](run-manifest.schema.json)。A5 NPU 结果单独保存本次脚本、源文件和 AST 校验值，以及逐 rank 的捕获与输出检查。公开结果不包含服务器地址、凭据、设备进程列表或私有路径。
 
 ## DP：先核对协议，再检查设备图
 
@@ -57,20 +57,28 @@ OMP_NUM_THREADS=1 python3 -m torch.distributed.run \
   --output ./captures/sp-gloo
 ```
 
-## NPU 图探针的待执行范围
+## NPU：捕获、回放与 eager 回退
 
-`parallel_graph_probe.py --device npu` 在相同顺序下为 `[1,2,4,8]` 四个容量各建一张 `NPUGraph`。图内是实际 HCCL AllGather、每 rank 一个标量专家的教学计算，以及 AllReduce 归并。回放前修改固定缓冲区内容，检查输出、padding、缓冲地址稳定性和空侧参与；两次输入改变 token 值和目标专家。Prefill／超档场景走 eager，payload 为通信另外填充的容量会独立记录。
+本次运行使用 Python 3.12.16、PyTorch 2.10.0+cpu、torch_npu 2.10.0.post7 和两张 Ascend950DT。DP 模式与容量仍由固定 `ced6857a` 源码的原始 AST 在 CPU/Gloo 组上协调；设备计算另用 HCCL。两个 rank 按相同顺序为 `[1,2,4,8]` 各建一张 `NPUGraph`，共 8 次捕获，每张图随后都通过零输入回放检查。
 
-这个 payload 不调用 MC2、MegaMoE 或 Attention，也不等于完整 MoE 模型。脚本的 NPU 分支目前只通过语法与代码审查，没有设备成功回执。可用设备恢复后，须先取得两张健康设备的排他租约或已验证的专属预留，将可见设备环境原样传给运行进程，再执行：
+图内先 AllGather 激活和目标专家编号，再由每 rank 的标量专家处理属于自己的行，最后 AllReduce 合并。每行有 4 个 FP32 值，两个专家分别把输入乘以 1 和 2。回放前在固定缓冲区内改变 Token 值与目标专家，随后按独立 Python 参考结果检查输出；padding 必须为零，缓冲地址必须保持不变。
+
+上表五种 DP 场景各运行一次，共 10 个 rank-case，模式与容量全部符合预期。全空闲场景只检查协议返回，不启动设备计算；其余四种场景分别使用两组输入，共 16 次逐 rank 输出检查，全部通过。其中 8 次调用容量 8 的图回放，另 8 次执行 Prefill／超档的 eager 路径。容量 1、2、4 只验证了捕获和零输入回放；非零输入的图回放只覆盖容量 8，不能据此宣称其他容量的动态输入已经验证。
+
+eager 场景的协议返回仍保留 `[3,5]` 或 `[3,9]`。为了运行这个固定形状的 HCCL 教学计算，脚本另外把每侧通信输入补到 5 或 9 行，结果中以 `payload_capacity_per_rank` 单独记录。这不是图协议要求 eager 输入统一补齐。空侧的一行 dummy 也由夹具提供，没有执行 Scheduler 或真实 Runner 的 dummy 前向。
+
+设备运行前已有 UB 总线告警 `81AF8009`，此次通过不能证明设备健康。实验没有调用完整 ModelRunnerV2、Attention、MC2、MegaMoE 或真实 EP 模型，也没有采集 profiling 或重复时延样本，不报告性能收益。[逐 rank 捕获、场景输出与源校验值](results/a5-npu-20261118.json)
+
+复现前先核对设备健康状态，并取得两张设备的排他租约或已验证的专属预留，将可见设备环境原样传给运行进程。本次没有启用 `--profile`：
 
 ```sh
 OMP_NUM_THREADS=1 python3 -m torch.distributed.run \
   --standalone --nnodes=1 --nproc-per-node=2 parallel_graph_probe.py \
   --device npu --source-dir ./source --output ./captures/npu \
-  --reservation-id "$RESERVATION_ID" --profile
+  --reservation-id "$RESERVATION_ID"
 ```
 
-外层进程管理器须设置超时，失败后确认两个 worker 和子进程退出再释放租约。`--reservation-id` 要求提供外部资源预留标识，但不验证租约或建立排他性。只有这项成功后，才扩大到完整 ModelRunner、真实 EP 算子、不同 DP 到达状态和输出正确性对照。
+外层进程管理器须设置超时，失败后确认两个 worker 和子进程退出再释放租约。`--reservation-id` 要求提供外部资源预留标识，但不验证租约或建立排他性。完整 ModelRunnerV2、真实 EP 算子和不同 DP 到达状态仍需另做输出正确性与性能对照。
 
 ## 九章的实验补充顺序
 
@@ -82,7 +90,7 @@ OMP_NUM_THREADS=1 python3 -m torch.distributed.run \
 | 2 一次前向 | 已有 padded-inputs Triton 正确性和任务数；缺 metadata 与 tiling 的独立代价 | 固定 Runner、Attention 后端和输入，分别记录 Host metadata、D2H 精确值等待、tiling 更新和设备执行；不把 kernel 数减少写成去除了所有 Host 工作 | A |
 | 3 投机解码 | 已有进度辅助函数、真实 SSE；缺完整 Draft/Target KV 链 | 固定 proposer 和随机种子，记录不同接受长度的有效 KV、候选临时槽、下一轮输入及实际流式输出 | B |
 | 4 负载均衡 | 同容量教学模型与实现证据；缺真实重排关键路径 | 固定输入、权重、冗余预算，对比重排前后每层整数专家任务、最忙 rank、迁移窗口和稳态；先校验输出 | B |
-| 5 EP 通信 | 已有双卡 MC2/MegaMoE eager 实测；缺跨 DP 图 | 先完成本文 NPU 探针，再运行真实模型；核对每 rank 相同模式、捕获桶、通信方法、collective 顺序和有效 token mask | A，与第 1 章共用 |
+| 5 EP 通信 | 已有双卡 MC2/MegaMoE eager 实测及本文 HCCL／NPUGraph 教学探针；缺真实模型的跨 DP 图 | 运行真实模型，核对每 rank 相同模式、捕获档位、通信方法、collective 顺序和有效 token mask | A，与第 1 章共用 |
 | 6 上下文并行 | 已有 PCP/DCP、三种双卡小 Runner；本文补了 CPU SP | 同权重 TP2 eager 对比 SP 开关，测 NPU RS/AG 与 Norm 范围、峰值激活、输出；另用长上下文验证 DCP，分别记 KV 与激活容量 | A |
 | 7 PD 分离系统 | 已有拉取、逐层推送、真实 HIXL；异构 TP 页重排是源码算例 | P TP4→D TP2，核对 KV head 对应、每段地址、有效行与续算输出；注入传输失败核对实际复用边界 | C |
 | 8 KV 缓存布局 | 已有 GQA 页视图、步幅与传输字节；其他模型布局未同样实测 | 固定 MHA/GQA/MQA 配置比较 TP1/2/4 的真实 KV shape、stride 和池容量；DCP 开关另测，不拿分配总量代替有效 payload | B，可复用第 6 章 |
