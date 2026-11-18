@@ -12,7 +12,7 @@
 
 十二章共用左侧篇章导航，进入后默认展开当前章的目录，点击章标题可折叠；手机通过顶栏菜单打开相同导航。
 
-《从一轮调度到一次前向》沿 ModelRunnerV2 的输入准备、千级 Prefill 分块、KV 分页寻址、Attention、采样和下一轮输入展开。六张 SVG 分别说明输入与 KV 写入位置、层内数据流、拒绝后的状态更新、Attention 计算分块、CPU／设备生成 tiling 计划的区别，以及图回放中的任务等待。正文从 tiling 如何划分计算工作讲起，再说明设备长度、计划生成与多模型迁移的关系；历史输入准备微实验保留在实验档案中，不作为 V2 调用链的证据。
+《从一轮调度到一次前向》沿 ModelRunnerV2 的输入准备、千级 Prefill 分块、KV 分页寻址、Attention、采样和下一轮输入展开。图解分别说明输入与 KV 写入位置、层内数据流、拒绝后的状态更新、Attention 计算分块、CPU／设备生成 tiling 计划的区别，以及图回放中的任务等待。正文从 tiling 如何划分计算工作讲起，再说明设备长度、计划生成与多模型迁移的关系；历史输入准备微实验保留在实验档案中，不作为 V2 调用链的证据。
 
 《负载均衡：DPLB 与 EPLB》从请求入口的 DPLB 走到单层 MoE 的 EPLB，用五张 SVG 展开 DP/EP 维度、等请求数与不同工作量、同容量专家副本放置、rank × stream 泳道和权重/映射安全切换。两个交互分别演示固定遥测下的新请求评分与等待请求估计，以及同十二个专家权重存储位置、八十次专家任务下的布局和热度变化。正文追到 DPLB 快照替换、EPLB 逻辑到物理查表与 STAIR 计数汇总。泳道是明确标注的教学构造，不使用工作坊原图推断负载均衡收益，也不把专家计数均衡度写成实际加速比。
 
@@ -31,6 +31,8 @@
 《量化推理：位宽、尺度与算子执行》先用一组数算出量化点积，再沿线性层源码查看权重、激活和尺度如何传给算子。[量化篇正文](content/量化推理与算子执行.md)
 
 《微批次流水：两批 MoE 工作怎样重叠》用两个微批次跟踪 MoE 输入的切分与专家计算，沿泳道看一批在何处交出执行机会、另一批如何接续。[DBO 篇正文](content/微批次流水与DBO.md)
+
+在[前向篇的 tiling 算例](https://tflowers-0129.github.io/inference-wiki/execution.html#execution-5)中，普通 FIA 的 Host 长度列表和可选 FA3 的设备计划分别追到 Attention 调用。[投机篇的 MTP 与 DSpark 算例](https://tflowers-0129.github.io/inference-wiki/speculation.html#speculation-5)沿同一次候选拒绝，对照逐步提议、整块提议和下一轮验证各自读取的行。
 
 前向篇与投机篇统一使用 V2 的 `idx_mapping`、`num_sampled`、`num_rejected` 和 `post_update` 追踪持久状态。K=3、a=2 的算例区分有效 KV、输出与下一轮 anchor；正文说明谁需要 Host 长度回读、谁生成并使用 Device tiling 计划。Trace 排查要求关联依赖和整轮区间，不把机制图或 kernel 数量写成性能收益。
 

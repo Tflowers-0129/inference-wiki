@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="350" height="355" viewBox="0 0 500 507" role="img" aria-labelledby="title desc">
+  <title id="title">同一个有效长度怎样进入两种 Attention 接口</title>
+  <desc id="desc">A2/A3 两个配置的源码示意，数字仅用于对照。普通 FIA 把 query 累计长度和有效 KV 长度作为 Python 列表传给算子。MiniMax DSpark 可选 FA3 读取设备上的 query 边界与 KV 长度，在模型图外生成计划，图回放前将新值写入原计划缓冲区。Attention 读取该计划、设备长度和页表。</desc>
+  <style>
+    text {font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
+    .title {font-size:28px;font-weight:700}
+    .head {font-size:23px;font-weight:650}
+    .label {font-size:21px;font-weight:580}
+    .small {font-size:18.5px;fill:#475569}
+    .mid {text-anchor:middle}
+    .blue {fill:#19498c}
+    .teal {fill:#0f655e}
+    .arrow {fill:none;stroke:#52647d;stroke-width:2;marker-end:url(#tip)}
+  </style>
+  <defs><marker id="tip" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0L6 3L0 6Z" fill="#52647d"/></marker></defs>
+  <rect width="500" height="507" fill="#f8fafc"/>
+  <text x="15" y="39" class="title">4132 怎样进入 Attention？</text>
+  <text x="15" y="70" class="small">A2/A3 · 单请求算例 · 本轮两行 Q，含历史共 4132 行 KV</text>
+  <g id="fia">
+    <rect x="12" y="91" width="230" height="393" rx="10" fill="#edf4ff" stroke="#7294c5" stroke-width="1.5"/>
+    <text x="127" y="126" class="head blue mid">普通 FIA</text>
+    <text x="127" y="154" class="small mid">eager · TND 分页</text>
+    <text x="127" y="202" class="label mid">准备 Host 长度列表</text>
+    <text x="127" y="235" class="small mid">Q 累计长度 [2]</text>
+    <text x="127" y="262" class="small mid">KV 长度 [4132]</text>
+    <path d="M127 279v35" class="arrow"/>
+    <rect x="25" y="320" width="204" height="91" rx="7" fill="white" stroke="#7294c5" stroke-width="1.5"/>
+    <text x="127" y="354" class="label blue mid">FIA 读列表和页表</text>
+    <text x="127" y="389" class="small mid">按有效长度计算</text>
+    <text x="127" y="450" class="small mid">长度可取自 CPU 镜像</text>
+  </g>
+  <g id="fa3">
+    <rect x="257" y="91" width="230" height="393" rx="10" fill="#e9f5f1" stroke="#5b9489" stroke-width="1.5"/>
+    <text x="372" y="126" class="head teal mid">可选 FA3</text>
+    <text x="372" y="154" class="small mid">MiniMax DSpark 草稿</text>
+    <text x="372" y="193" class="label mid">读取设备 Tensor</text>
+    <text x="372" y="221" class="small mid">Q 边界 [0, 2]</text>
+    <text x="372" y="248" class="small mid">KV 长度 [4132]</text>
+    <path d="M372 258v23" class="arrow"/>
+    <rect x="266" y="287" width="212" height="79" rx="7" fill="white" stroke="#5b9489" stroke-width="1.5"/>
+    <text x="372" y="316" class="label teal mid">图外生成 tiling</text>
+    <text x="372" y="347" class="small mid">回放前原址更新计划</text>
+    <path d="M372 367v20" class="arrow"/>
+    <text x="372" y="417" class="label teal mid">FA3 读本轮计划</text>
+    <text x="372" y="450" class="small mid">同时读取长度和页表</text>
+  </g>
+</svg>
