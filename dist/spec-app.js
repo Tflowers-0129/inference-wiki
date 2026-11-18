@@ -97,7 +97,7 @@
     for (let i = 0; i < frame.proposedCount; i++) {
       const acceptedHere = i < accepted;
       const status = frame.hasVerification ? acceptedHere ? 'valid' : frame.committed ? 'invalid' : 'reject' : 'draft';
-      const label = frame.hasVerification ? acceptedHere ? '接受 · KV 有效' : frame.committed ? '逻辑作废' : '不提交' : 'Draft 候选';
+      const label = frame.hasVerification ? acceptedHere ? '接受 · KV 有效' : frame.committed ? '已失效' : '不提交' : 'Draft 候选';
       query.push(token(`d${i + 1}`, i + 9, status, label));
     }
     byId('spec-query').replaceChildren(...query);
@@ -107,7 +107,7 @@
       output.replaceChildren(...result.acceptedTokens.map((label, i) => token(label, i + 9, 'valid', '已提交 · 有 KV')),
         token('x', result.extraToken.position, 'next', result.extraToken.kind === 'bonus' ? 'bonus · 无 KV' : '纠正 · 无 KV'));
     } else {
-      output.replaceChildren(node('span', 'spec-empty', frame.hasVerification ? '验证结果已确定，下一事件提交。' : '尚未提交本轮输出。'));
+      output.replaceChildren(node('span', 'spec-empty', frame.hasVerification ? '验证结果已确定，下一步提交。' : '尚未提交本轮输出。'));
     }
 
     const metadata = byId('spec-metadata');
@@ -124,10 +124,10 @@
       metadata.append(node('p', 'spec-empty', '候选生成完后再打包 Target 输入；当前仍只有前缀的 Target KV。'));
     }
     byId('spec-stats').replaceChildren(
-      stat('本轮 Target Query', frame.hasMetadata ? 4 : '待组装', frame.hasMetadata ? '行；不是 4 个有效新输出' : ''),
+      stat('本轮 Target Query', frame.hasMetadata ? 4 : '待组装', frame.hasMetadata ? '行输入' : ''),
       stat('有效 Target KV 长度', frame.committed ? result.validKvLength : frame.hasVerification ? '待提交' : 8, frame.committed ? `位置 0–${result.validKvLength - 1}` : '提交前保留原有效边界'),
       stat('本轮提交输出', frame.committed ? result.emittedCount : 0, frame.committed ? 'a + 1；不含已确认的 t0' : '候选仍未提交'),
-      stat('无效候选 KV 尾部', frame.committed ? result.invalidTailLength : '待验证', frame.committed ? '个位置；不承诺物理清零' : '')
+      stat('无效候选 KV 尾部', frame.committed ? result.invalidTailLength : '待验证', frame.committed ? '个位置，无须清零' : '')
     );
     byId('spec-kv-boundary').textContent = frame.committed
       ? `提交后下一位置是 ${result.extraToken.position}：这里的 x 已确认输出，但没有 Target KV。${result.invalidTailLength ? '它将替换同一逻辑位置上被拒绝的候选，后续无效位置也不能作为历史读取。' : '它在最后一个已接受候选之后，留待下一轮计算。'}`

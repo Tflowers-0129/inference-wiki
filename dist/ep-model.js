@@ -13,9 +13,9 @@
   const HIDDEN_SIZE = 4096;
   const BYTES_PER_ELEMENT = 2;
   const SCENARIOS = Object.freeze({
-    paired: Object.freeze({label: '同 rank 双专家', description: '每个 token 选择下一 rank 的两位专家；同一激活在目标 rank 内供两次专家计算使用。'}),
-    split: Object.freeze({label: '两个目标 rank', description: '每个 token 选择后续两个 rank 各一位专家；两个目标分别需要一份激活。'}),
-    mixed: Object.freeze({label: '混合', description: '每个源 rank 的前五个 token 选择本 rank 两专家，后五个 token 选择后续两个 rank 各一位专家。'})
+    paired: Object.freeze({label: '同 rank 双专家', description: '每个 token 选择下一个 rank 上的两个专家。目标 rank 收到一份激活，供两个专家使用。'}),
+    split: Object.freeze({label: '两个目标 rank', description: '每个 token 从后续两个 rank 上各选一个专家，每个目标 rank 都需要一份激活。'}),
+    mixed: Object.freeze({label: '混合', description: '每个源 rank 的前五个 token 选择本地的两个专家，后五个 token 从后续两个 rank 上各选一个专家。'})
   });
 
   function matrix() {

@@ -68,7 +68,7 @@
       ['anchor', '起点', '① 先分清已输出的 t0 与已有 Target KV',
         'Target KV 已覆盖位置 0–7。t0@8 已经确认输出，但 Target 尚未把 t0 作为输入计算它自己的 KV。本轮从这个 t0 开始提出候选。'],
       ['draft-1', '提议 d1', '② Draft 读取 t0，提出 d1',
-        'Draft 沿已确认的 t0 提出 d1@9。d1 仍是候选，没有成为 Target 确认的新输出，也没有自己的 Target KV。'],
+        'Draft 读入已确认的 t0，提出 d1@9。d1 仍是候选，没有成为 Target 确认的新输出，也没有自己的 Target KV。'],
       ['draft-2', '提议 d2', '③ Draft 读取 d1，继续提出 d2',
         '这条自回归候选链中，d2 依赖刚才的 d1，因此先后生成。Draft 自己维护的状态与下面显示的 Target KV 分开；Target 还没有处理这些候选。'],
       ['draft-3', '提议 d3', '④ Draft 再读取 d2，得到第三个候选',
@@ -76,11 +76,11 @@
       ['metadata', '打包四行', '⑤ 把 t0 和候选打包为一次 Target 输入',
         '输入为 [t0,d1,d2,d3]，位置 8–11，query_start_loc=[0,4]，临时序列长度 12。t0 必须进入这次前向，才能产生用于验证 d1 的分布；每行读取已有历史 KV，以及截至该行的本轮输入，因果掩码屏蔽后面的候选。'],
       ['verify', 'Target 验证', '⑥ Target 一次前向计算四行，再检查候选',
-        `t0 行预测 d1，d1 行预测 d2，d2 行预测 d3。这个贪心构造例连续接受 ${accepted} 个候选，${accepted === 3 ? '全部接受后，由 d3 行再采样 bonus x。' : `在第 ${accepted + 1} 个候选处不匹配，从对应的前一输入行采样纠正 Token x；后续候选不提交。`}四行并行前向不等于四个新输出。`],
+        `t0 行预测 d1，d1 行预测 d2，d2 行预测 d3。本例采用贪心采样，连续接受 ${accepted} 个候选，${accepted === 3 ? '全部接受后，由 d3 行再采样 bonus x。' : `在第 ${accepted + 1} 个候选处不匹配，从对应的前一输入行采样纠正 Token x；后续候选不提交。`}四行并行前向不等于四个新输出。`],
       ['commit', '提交与回退', '⑦ 提交输出，标出可以继续读取的 Target KV',
         `本轮新输出 [${result.emittedTokens.join(',')}]，共 ${result.emittedCount} 个。有效 Target KV 长度为 ${result.validKvLength}，${result.invalidTailLength ? `位置 ${result.invalidPositions.join('、')} 的候选 KV 不再有效。` : '没有无效候选尾部。'}x@${result.validKvLength} 已确认输出，但尚无自己的 Target KV；t0 不重复发送。`],
       ['next', '接下一轮', '⑧ 把 x 作为下一轮输入，继续生成',
-        `下一轮从 x@${result.validKvLength} 开始。下方可把下一轮候选数 K 改成 0、1、3，观察位置和 query 边界。x 的 KV 要等下一次 Target 前向计算后才产生；图中的接续行只表示已经准备好的输入。`]
+        `下一轮从 x@${result.validKvLength} 开始。可以把下方的下一轮候选数 K 设为 0、1、3，观察位置和 query 边界。x 的 KV 要等下一次 Target 前向计算后才产生；图中列出的是下一轮已准备好的输入。`]
     ];
     return definitions.map(([key, shortTitle, title, note], i) => ({
       key, shortTitle, title, note, result,

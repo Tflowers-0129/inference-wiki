@@ -21,7 +21,7 @@ CHAPTERS = [
     ('context-parallel', '上下文并行与Attention归并.md', '上下文并行：KV 分片与 Attention 归并', '上下文并行<br><span>KV 分片与 Attention 归并</span>'),
     ('pd-disaggregation', 'PD分离系统与KV生命周期.md', 'PD 分离系统：请求交接与 KV 生命周期', 'PD 分离系统<br><span>请求交接与 KV 生命周期</span>'),
     ('kv-cache-layouts', 'KV缓存布局与递归状态.md', 'KV 缓存布局与递归状态', 'KV 缓存布局<br><span>与递归状态</span>'),
-    ('sparse-offload', '稀疏KV卸载与HiSparse.md', '稀疏 KV：Decode Offload 与 HiSparse', '稀疏 KV 卸载<br><span>走向 HiSparse</span>'),
+    ('sparse-offload', '稀疏KV卸载与HiSparse.md', '稀疏 KV：Decode Offload 与 HiSparse', '稀疏 KV 卸载<br><span>与 HiSparse</span>'),
     ('kv-pooling', 'KV池化与跨机PD.md', 'KV 池化：单机混部与跨机 PD', 'KV 池化<br><span>单机混部与跨机 PD</span>'),
     ('quantization', '量化推理与算子执行.md', '量化推理：位宽、尺度与算子执行', '量化推理<br><span>位宽、尺度与算子执行</span>'),
     ('dbo', '微批次流水与DBO.md', '微批次流水：两批 MoE 工作怎样重叠', '微批次流水<br><span>两批 MoE 工作怎样重叠</span>'),
@@ -208,7 +208,7 @@ def build_chapters():
             player_links = ''
             extra = ''
             next_link = '<a href="speculation.html">继续：投机解码与流式指标 →</a>'
-            action = '<a class="primary-button" href="#execution-1">沿 V2 走完一轮 →</a><a class="text-button" href="#execution-5">理解 tiling 下沉 ↓</a>'
+            action = '<a class="primary-button" href="#execution-1">看 V2 怎样执行一轮前向 →</a><a class="text-button" href="#execution-5">理解 tiling 下沉 ↓</a>'
         elif key == 'load-balancing':
             player_links = '<a href="#dplb-lab">DPLB 请求分发</a><a href="#eplb-lab">EPLB rank 泳道</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("lb.css")}"><script defer src="{asset_url("lb-model.js")}"></script><script defer src="{asset_url("lb-app.js")}"></script>'
@@ -223,7 +223,7 @@ def build_chapters():
             player_links = '<a href="#ep-lab">专家任务与激活副本实验室</a><a href="#ep-timeline">MC2 / Fused-MC2 模拟 profiling</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("ep.css")}"><link rel="stylesheet" href="{asset_url("ep-timeline.css")}"><script defer src="{asset_url("ep-model.js")}"></script><script defer src="{asset_url("ep-app.js")}"></script><script defer src="{asset_url("ep-timeline-model.js")}"></script><script defer src="{asset_url("ep-timeline-app.js")}"></script>'
             next_link = '<a href="context-parallel.html">继续：上下文并行与 Attention 归并 →</a>'
-            action = '<a class="primary-button" href="#ep-communication-1">沿 EP 数据路径开始 →</a><a class="text-button" href="#ep-timeline">对照 MC2 与 Fused-MC2 泳道 ↓</a>'
+            action = '<a class="primary-button" href="#ep-communication-1">看专家任务怎样分发 →</a><a class="text-button" href="#ep-timeline">对照 MC2 与 Fused-MC2 泳道 ↓</a>'
         elif key == 'context-parallel':
             player_links = ''
             extra = ''
@@ -240,10 +240,10 @@ def build_chapters():
             next_link = '<a href="sparse-offload.html">继续：稀疏 KV 卸载与 HiSparse →</a>'
             action = '<a class="primary-button" href="#kv-decode-player">播放一次 Decode 的 KV 寻址 →</a><a class="text-button" href="#kv-cache-layouts-7">按后端查缓存形状 ↓</a>'
         elif key == 'kv-pooling':
-            player_links = '<a href="#pool-walk">跟着手册走两次请求</a>'
+            player_links = '<a href="#pool-walk">两次请求怎样复用手册的 KV</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("pool-walk.css")}"><script defer src="{asset_url("pool-walk.js")}"></script>'
             next_link = '<a href="quantization.html">继续阅读量化推理 →</a>'
-            action = '<a class="primary-button" href="#kv-pooling-1">认清 A、B、C 三台机器 →</a><a class="text-button" href="#pool-walk">跟着手册走两次请求 ↓</a>'
+            action = '<a class="primary-button" href="#kv-pooling-1">看 P、D 和缓存分别部署在哪里 →</a><a class="text-button" href="#pool-walk">两次请求怎样复用手册的 KV ↓</a>'
         elif key == 'quantization':
             player_links = ''
             extra = ''
@@ -258,7 +258,7 @@ def build_chapters():
             raise ValueError(f'Unknown chapter: {key}')
         chapter_nav = chapter_navigation(key, player_links + local_nav)
         page = f'''<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="{html.escape(title)}：沿输入字段、状态记账和源码调用定位推理性能问题。"><title>{html.escape(title)} · Inference Wiki</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="reading.css"><link rel="stylesheet" href="{asset_url("chapters.css")}"><script defer src="{asset_url("chapter.js")}"></script>{extra}</head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="{html.escape(title)}：结合源码、图解和算例，说明推理时的数据流与执行顺序。"><title>{html.escape(title)} · Inference Wiki</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="reading.css"><link rel="stylesheet" href="{asset_url("chapters.css")}"><script defer src="{asset_url("chapter.js")}"></script>{extra}</head>
 <body><div class="reading-progress" id="readingProgress"></div>
 <aside class="sidebar" id="sidebar"><a class="brand" href="index.html"><span class="brand-mark"><i></i><i></i><i></i></span><span>Inference<span class="brand-sub">图解推理系统</span></span><b>WIKI</b></a><button class="search-trigger" data-search>搜索本章 <kbd>⌘ K</kbd></button><div class="nav-group-label">学习篇章</div>{chapter_nav}<div class="sidebar-bottom">字段、调用链与 Trace 排查</div></aside>
 <div class="page-shell"><header class="topbar"><button class="mobile-menu" id="menuToggle" aria-label="展开目录" aria-expanded="false">☰</button><div class="breadcrumb"><a href="index.html">推理系统</a><span>/</span><strong>{html.escape(title)}</strong></div><a class="source-link" href="{key}.md" download>下载本章 Markdown ↗</a></header>

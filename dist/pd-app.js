@@ -14,15 +14,15 @@
     $('pdEventTitle').textContent=s.title;$('pdEventNote').textContent=s.note;$('pdScope').textContent=scenario.scope;
     $('pdPQueue').innerHTML=s.pQueue.map(id=>chip(id,'待 Prefill')).join('')||'<span class="pd-empty">队列为空</span>';
     $('pdPQueueCount').textContent=s.pQueue.length;
-    $('pdPRun').innerHTML=s.pRun?`<strong>${s.pRun}</strong><span>Prefill</span><i class="pd-work-dots"><b></b><b></b><b></b></i>`:'<span class="pd-run-idle">本事件没有 P 计算</span>';
+    $('pdPRun').innerHTML=s.pRun?`<strong>${s.pRun}</strong><span>Prefill</span><i class="pd-work-dots"><b></b><b></b><b></b></i>`:'<span class="pd-run-idle">P 当前没有计算任务</span>';
     $('pdPSource').innerHTML=sourceBlocks(s);
     $('pdDQueue').innerHTML=s.dQueue.map(q=>chip(q.id,q.reason,q.reason.includes('不足')||q.reason==='等目标 KV 分配'?'hold':q.reason.includes('就绪')?'ready':'')).join('')||'<span class="pd-empty">队列为空</span>';
     $('pdDQueueCount').textContent=s.dQueue.length;
-    $('pdDRun').innerHTML=s.dRun?`<strong>${s.dRun}</strong><span>Decode</span><i class="pd-work-dots"><b></b><b></b><b></b></i>`:'<span class="pd-run-idle">本事件没有 D 计算</span>';
+    $('pdDRun').innerHTML=s.dRun?`<strong>${s.dRun}</strong><span>Decode</span><i class="pd-work-dots"><b></b><b></b><b></b></i>`:'<span class="pd-run-idle">D 当前没有计算任务</span>';
     $('pdDTarget').innerHTML=targetBlocks(s);
     $('pdKVStatus').textContent=s.kvFull?'R2 目标块不足':'按场景条件可分配';$('pdKVStatus').classList.toggle('is-full',s.kvFull);
     const wires={idle:'本事件没有拉取',pulling:`正在拉取 ${s.wireRequest}`,complete:`${s.wireRequest} 目标 KV 就绪`,blocked:'尚未发起拉取'};
-    $('pdWireLabel').textContent=wires[s.wire];$('pdWireFill').style.width=s.progress+'%';$('pdWireProgress').textContent=s.wire==='blocked'?'等目的空间':s.wire==='idle'?'—':`${s.progress}% · 示意`;
+    $('pdWireLabel').textContent=wires[s.wire];$('pdWireFill').style.width=s.progress+'%';$('pdWireProgress').textContent=s.wire==='blocked'?'等待目标块':s.wire==='idle'?'—':`${s.progress}% · 示意`;
     $('pdWire').dataset.state=s.wire;$('pdRoute').textContent=s.route;
     $('pdRequestLocation').textContent=s.focus;
     $('pdR1SourceState').textContent=sourceText[s.r1Source];$('pdR1TargetState').textContent=targetText[s.r1Target];$('pdDoneState').textContent=s.r1Done&&s.r2Done?'2 / 2':s.r1Done?'1 / 2':'0 / 2';

@@ -114,13 +114,13 @@
   const statusLabels = { pending: '本例尚未到达', tracked: '本次相关页', source: '本步源页', target: '本步目标页', past: '不再跟踪' };
   const steps = [
     {
-      title: '初态：两条请求，尚无手册副本',
-      caption: '《保修条款》早已在池中；它与本次手册前缀无关。',
+      title: '初态：两条请求，尚无手册 KV 副本',
+      caption: '池中已有《保修条款》的 KV，它与这两条请求的前缀不同。',
       observation: 'M 是手册公共前缀的对象键简称；页号属于各个实例。',
       active: [], flow: { kind: 'idle' },
     },
     {
-      title: 'R1 冷算：手册和尾 token 都要算',
+      title: 'R1 未命中缓存，P0 计算全部输入',
       caption: 'P0 计算全部 129 个输入 token，写入两页。',
       observation: '页 3 已满；页 4 只有尾 token ① 的 KV。',
       active: ['P0'],
@@ -148,15 +148,15 @@
       flow: { kind: 'store', operation: 'GET', from: 'C · DRAM', fromDetail: 'M · 手册 KV', label: '读取 M · rH2D', initiator: 'P1 发起 READ', to: 'A · P1 HBM', toDetail: '目标页 9', source: 'C', key: 'M', destination: 'P1', destinationPages: [9] },
     },
     {
-      title: 'P1 只算新尾：第 129 个 token',
+      title: 'P1 只计算第 129 个 token',
       caption: '页 9 的手册 KV 直接复用，尾 token ② 的 KV 写入页 10。',
       observation: '两条请求的手册相同，尾 token 不同；只有手册块共享。',
       active: ['P1'],
-      flow: { kind: 'compute', from: 'R2 新尾', fromDetail: '不同的尾 token ②', label: '只计算 1 token', initiator: 'P1 执行剩余 Prefill', to: 'A · P1 HBM', toDetail: '写入页 10；复用页 9' },
+      flow: { kind: 'compute', from: 'R2 的最后一个 token', fromDetail: '不同的尾 token ②', label: '只计算 1 token', initiator: 'P1 执行剩余 Prefill', to: 'A · P1 HBM', toDetail: '写入页 10；复用页 9' },
     },
     {
       title: 'P1 → D1：交接 R2 的两页 KV',
-      caption: 'D1 从本次选中的 P1 读取手册与新尾，接着生成。',
+      caption: 'D1 从 P1 读取手册和第二个问题对应的 KV，然后继续生成。',
       observation: '本次映射：P1 [9, 10] → D1 [20, 21]。C 的两个对象均不变。',
       active: ['P1', 'D1'],
       flow: { kind: 'handoff', operation: 'READ', from: 'A · P1 HBM', fromDetail: '源页 9、10', label: 'D2D · 两页 KV', initiator: 'D1 发起 READ', to: 'B · D1 HBM', toDetail: '目标页 20、21', source: 'P1', sourcePages: [9, 10], destination: 'D1', destinationPages: [20, 21], request: 'R2' },

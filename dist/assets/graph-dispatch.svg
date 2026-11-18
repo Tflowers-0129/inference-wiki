@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1120" height="880" viewBox="0 0 1120 880" role="img" aria-labelledby="title desc">
   <title id="title">每轮选图：看形状，不看 Decode 比例</title>
-  <desc id="desc">Scheduler 确定本轮全部 token 工作量后，Runner 在前向开始前选择 NONE、PIECEWISE 或 FULL。使用显式教学配置：max_num_seqs 为 200，max_num_batched_tokens 为 8192，普通单 token Decode，手动选定捕获上限 400，并包含 200、336 桶，模式为 FULL_AND_PIECEWISE，且后端兼容。8192-token 混合批次、199 个 Decode 加 4096 个 Prefill tokens 均超出上限，选择 NONE；199 个 Decode 加 128 个 Prefill tokens 合计 327，可填充到 bucket 336 并选择 PIECEWISE；200 个 Decode tokens 可命中 bucket 200 并选择 FULL。后两项还需对应图已捕获且功能兼容。这里是构造批次，不对应播放器的固定轮次；实际部署应核对后端与有效配置。</desc>
+  <desc id="desc">Scheduler 确定本轮全部 token 工作量后，Runner 在前向开始前选择 NONE、PIECEWISE 或 FULL。使用显式教学配置：max_num_seqs 为 200，max_num_batched_tokens 为 8192，普通单 token Decode，手动选定捕获上限 400，捕获档位包括 200 和 336，模式为 FULL_AND_PIECEWISE，且后端兼容。8192-token 混合批次、199 个 Decode 加 4096 个 Prefill tokens 均超出上限，选择 NONE；199 个 Decode 加 128 个 Prefill tokens 合计 327，可填充到 bucket 336 并选择 PIECEWISE；200 个 Decode tokens 可匹配 200 这一档 并选择 FULL。后两项还需对应图已捕获且功能兼容。这里是构造批次，不对应播放器的固定轮次；实际部署应核对后端与有效配置。</desc>
   <defs>
     <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
       <path d="M1 1L7 4L1 7" fill="none" stroke="#60728d" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>

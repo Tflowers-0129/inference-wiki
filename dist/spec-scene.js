@@ -76,7 +76,7 @@
 
     const description = `单条请求的因果候选链。当前为${STEP_LABELS[phase]}。进入本轮前，Target KV 覆盖位置0至7；已确认输出t0位于8，但还没有自身Target KV。`
       + `Draft依次提议3个候选，Target一次处理t0与全部候选。连续接受${accepted}个后，提交${accepted + 1}个新输出，有效KV长度为${validKvLength}。`
-      + `x位于${validKvLength}，尚无自身Target KV，下一轮仍须输入x。下方按教学步骤排列Host、Device提议角色与Device目标角色，不表示独立物理stream或设备，也不表示实测耗时。`;
+      + `x位于${validKvLength}，尚无自身Target KV，下一轮仍须输入x。下方按教学步骤排列Host、设备上的候选生成与目标模型验证，不表示独立物理stream或设备，也不表示实测耗时。`;
     parts.push(`<svg class="spec-scene-svg" xmlns="http://www.w3.org/2000/svg" width="1100" height="760" viewBox="0 0 1100 760" role="img" aria-labelledby="spec-scene-svg-title spec-scene-svg-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif">`
       + `<title id="spec-scene-svg-title">单链投机：${escape(STEP_LABELS[phase])}</title>`
       + `<desc id="spec-scene-svg-desc">${escape(description)}</desc>`
@@ -137,7 +137,7 @@
     }
     const boundary = committed
       ? `提交后有效 Target KV 长度：${validKvLength}　｜　回退候选位置：${rejected} 个　｜　x@${validKvLength} 尚无 Target KV${isNext ? `；新 Query 共 ${nextK + 1} 行，尚未运行 Target。` : '。'}`
-      : hasVerification ? 'Target 已计算 4 行；验证结果将决定哪些候选 KV 留在正确路径，随后才提交输出。'
+      : hasVerification ? 'Target 已计算 4 行；验证结果将决定哪些候选的 KV 能在下一轮使用，随后才提交输出。'
         : '候选已被 Draft 提出，并不表示它已经拥有 Target KV，也不表示可以交给客户端。';
     parts.push(text(44, 430, boundary, 12.5, '#3b5d79', 500));
 
@@ -148,9 +148,9 @@
 
     const laneYs = [512, 572, 632];
     laneYs.forEach(y => parts.push(box(28, y, 1044, 50, '#f6f9fc', '#e1e9f1', 6)));
-    parts.push(text(44, 534, 'Host', 14, '#334c65', 700), text(44, 553, '控制与输出角色（示意）', 11.5, '#657b90'));
-    parts.push(text(44, 594, 'Device / Draft', 14, '#805a17', 700), text(44, 613, '提议计算角色（示意）', 11.5, '#657b90'));
-    parts.push(text(44, 654, 'Device / Target', 14, '#28518f', 700), text(44, 673, '目标计算角色（示意）', 11.5, '#657b90'));
+    parts.push(text(44, 534, 'Host', 14, '#334c65', 700), text(44, 553, '控制与输出（示意）', 11.5, '#657b90'));
+    parts.push(text(44, 594, 'Device / Draft', 14, '#805a17', 700), text(44, 613, '生成候选（示意）', 11.5, '#657b90'));
+    parts.push(text(44, 654, 'Device / Target', 14, '#28518f', 700), text(44, 673, '验证候选（示意）', 11.5, '#657b90'));
 
     const timeX = stage => 310 + stage * 94;
     parts.push(box(timeX(phase) - 2, 507, 90, 180, '#eaf1ff', '#d8e4f7', 6, 'opacity="0.68"'));
@@ -177,14 +177,14 @@
         + text(x + 41, y + 30, detail, 10, ink, 400, 'middle') + '</g>');
     }
     task(0, 0, 't0 已确认', '尚无自身 KV', 'anchor');
-    task(1, 1, '提议 d1', '沿 t0 继续', 'draft');
-    task(2, 1, '提议 d2', '沿 d1 继续', 'draft');
-    task(3, 1, '提议 d3', '沿 d2 继续', 'draft');
+    task(1, 1, '提议 d1', '输入 t0', 'draft');
+    task(2, 1, '提议 d2', '输入 d1', 'draft');
+    task(3, 1, '提议 d3', '输入 d2', 'draft');
     task(4, 0, '组装 4 行', '位置 8–11', 'computed');
     task(5, 2, 'Target 前向', '一次验证 4 行', 'anchor');
     task(6, 0, committed ? `提交 ${accepted + 1} 个` : '提交输出', committed ? `有效 KV ${validKvLength}` : '更新有效边界', 'valid');
-    task(7, 0, '组下一轮', `x + ${nextK} 个候选`, 'computed');
-    ['起点', 'd1', 'd2', 'd3', '组输入', '验证', '提交', '下一轮'].forEach((name, i) => {
+    task(7, 0, '准备下一轮', `x + ${nextK} 个候选`, 'computed');
+    ['起点', 'd1', 'd2', 'd3', '准备输入', '验证', '提交', '下一轮'].forEach((name, i) => {
       parts.push(text(timeX(i) + 41, 706, name, 11.5, i === phase ? '#2859a2' : '#7a8ca0', i === phase ? 700 : 400, 'middle'));
     });
     parts.push(text(28, 733, '横轴按步骤排列，条块宽度不表示耗时。并行验证只指一次 Target 前向中的多行输入，各行仍遵守因果掩码。', 12, '#60758a'));
@@ -222,8 +222,8 @@
     }
     parts.push(`<div class="spec-scene-adaptive" data-phase="${escape(frame.key)}" aria-label="单链投机：${escape(STEP_LABELS[phase])}，网页自适应图示">`);
     parts.push('<section class="spec-web-chain" aria-label="起点与逐个扩展的候选链">');
-    parts.push(heading('沿 t0 逐个提出候选', `已提议 ${proposed} / 3`, phase <= 3));
-    parts.push('<p class="spec-web-start"><span>进入本轮</span><strong>Target KV：0–7，共 8 位</strong><span>t0@8 已确认输出，尚无自己的 Target KV。</span></p>');
+    parts.push(heading('从 t0 开始逐个生成候选', `已提议 ${proposed} / 3`, phase <= 3));
+    parts.push('<p class="spec-web-start"><span>进入本轮</span><strong>Target KV：0–7，共 8 个位置</strong><span>t0@8 已确认输出，尚无自己的 Target KV。</span></p>');
     parts.push('<div class="spec-web-token-chain">');
     parts.push(chip('t0', 8, '本轮起始 Token', 'anchor', phase === 0));
     for (let i = 1; i <= 3; i++) {
@@ -251,7 +251,7 @@
     parts.push('</section>');
     parts.push('<div class="spec-web-results">');
     parts.push('<section class="spec-web-commit" aria-label="提交输出与保留的有效 KV">');
-    parts.push(heading('提交输出，保留正确 KV', committed ? `新输出 ${accepted + 1} 个` : '尚未提交', phase === 6));
+    parts.push(heading('提交输出，保留有效 KV', committed ? `新输出 ${accepted + 1} 个` : '尚未提交', phase === 6));
     parts.push(`<p class="spec-web-kv"><span>有效 Target KV</span><strong>${committed ? `0–${validKvLength - 1} · 长度 ${validKvLength}` : '0–7 · 长度 8'}</strong></p>`);
     if (committed) {
       parts.push(`<div class="spec-web-output">${output.map((label, i) => chip(label, 9 + i, label === 'x' ? accepted === 3 ? 'bonus · 无 KV' : '纠正 · 无 KV' : '确认 · 有 KV', label === 'x' ? 'anchor' : 'valid')).join('')}</div>`);
@@ -260,11 +260,11 @@
       parts.push(`<p class="spec-web-pending">${verified ? '四行已计算；提交时再确定有效 KV 边界。' : '候选已提出，不代表 Target 已计算，也不能直接提交。'}</p>`);
     }
     parts.push('</section>');
-    parts.push('<section class="spec-web-next" aria-label="下一轮从 x 接续">');
-    parts.push(heading('下一轮从 x 接续', `新 K = ${nextK}`, isNext));
+    parts.push('<section class="spec-web-next" aria-label="下一轮从 x 开始">');
+    parts.push(heading('下一轮从 x 开始', `新 K = ${nextK}`, isNext));
     if (committed) {
       parts.push(`<div class="spec-web-next-tokens">${nextQuery.map((value, i) => chip(value, validKvLength + i, i ? '新候选' : '待输入 · 无 KV', isNext ? i ? 'draft' : 'anchor' : 'future', isNext && i === 0)).join('')}</div>`);
-      parts.push(`<p class="spec-web-card-note"><code>query_start_loc = [0, ${nextK + 1}]</code> · <code>seq_len = ${validKvLength + nextK + 1}</code><br>新 Query 尚未执行 Target。</p>`);
+      parts.push(`<p class="spec-web-card-note"><code>query_start_loc = [0, ${nextK + 1}]</code> · <code>seq_len = ${validKvLength + nextK + 1}</code><br>Target 还未处理这些新输入。</p>`);
     } else {
       parts.push('<p class="spec-web-pending">先提交并纠正有效边界，再让 x 进入下一轮输入。新 Query 尚未执行。</p>');
     }
@@ -287,7 +287,7 @@
       'Target 已给出连续接受候选数 a。', `有效 KV 边界已纠正到 ${validKvLength}。`
     ];
     const after = [
-      '沿 t0 逐个提议 d1、d2、d3。', 'd1 确定后，才用它提议 d2。',
+      '从 t0 开始依次提出 d1、d2、d3。', 'd1 确定后，才用它提议 d2。',
       'd2 确定后，才用它提议 d3。', '收齐候选，再组装四行 Target 输入。',
       'Target 将四行作为一批处理。', '提交接受前缀与 x，回退无效候选 KV。',
       'x 进入下一轮，仍须计算自身 KV。', '新 Query 准备好后，还需执行 Target。'

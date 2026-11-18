@@ -1,8 +1,8 @@
 <section class="spec-lab" id="spec-player" aria-labelledby="spec-player-title">
   <div class="spec-lab-heading">
-    <span class="spec-eyebrow">逐步图解 · 单链贪心构造例</span>
-    <h3 id="spec-player-title">一轮投机，哪些 token 真正留下来？</h3>
-    <p>固定本轮 K＝3，从 t0 开始逐个提出候选，再看一次 Target 验证与下一轮接续。可拖动进度或点击步骤。</p>
+    <span class="spec-eyebrow">单条候选链 · 贪心采样示例</span>
+    <h3 id="spec-player-title">一轮验证后，哪些 Token 成为输出？</h3>
+    <p>固定本轮 K＝3，从 t0 开始逐个提出候选，观察 Target 怎样一次验证这批候选，以及下一轮从哪个 Token 开始。可拖动进度或点击步骤。</p>
   </div>
   <div class="spec-controls">
     <label for="spec-accepted">连续接受候选数 a
@@ -33,7 +33,7 @@
   <div class="spec-stat-grid" id="spec-stats"></div>
   <p class="spec-boundary" id="spec-kv-boundary"></p>
   </details>
-  <p class="spec-footnote">泳道只有相对先后，色块宽度不表示实测耗时。不同角色可运行在同一设备，具体 stream 和 rank 由部署决定。这是状态变化演示：手选 a 不表示接受概率；事件不等时，也不预测速度。x 刚被采样出来，尚未作为 Target 输入，不能算入已有 Target KV。</p>
+  <p class="spec-footnote">泳道只有相对先后，色块宽度不表示实测耗时。不同角色可运行在同一设备，具体 stream 和 rank 由部署决定。这里手动选择接受的候选数 a，用来比较不同结果。步骤之间没有固定时长，无法据此估计接受概率或运行速度。x 刚被采样出来，尚未作为 Target 输入，不能算入已有 Target KV。</p>
   <div class="spec-continuation" aria-labelledby="spec-continuation-title">
     <h4 id="spec-continuation-title">下一轮 metadata 预览（按所选接受长度推算）</h4>
     <p>上一轮固定 K＝3，用接受长度 a 纠正下一轮的起点；新的 K 决定这次有多少行 Query。预览使用上方选定的 a，不随播放步骤变化。</p>
@@ -45,7 +45,7 @@
       <div id="spec-continuation-metadata"></div>
       <details><summary>查看页表与 slot_mapping</summary><p class="spec-continuation-address" id="spec-continuation-address"></p></details>
     </div>
-    <p class="spec-footnote">扩展寻址示例使用每页 4 个 Token、页表 [7, 2, 9, 10]。这里对照的是输入与地址，不模拟后端性能，也不决定应采用哪种投机策略。</p>
+    <p class="spec-footnote">本例每页可存 4 个 Token 的 KV，页表为 [7, 2, 9, 10]。可以据此核对输入位置与写入地址。选择投机策略或评估后端性能还需要实际运行数据。</p>
   </div>
   <noscript><p>可展开下方“完整过程”阅读静态 SVG 图解；播放器需要 JavaScript。</p></noscript>
 </section>
@@ -64,6 +64,6 @@
   <p class="spec-internal" id="spec-stream-internal" hidden></p>
   <div class="spec-stat-grid spec-stream-stat-grid" id="spec-stream-stats"></div>
   <div class="spec-formulas" id="spec-stream-formulas"></div>
-  <p class="spec-boundary">这里的“ITL”特指客户端相邻输出事件的间隔。同一事件里多个 token 的内部时序不可观测，不能补几个 0 来冒充设备逐 token 时延。</p>
-  <p class="spec-footnote">还要留意首块：若第一块已有多个 token，它们的内部间隔也不可见。极端情况下，7 个 token 一块到达，按公式 TPOT 可为 0，却没有任何输出事件间隔样本；这不表示生成没有耗时。不同请求汇总时，间隔加权与请求加权也会产生差异。</p>
+  <p class="spec-boundary">这里的“ITL”特指客户端相邻输出事件的间隔。同一次收到多个 token 时，客户端无法判断设备生成这些 token 的时间间隔。把间隔填成 0 会扭曲设备时延统计。</p>
+  <p class="spec-footnote">如果第一条内容消息带有多个 token，客户端同样无法区分它们各自的生成时间。极端情况下，7 个 token 一块到达，按公式 TPOT 可为 0，却没有任何输出事件间隔样本；这不表示生成没有耗时。不同请求汇总时，间隔加权与请求加权也会产生差异。</p>
 </section>

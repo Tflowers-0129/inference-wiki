@@ -23,14 +23,14 @@
   function insight(s) {
     if (s.number===1) return '还没有 Decode。两条完整 Prefill 各占 4,096 tokens，刚好用满预算；本轮完成后，各请求已可得到首个输出 token。';
     if (s.number===2) return '先安排 2 条 Decode，仅用 2 tokens。剩余 8,190：R3 完整处理 4,096，R4 处理 4,094，还差 2 tokens，留到下一轮。';
-    if (s.number===3) return '3 条 Decode 之后，先补完 R4 的 2-token 尾块，再放入完整 R5 和 R6 的分块。同一轮会接触 3 条 P，但总 token 预算不变。';
-    if (s.complete===model.total) return '这批请求已全部完成。它是单批请求的排空终点；若持续补入请求，调度又会面对新的 P/D 混合，实际稳态需要另行验证。';
+    if (s.number===3) return '本轮先为 3 条 Decode 分配预算。剩余预算可处理 R4 最后的 2 个输入 token、R5 的全部输入和 R6 的部分输入。因此，本轮有 3 条请求做 Prefill，总预算仍是 8,192 个 token。';
+    if (s.complete===model.total) return '这批请求已全部完成。如果客户端持续补发，新请求的 Prefill 可能与已有请求的 Decode 出现在同一轮。系统能否达到稳态，需要另行测量。';
     if (!s.prefill && !s.waiting) return `所有输入已处理完，本轮只安排 ${s.decode} 条 Decode，使用 ${fmt(s.used)} / ${fmt(model.budget)} tokens。预算是上限，无需填满；token 用量也不能直接代表耗时或算力利用率。`;
-    if (s.number===model.peakStep && +outputSelect.value===64) return `短输出时，早到请求已经开始完成。这个模型的运行序列数峰值为 ${model.peak}，没有达到 200；ms 只是上限，并不保证填满。`;
+    if (s.number===model.peakStep && +outputSelect.value===64) return `输出较短时，部分请求在其他请求开始前就已完成。运行序列数最多只有 ${model.peak} 条，低于 ms 设定的 200 条上限。`;
     if (s.active===model.maxSeqs) return '轮末运行序列达到 200。本批请求的 Prefill 将很快处理完，随后主要是 Decode；长输出下，这个纯 D 窗口可能持续很多轮。';
-    if (s.finishedNow && s.prefill) return `本轮 ${s.finishedNow} 条请求结束，同时还有 Prefill 在推进。短输出可能让解码生命周期与混合填充期大量重叠；长轮次会影响 token 间隔，但这里没有模拟实际耗时。`;
-    if (s.chunks.some(c=>c.continued)) return '优先给已有 Decode 分配 token，再续接上轮未完成的 Prefill，最后接纳新请求。分块的尾部可能很小，因此一轮可能出现多条 P。';
-    return '每轮都重新核算 Decode、序列数和剩余 token 预算。当前有新的 Prefill 入场，完成 Prefill 的请求从下一轮参与 Decode。';
+    if (s.finishedNow && s.prefill) return `本轮 ${s.finishedNow} 条请求结束，同时还有 Prefill 在推进。短请求可能在其他请求还在做 Prefill 时就完成 Decode。这些混合轮次如果执行较久，相邻输出 token 的间隔也可能变长。此处只模拟轮次，没有模拟耗时。`;
+    if (s.chunks.some(c=>c.continued)) return '优先给已有 Decode 分配 token，再续接上轮未完成的 Prefill，最后接纳新请求。有些请求只剩少量输入，本轮处理完还有预算，可以继续处理其他请求的输入。';
+    return '每轮都重新核算 Decode、序列数和剩余 token 预算。本轮有新请求开始 Prefill，完成 Prefill 的请求从下一轮参与 Decode。';
   }
   function render() {
     const s=model.steps[current];
@@ -49,14 +49,14 @@
     if(s.decode)rows.push(`<div class="detail-row"><span class="detail-kind d">D</span><strong>${s.decode} 条序列各推进 1 token</strong><code>${s.decode} tokens</code></div>`);
     for(const c of s.chunks)rows.push(`<div class="detail-row"><span class="detail-kind">P</span><strong>R${c.id} ${c.continued?'续接输入':'处理输入'}</strong><span>${c.complete?'→ Prefill 完成':'分块进行中'}</span>${c.left?`<span class="remain-note">还差 ${fmt(c.left)}</span>`:''}<code>${fmt(c.tokens)} tokens</code></div>`);
     if(s.free)rows.push(`<div class="detail-row"><span class="detail-kind empty">—</span><span>未使用预算</span><code>${fmt(s.free)} tokens</code></div>`);
-    rows.push(`<div class="round-end-state"><div class="round-state-heading"><strong>轮末请求状态</strong><span>共 ${model.total} 条 · 每条只计入一种状态</span></div><div class="round-state-counts"><span>未入场 <b>${s.waiting}</b></span><span>输入未处理完 <b>${s.prefilling}</b></span><span>待后续 Decode <b>${s.active-s.prefilling}</b></span><span>全部输出完成 <b>${s.complete}</b></span></div><p>${roundEndNote(s)}</p><p class="round-state-basis">这里统计本轮结束后的请求状态；上方“本轮 Decode”统计这一轮实际执行的条数。</p></div>`);
+    rows.push(`<div class="round-end-state"><div class="round-state-heading"><strong>轮末请求状态</strong><span>共 ${model.total} 条 · 每条只计入一种状态</span></div><div class="round-state-counts"><span>尚未调度 <b>${s.waiting}</b></span><span>输入未处理完 <b>${s.prefilling}</b></span><span>待后续 Decode <b>${s.active-s.prefilling}</b></span><span>全部输出完成 <b>${s.complete}</b></span></div><p>${roundEndNote(s)}</p><p class="round-state-basis">这里统计本轮结束后的请求状态；上方“本轮 Decode”统计这一轮实际执行的条数。</p></div>`);
     $('scheduleDetail').innerHTML=rows.join('');
     $('stepInsight').textContent=insight(s);
     $('stepRange').value=s.number;
     $('rangeLabel').textContent=`${s.number} / ${model.steps.length}`;
     $('prevStep').disabled=current===0;
     $('nextStep').disabled=current===model.steps.length-1;
-    $('jumpPeak').textContent=+outputSelect.value===64?'运行数峰值':'首次满载附近';
+    $('jumpPeak').textContent=+outputSelect.value===64?'运行序列最多':'首次达到 200 条';
     $('jumpPeak').title=`跳至第 ${model.peakStep} 轮`;
   }
   function loadModel() {

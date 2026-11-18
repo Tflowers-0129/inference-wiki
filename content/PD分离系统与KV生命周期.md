@@ -2,9 +2,9 @@
 
 PD 分离把输入处理和后续生成交给两套引擎：P 负责 Prefill，D 负责 Decode。P 算好的 KV 要交给 D，D 才能接着生成。两边各有自己的调度器、Worker 和 KV 缓存池，因此交接时既要复制数据，也要告诉 D 这些数据属于哪条请求、放在了哪里。
 
-本章先看两种顺序：拉取式先让 P 算完，再由 D 申请空间并读取；逐层推送先让 D 申请空间，P 每算好一层就可以发送。后面用 A5 实验核对实际传输了多少字节，以及数据完成与页释放是否发生在同一时刻。
+本章先看两种顺序：拉取式先让 P 算完，再由 D 申请空间并读取；逐层推送先让 D 申请空间，P 每算好一层就可以发送。后面用 A5 实验核对实际传输了多少字节，以及最后一次写入返回与源端调用页释放函数的先后顺序。
 
-> 两条实现分别是 `MooncakeConnectorV1` 和 `MooncakeLayerwiseConnector`，配对实际使用的 vLLM Scheduler 与 ModelRunnerV2。前者位于 `kv_p2p/mooncake_connector.py`，不是另一个拆分目录中的 `MooncakePullConnector`。固定源码、Mooncake 二进制来源、脚本和结果见实验材料。机制图只说明流程，实测图在后半章单独标出。 [实验材料](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/pd-disaggregation)
+> 拉取式采用 `kv_p2p/mooncake_connector.py` 中的 `MooncakeConnectorV1`，逐层推送采用 `MooncakeLayerwiseConnector`。下文结合实验中实际运行的 vLLM Scheduler 和 ModelRunnerV2 解释这两种实现。另一个目录中的 `MooncakePullConnector` 是不同的连接器。固定源码、Mooncake 二进制来源、脚本和结果见实验材料。机制图只说明流程，实测图在后半章单独标出。 [实验材料](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/pd-disaggregation)
 
 ## P/D 两端的页表与请求状态
 
@@ -25,21 +25,21 @@ KV 缓存按物理页分配，源码中也称 block；`block_size` 就是每页�
 | 0～127 | 0 | 1 | 5 |
 | 128 | 1 | 2 | 4 |
 
-P 从页 `[1,2]` 读出数据，D 把它放进页 `[5,4]`。交接后，D 的 Attention 按自己的页表和请求长度读取历史。即使两边碰巧分到相同页号，地址也要从各自 Worker 的缓存起点计算。
+D 从 P 的页 `[1,2]` 读取数据，分别写入自己的页 `[5,4]`。交接后，D 的 Attention 按自己的页表和请求长度读取历史。即使两边碰巧分到相同页号，地址也要从各自 Worker 的缓存起点计算。
 
 如果两端 TP、CP 或页大小不同，还要确认连接器能把同一层、同一个 KV head、同一段历史放到 D 所需的位置。 [拉取式的 head 和页映射](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L3930-L4054)
 
-KV 之外，D 还需要模型输入、采样参数、请求身份和生成进度。这些信息通过 HTTP 请求交接，KV 数据另由 Worker 传输。因此，复制完 KV 张量只是交接的一部分。 [拉取式连接器](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py) · [逐层连接器](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py)
+KV 之外，D 还需要模型输入、采样参数、请求标识和生成进度。这些信息通过 HTTP 请求交接，KV 数据另由 Worker 传输。因此，复制完 KV 张量只是交接的一部分。 [拉取式连接器](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py) · [逐层连接器](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py)
 
 两端还要分别经过调度。P 根据自己的 Token 预算和 KV 容量决定何时开始；D 根据自己的空间和执行队列决定何时接收、何时生成。实例之间的 PD 路由，与每个实例内部的 TP 通信，是两层不同的工作。
 
 ## Proxy、连接器与 Mooncake 的职责
 
-这条路径有三种工作：proxy 选择实例并转发请求，连接器安排数据存放和完成通知，Mooncake Transfer Engine 执行实际复制。
+proxy 选择实例并转发请求。连接器根据两端的页号安排传输，处理完成通知。Mooncake Transfer Engine 负责在已注册的缓冲区之间复制 KV。
 
 | 参与者 | 交换的信息 | 对这条请求的作用 |
 | --- | --- | --- |
-| Proxy 与 P/D HTTP 服务 | prompt、采样参数、请求身份、`kv_transfer_params` | 选择实例、发起两端请求、向客户端转发 D 输出 |
+| Proxy 与 P/D HTTP 服务 | prompt、采样参数、请求标识、`kv_transfer_params` | 选择实例、发起两端请求、向客户端转发 D 输出 |
 | 连接器 Scheduler 与 Worker，以及 Worker 侧信道 | 本地/远端页号、布局、内存描述、完成通知 | 分配、生成传输计划、把完成状态送回 Scheduler |
 | Mooncake Transfer Engine | 已注册缓冲区之间的 READ / WRITE | 实际搬运 KV payload |
 
@@ -47,16 +47,16 @@ proxy 把交接信息送到 D，不表示 KV 已经到达。D 可以先按预计
 
 <!-- DETAILS: 源码对照：交接字段、两种端口与同步读写接口 -->
 
-源码里的 remote 表示接收信息的一方所看到的远端。拉取时 D 收到 P 的信息；推送时 P 收到 D 的信息，所以同名字段的方向会变。
+拉取时，D 收到 P 的源页信息。推送时，P 收到 D 的目标页信息。源码里的 remote 总是相对于收到这份信息的一方而言。
 
 | 交接信息 | 拉取式：P 返回给 D | 逐层推送式：D 返回给 P |
 | --- | --- | --- |
 | `remote_block_ids` | P 的源页号 | D 的目标页号 |
-| `remote_engine_id`、请求身份 | 定位保留源 KV 的 P 请求 | 定位等待接收的 D 请求 |
+| `remote_engine_id`、请求标识 | 定位保留源 KV 的 P 请求 | 定位等待接收的 D 请求 |
 | `remote_host`、`remote_port` | P 的连接器侧信道 | D 的连接器侧信道 |
 | 交接后的工作 | D 发起 READ | P 按层发起 WRITE |
 
-`remote` 是接收这份 metadata 的一方所看到的远端。不能把两种方式的同名字段解释成固定属于 P 的地址。[拉取字段构造](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py) · [推送字段构造](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py)
+两个连接器分别构造各自的交接字段。[拉取字段构造](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py) · [推送字段构造](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py)
 
 本章 P2P 路线直接交接 P、D 的缓存，没有启动 Mooncake Store。Worker 通过 `GlobalTE` 初始化 Transfer Engine，选择 `P2PHANDSHAKE` 和 `ascend` transport。连接器用于交换信息的 `kv_port`，与 TE 对外发布的 RPC 端口不同。 [TE 初始化与注册](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/distributed/kv_transfer/utils/mooncake_transfer_engine.py)
 
@@ -82,9 +82,9 @@ proxy 把交接信息送到 D，不表示 KV 已经到达。D 可以先按预计
 
 普通 FullAttention 路径先算完 prompt。虽然 P 的本地请求已经结束，D 还没读取 KV，因此 P 必须继续保留源页。
 
-连接器的 `request_finished` 检查 `do_remote_decode` 和输出长度限制这一结束原因。存在待交接的 prompt 块时，它返回 `delay_free_blocks=True`，并将请求加入发送完成跟踪集合。
+连接器的 `request_finished` 会检查 `do_remote_decode`，并判断请求是否因达到输出长度上限而结束。存在待交接的 prompt 块时，它返回 `delay_free_blocks=True`，并记录该请求，以便接收完成通知后释放源页。
 
-此时 HTTP 可以返回交接信息，KV 本身仍留在 P 的已注册缓存中。Scheduler 继续保留源页引用。proxy 再把 `kv_transfer_params` 附到 D 请求，其中包含 P 请求与引擎身份、源页号、侧信道入口和并行布局。 [`request_finished` 与交接字段](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py) · [Scheduler 的 `_free_request`](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py)
+此时 HTTP 可以返回交接信息，KV 本身仍留在 P 的已注册缓存中。Scheduler 继续保留源页引用。proxy 再把 `kv_transfer_params` 附到 D 请求，其中包含 P 的请求标识和引擎标识、源页号、侧信道入口和并行布局。 [`request_finished` 与交接字段](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py) · [Scheduler 的 `_free_request`](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py)
 
 如果 D 尚未选出，或因容量不足迟迟不能接收，P 的 KV 就会继续占用空间。P 算完 Prefill 到源页可供下一请求使用，中间还可能隔着一段等待；只测 Prefill 内核时间看不到这段占用。
 
@@ -113,25 +113,25 @@ Worker 初始化 KV 池后，`register_kv_caches` 为每层、每个 K/V 视图�
 | 1 → 5 | `K_P + 32,768` | `K_D + 163,840` | 16,384 B |
 | 2 → 4 | `K_P + 65,536` | `K_D + 131,072` | 16,384 B |
 
-V 的范围按相同方法计算，它的起始地址比对应 K 视图晚 16,384 B。只有 P、D 两边的字节范围都按顺序相邻，连接器才会合并。本例 K 页之间夹着 V，D 的块顺序又是 5、4，所以每个 D rank 提交 `2 层 × 2 组件 × 2 页 = 8` 条范围，共 131,072 B。
+V 的范围按相同方法计算，其起始地址比对应的 K 视图大 16,384 B。只有 P、D 两边的字节范围都按顺序相邻，连接器才会合并。本例 K 页之间夹着 V，D 的块顺序又是 5、4，所以每个 D rank 提交 `2 层 × 2 组件 × 2 页 = 8` 条范围，共 131,072 B。
 
 129 个 Token 的有效 KV 只有 `129 × 2 层 × 2 组件 × 64 × 2 B = 66,048 B`。传输量更大，是因为尾页只保存一个 Token 的 KV，却传了整页，剩余 127 个位置也占字节。 [地址、长度和合并条件](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1000-L1059) · [实测范围数与字节量](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/pull.json)
 
 <!-- DETAILS: 源码对照：READ 参数方向与多来源接收 -->
 
-这次 `batch_transfer_sync_read` 由 D 发起。它把上表的 D 地址传入 local buffer 列表（源码的 `src_list`），P 地址传入远端列表（`dst_list`），数据流向为 P→D。若两端分片要求把一个 D 页拆给多个 P Worker，地址计算还要按来源加上页内偏移，必要的重排在 D 本地接收任务收齐后进行。[读描述符与分片偏移](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1000-L1059) · [接收后的重排](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L734-L787)
+这次 `batch_transfer_sync_read` 由 D 发起。它把上表的 D 地址传入 local buffer 列表（源码的 `src_list`），P 地址传入远端列表（`dst_list`），数据流向为 P→D。如果 D 需要从多个 P Worker 读取数据才能填满一个目标页，计算地址时还要加上各来源对应的页内偏移。D 的本地接收任务全部完成后，再按需要重排。[读描述符与分片偏移](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1000-L1059) · [接收后的重排](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L734-L787)
 
 <!-- /DETAILS -->
 
 ### P 和 D 的 TP 不同时，谁来拼回各个 KV head？
 
-D 需要的 KV heads 可能分散在多个 P Worker 上。此时要先收齐各来源，再把页内顺序排成 Attention 所需的样子。下面是源码复算；A5 实测仍是两端 TP2。
+D 需要的 KV heads 可能分散在多个 P Worker 上。D 要先收齐这些数据，再按 Attention 读取各 head 的顺序重排目标页。下面按源码推算两端 TP 不同的情况，A5 实验中两端均为 TP2。
 
 <!-- DETAILS: 源码算例：P TP4、D TP2 的 head 合并与页内重排 -->
 
-取一个源码算例。模型有 4 个全局 KV heads，P 用 TP4，D 用 TP2，双方都不切上下文或层，均用普通 NHD、BF16、128 槽页和 64 维 head。P 每 rank 一头，D 每 rank 两头，因此 `tp_num_need_pulls=2/1=2`。连接器从同一 PP stage 的 P rank 列表按连续两项分组，D rank 0 从 P rank 0、1 取 heads 0、1，D rank 1 从 P rank 2、3 取 heads 2、3。这个拓扑用于复算代码，A5 实测仍是 TP2 → TP2。[每页来源数与 P rank 选择](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L4055-L4068) · [rank 分组](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L4131-L4190)
+假设模型共有 4 个 KV head，P 用 TP4，D 用 TP2，两端都不切分上下文或模型层。缓存采用普通 NHD 布局和 BF16，每页容纳 128 个位置，每个 head 的维度为 64。P 的每个 rank 保存一个 KV head，D 的每个 rank 需要两个，因此 `tp_num_need_pulls=2/1=2`。连接器从同一 PP stage 的 P rank 列表中每次取相邻两项为一组，D rank 0 从 P rank 0、1 取 heads 0、1，D rank 1 从 P rank 2、3 取 heads 2、3。[每页来源数与 P rank 选择](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L4055-L4068) · [rank 分组](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L4131-L4190)
 
-D rank 0 的一个 K 页有 32 KiB。P rank 0、1 的 K 页各有 16 KiB，READ 分别写到 D 的 K 页起点和起点后 16 KiB，V 同理。两段落地时，每段内部包含一个来源的 128 行，页内顺序是 `[来源,位置,来源内 head,通道]`。D 的 NHD 读法需要同一位置的两个 head 相邻。以位置 0 的 head 1 为例，刚搬完在 K 页内偏移 16,384 B，重排后在偏移 128 B。连接器等本地所有拉取任务收尾，再按块交换来源和位置轴。可用的融合算子直接重排所选块，另一条路径先 gather 到临时缓冲，转轴后再按原槽 scatter。连接器处理完这一步才报告本地接收终结，重排异常进入接收失败路径。[目标区段计算](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1008-L1035) · [等待与重排](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L743-L777) · [重排分派](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1149-L1181) · [gather 与 scatter](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1375-L1461)
+D rank 0 的一个 K 页有 32 KiB。P rank 0、1 的 K 页各有 16 KiB，READ 分别写到 D 的 K 页起点和起点后 16 KiB，V 同理。两次 READ 完成后，每段连续保存同一个 P rank 的 128 行，D 的页内顺序是 `[来源,位置,来源内 head,通道]`。D 的 NHD 读法需要同一位置的两个 head 相邻。以位置 0 的 head 1 为例，复制后它在 K 页内的偏移为 16,384 B，重排后为 128 B。连接器等本地拉取任务全部结束，再按块交换来源轴和位置轴。融合算子可用时直接重排所选块，另一条路径先用 gather 将数据收集到临时缓冲区，交换两个轴后再用 scatter 写回原位置。重排成功后，连接器才报告本地接收完成。如果重排报错，则按接收失败处理。[目标区段计算](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1008-L1035) · [等待与重排](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L743-L777) · [重排分派](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1149-L1181) · [gather 与 scatter](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L1375-L1461)
 
 <!-- /DETAILS -->
 
@@ -147,15 +147,15 @@ D rank 0 的一个 K 页有 32 KiB。P rank 0、1 的 K 页各有 16 KiB，READ 
 
 ## P 已经采样，D 为什么还要重算最后一个 prompt Token？
 
-P 虽然采样了一个 Token，proxy 却没有把它追加到 D 的 prompt，也没有先把 P 的文本发给客户端。proxy 交给 D 的是原请求和 `kv_transfer_params`。元数据中即使有 `last_token_id`，也不能单凭字段存在就认定后续使用了它。
+proxy 交给 D 的是原请求和 `kv_transfer_params`。P 采样的 Token 没有追加到 D 的 prompt 中，P 生成的文本也没有发给客户端。元数据中的 `last_token_id` 是否使用，要看后续调用。
 
-本章普通 FullAttention 路径中，D 收到完整 prompt KV 后会退回一个位置，重新计算 prompt 最后一个 Token，用它得到 logits，再采样客户端的第一个输出。因此这条路径不能按“P 给出第一个输出，D 生成剩下输出”记账。
+本章普通 FullAttention 路径中，D 收到完整 prompt KV 后会退回一个位置，用 prompt 的最后一个 Token 再做一次前向，根据得到的 logits 采样。客户端看到的第一个输出 Token 就来自 D 的这次采样。
 
 对应源码是 `_update_waiting_for_remote_kv`：当 `num_computed_tokens == num_tokens` 时，计算进度回退一位。 [Proxy 的交接处理](https://github.com/vllm-project/vllm-ascend/blob/main/examples/disaggregated_prefill_v1/load_balance_proxy_server_example.py) · [末 Token 重算](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py)
 
-129-token 实测中，D 从 `WAITING_FOR_REMOTE_KVS` 回到 `WAITING` 时，计算进度从 129 退到 128。下一次输入 prompt 位置 128，用 D 页表的第二页 4、页内偏移 0写入，`slot_mapping = 4×128+0 = 512`；前 128 个位置的历史从页 5 读取。
+129-token 实测中，D 从 `WAITING_FOR_REMOTE_KVS` 回到 `WAITING` 时，计算进度从 129 退到 128。下一轮，D 以 prompt 位置 128 的 Token 为输入，将该位置的 KV 写到页号 4、页内偏移 0。页号 4 是 D 页表的第二项，对应的写入位置为 `slot_mapping = 4×128+0 = 512`。前 128 个位置的历史从页 5 读取。
 
-客户端的第一个输出位于位置 129。等它下一次作为模型输入，才会把自己的 KV 写进页 4 的页内偏移 1。 [恢复调度的实测记录](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/lifecycle-summary-pull.json) · [Runner 的 slot mapping](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/ops/triton/v2/block_table/compute_slot_mappings.py#L79-L113)
+客户端的第一个输出位于位置 129。下一轮以这个 Token 为输入时，D 才会把它的 KV 写到页 4 的页内偏移 1。 [恢复调度的实测记录](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/lifecycle-summary-pull.json) · [Runner 的 slot mapping](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/ops/triton/v2/block_table/compute_slot_mappings.py#L79-L113)
 
 Mamba 或压缩状态不一定能靠重写最后一个 KV 位置恢复，还有 P 端截断 prompt 等额外处理。本节普通 GQA 算例不包含这些路径。
 
@@ -177,13 +177,13 @@ proxy 中 `release_prefiller_kv` 等函数只是调整入口评分计数，不�
 
 ### 层内 KV 写入事件与发送队列
 
-发送必须等对应层的 KV 写完。P Scheduler 先按本轮计划生成发送 metadata，ModelRunnerV2 在前向前绑定它并准备逐层状态。Attention 写完一层 KV 后，Ascend hook 在计算流记录事件；`save_kv_layer` 再把事件、层身份和页映射加入后台发送队列。
+发送必须等对应层的 KV 写完。P Scheduler 先按本轮计划生成发送 metadata，ModelRunnerV2 在前向前绑定它并准备逐层状态。Attention 写完一层 KV 后，Ascend hook 在计算流记录事件；`save_kv_layer` 再把事件、层标识和页映射加入后台发送队列。
 
 后台线程等待该层的写入事件完成，再调用 `batch_transfer_sync_write`。主计算流可以继续运行该层余下算子或后续层，所以两者有机会重叠。
 
 某些 Attention 路径没有及早记录写入事件，连接器会在较晚位置补记。发送就要等到那个位置，可用于重叠的时间也会改变。 [KV 写入通知](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/attention/utils.py) · [逐层发送与写入事件](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py)
 
-分块 Prefill 还要考虑尾页是否写完。非最终 chunk 只发送已覆盖的完整页，最后一个 chunk 才能包含未满尾页。Scheduler 用 `local_computed_tokens`、`local_transferred_tokens` 安排范围；名字里虽然有 transferred，也只代表计划，不能当作远端已写完的回执。
+分块 Prefill 还要考虑尾页是否写完。非最终 chunk 只发送已覆盖的完整页，最后一个 chunk 才能包含未满尾页。Scheduler 用 `local_computed_tokens` 和 `local_transferred_tokens` 确定本次要发送的范围。后一个字段记录计划传输的进度，远端是否写完还要看完成回报。
 
 ### D 收齐 DONE 后恢复调度
 
@@ -218,7 +218,7 @@ P 端不能照搬同一套释放规则。拉取式明确保留源页、等待读
 
 <!-- /DETAILS -->
 
-逐层推送图不能照搬拉取式的“保留源页，收到确认再释放”。这份推送实现没有要求 P 的 `_free_blocks` 调用一定晚于全部后台写完。
+在这份推送实现中，P 可以在后台写入全部结束前调用 `_free_blocks`。
 
 还要区分释放调用返回、实际解除页引用，以及下一请求覆盖地址。分配器可能等待在途模型 step 后才归还页，已有的层缓冲复用事件也只保护对应路径。本次实操记录了释放调用和 WRITE 返回的先后，没有覆盖全部实际复用条件。 [连接器实现](https://github.com/vllm-project/vllm-ascend/tree/main/vllm_ascend/distributed/kv_transfer/kv_p2p) · [分配器延后释放路径](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py)
 
@@ -232,17 +232,17 @@ Scheduler 根据策略决定终止还是重新计算。本次 A5 实验使用默
 
 DONE 长时间不到时，P 的完成轮询会按 `VLLM_MOONCAKE_ABORT_REQUEST_TIMEOUT` 结束超时请求的发送跟踪，以便释放源引用。 [空接收的入队条件](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L2047-L2070) · [源端超时跟踪](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L219-L259)
 
-逐层推送虽然有 FAILED 消息和目标页错误报告，所查快照却没有把失败请求同时加入接收完成集合，也未补齐请求级 `failed_recving` 回报。配对 Scheduler 又要等接收终结，所以不能认为收到 FAILED 就一定自动转为本地重算。
+逐层推送实现了 FAILED 消息和目标页错误报告，但这版代码没有把失败请求加入接收完成集合，也没有完整上报请求级 `failed_recving`。对应的 Scheduler 还在等待接收结束。单凭一条 FAILED 消息，无法确定它会自动转为本地重算。
 
 MetaServer 请求和 DONE 消息各自的重试，也不能保证整条交接在有限时间内恢复。 [逐层失败与 DONE 路径](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py)
 
 客户端断开后，proxy 取消 HTTP task 并清理路由计数，但后台设备传输不一定立即停止，页引用也有各自的释放条件。 [Proxy 取消处理](https://github.com/vllm-project/vllm-ascend/blob/main/examples/disaggregated_prefill_v1/load_balance_proxy_layerwise_server_example.py)
 
-排查时保留请求身份、两端实例、目标是否已分配、还有哪些来源未完成，以及源页和目标页引用是否已归还。HTTP task 取消、页归还分配器、TE 内存注销，不能用其中一项代替其他项。
+排查时保留请求标识、两端实例、目标是否已分配、还有哪些来源未完成，以及源页和目标页引用是否已归还。HTTP task 取消、页归还分配器、TE 内存注销，不能用其中一项代替其他项。
 
 ## A5 拉取式与逐层推送实测
 
-这次在同一台 A5 主机上使用四张健康、空闲的 NPU，按排他租约串行运行两套 PD 系统。两边都是实际 HTTP 服务、官方 proxy、ModelRunnerV2 与 Mooncake 原生传输，没有用 D 本地重算代替加载成功。采集结束后已确认实验进程退出并释放设备。
+实验独占同一台 A5 主机上的四张健康、空闲的 NPU，先后运行两套 PD 系统。两边都是实际 HTTP 服务、官方 proxy、ModelRunnerV2 与 Mooncake 原生传输，没有用 D 本地重算代替加载成功。采集结束后已确认实验进程退出并释放设备。
 
 两套系统各测量四次，输出 Token IDs 均与自己的本地参考一致。但两套 KV head 数和 DCP 配置不同，不能据此比较 pull 与 push 谁更快。
 
@@ -263,7 +263,7 @@ MetaServer 请求和 DONE 消息各自的重试，也不能保证整条交接在
 
 <!-- /DETAILS -->
 
-所选 Token 的 logprob 最大绝对差，拉取式约 0.00766，逐层推送约 0.00789，因此没有声称逐位一致。随机权重检验的是交接后能否续算，不检验预训练质量。 [拉取结果](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/pull.json) · [推送结果](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/push.json)
+与各自本地参考相比，所选 Token 的 logprob 最大绝对差分别约为 0.00766（拉取式）和 0.00789（逐层推送）。两边生成的 Token ID 一致，logprob 仍有差异。随机权重检验的是交接后能否续算，不检验预训练质量。 [拉取结果](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/pull.json) · [推送结果](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/push.json)
 
 ### 设备可见集与 K/V 布局约束
 
@@ -271,7 +271,7 @@ MetaServer 请求和 DONE 消息各自的重试，也不能保证整条交接在
 
 <!-- DETAILS: 实操限制：设备可见集与逐层 K/V 布局 -->
 
-首次拉取式把 P、D 的设备可见集分开，两个 rank 都在 TE READ 建连时超时。随后使用 2 MiB 对齐缓冲区做最小探针：固定物理 pair、UB 配置和 QoS，仅改变进程可见集，四卡都可见时 READ/WRITE 与全缓冲区检查通过，分开可见时 READ 失败。通过引擎已有的 `--device-ids` 保留四卡可见、分别绑定实例后，完整交接通过。这个结果只定位到本次可见性条件，没有定案 HIXL 内部根因。
+首次拉取式把 P、D 的设备可见集分开，两个 rank 都在 TE READ 建连时超时。随后用 2 MiB 对齐缓冲区单独测试 READ 和 WRITE。固定参与传输的两张物理卡、UB 配置和 QoS，只改变各进程可见的设备。四张卡都可见时，READ、WRITE 和全缓冲区校验均通过。P、D 分别只看到自己的设备时，READ 失败。通过引擎已有的 `--device-ids` 保留四卡可见、分别绑定实例后，完整交接通过。这组对照将故障范围缩小到进程的设备可见性，HIXL 内部失败的具体原因仍待确认。
 
 首次逐层推送采用普通 GQA/DCP1。上面拉取算例中 K/V 的页步幅为 32,768 B，单组件一页只占 16,384 B。注册时检查 `stride(0)` 与页内元素数，两者不等会进入 component transfer。这组普通 FullAttention 的 K/V 随后触发该分支的非 MLA 校验。实验改用 MQA+DCP2，分配器为 K 和 V 各开一段连续 storage，此时单组件页步幅与载荷都是 16,384 B。两端 block size 和 interleave 都设为 128，使用生产连接器的普通逐层写入路径通过。[分配分支](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/v2/attn_utils.py#L1529-L1568) · [逐层注册的步幅检查](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py#L1686-L1710) · [component 路径的校验](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py#L1770-L1834)
 
@@ -279,7 +279,7 @@ MetaServer 请求和 DONE 消息各自的重试，也不能保证整条交接在
 
 ## 拉取式的多 rank READ 记录
 
-下面两张真实截图查看同一条 513-token 测量请求的 D rank 0、1，由 Linux Perfetto 原生解析器与浏览器查看器生成。两张卡各自 READ 自己需要的 KV。
+下图分别展示同一条 513-token 请求在 D rank 0 和 rank 1 上的记录。数据由 Linux 上的 Perfetto 原生解析器读取，截图来自浏览器查看器。两张卡分别发起 READ，读取各自所需的 KV。
 
 `AscendCL@hixlOpBatchRead` 是 CANN 调用，`HixlBatchGet` 是设备任务；按同文件的 `connection_id` 配对，再用请求记录确认归属。
 
@@ -300,7 +300,7 @@ MetaServer 请求和 DONE 消息各自的重试，也不能保证整条交接在
 
 ### READ 成功后，P 与 D 各自推进
 
-下面把同一请求的 CPU 侧观察放到同一根主机 monotonic 时间轴上，可以比较读取返回、D 恢复调度和 P 释放调用的先后。它由真实 JSONL 的 begin/end 导出为 Chrome trace，再交给 Perfetto；没有混入 NPU 内核，也没有把设备时间换算到这根轴上。
+下图用同一台主机的单调时钟排列了这条请求的 CPU 事件，可以比较 READ 返回、D 恢复调度和 P 调用释放函数的先后。脚本把 JSONL 中的 begin/end 记录转换为 Chrome trace，交给 Perfetto 显示。图中只含 Host 记录，所有时间戳均来自主机。
 
 rankS 表示引擎 Scheduler，rankU 表示日志未确定 rank，均不能改称 rank 0。
 
@@ -308,7 +308,7 @@ rankS 表示引擎 Scheduler，rankU 表示日志未确定 rank，均不能改�
 
 记录包含两个 D rank 的读取返回、完成通知和 D 状态推进，以及 P 的释放调用。它能核对调用顺序，但两端 Scheduler 各自推进，不能合成一个“交接完成”的时刻。
 
-观察包装、日志和采集本身有开销，因此本项目没有用这根轴测量无插桩服务的延迟。 [Host 导出脚本与生命周期结果](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/pd-disaggregation)
+记录函数调用、写日志和采集事件都会引入开销。这条时间线只用于核对调用顺序，无插桩服务的时延需要单独测量。 [Host 导出脚本与生命周期结果](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/pd-disaggregation)
 
 ## 逐层推送时，各 rank 的发送量为什么不同？
 
@@ -316,13 +316,13 @@ DCP2 每 128 个位置轮换一个 rank。513 个位置需要五段，所以 ran
 
 <!-- DETAILS: 地址复算：513-token 请求的分片与页号 -->
 
-取实测 `prompt513-repetition1`。P 页表是 `[3,2,1]`，D 是 `[1,2,3]`。MQA+DCP2 下，interleave 与页长都是 128 个位置。第 `g` 段的 owner 是 `g % 2`，用 `g // 2` 查该 rank 的本地页表。位置 512 落在全局第 4 段，只有 rank 0 写这一段的页内偏移 0，从 P 页 1 搬到 D 页 3。rank 1 用前两个表项，传输到 D 页 2 就覆盖了自己持有的全部历史。[逐 rank 的页映射](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/utils/utils.py#L179-L351) · [分配记录和实际发送列表](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/lifecycle-summary-push.json)
+取实测 `prompt513-repetition1`。P 页表是 `[3,2,1]`，D 是 `[1,2,3]`。MQA+DCP2 下，interleave 与页长都是 128 个位置。第 `g` 段由编号为 `g % 2` 的 rank 保存，本地页表下标为 `g // 2`。位置 512 落在全局第 4 段，只有 rank 0 写这一段的页内偏移 0，从 P 页 1 搬到 D 页 3。rank 1 用前两个表项，传输到 D 页 2 就覆盖了自己持有的全部历史。[逐 rank 的页映射](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/utils/utils.py#L179-L351) · [分配记录和实际发送列表](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/lifecycle-summary-push.json)
 
 <!-- /DETAILS -->
 
 下面两图分别查看同一条 513-token 请求的 P rank 0、1，聚焦最后一层。每份完整采集有四条请求、每请求两层，共八次 `HixlBatchPut`；对应 CANN 调用是 `AscendCL@hixlOpBatchWrite`。
 
-普通 TP 的 HCCL 通信是实例内部的计算，不能当作跨 P/D 的 KV 传输。
+普通 TP 的 HCCL 通信发生在同一实例的 rank 之间。跨 P/D 的 KV 写入要看 HIXL 任务。
 
 ![逐层推送 P rank0 的真实 HIXL 写入任务](../dist/assets/profile-pd-push-p-rank0.png)
 
@@ -347,13 +347,13 @@ DCP2 每 128 个位置轮换一个 rank。513 个位置需要五段，所以 ran
 
 ### 首次预热的释放调用与 WRITE 返回
 
-首次 129-token 预热出现了一个需要保留的观察：P 的 `_free_blocks` / `_free_request_blocks` 已经返回，最后一次 TE WRITE 约在 191 ms 后才返回。下面用同一主机的 monotonic 轴记录两个来源 rank、Scheduler 和完成处理，显示的是实际调用先后。
+首次用 129-token 请求预热时，P 的 `_free_blocks` / `_free_request_blocks` 先返回，约 191 ms 后最后一次 TE WRITE 才返回。下图按同一主机的单调时钟排列两个源 rank、Scheduler 和完成处理的调用记录。
 
 ![逐层推送首次预热的真实 Host 记录：P 释放调用返回早于最后写返回](../dist/assets/profile-pd-push-host-lifecycle.png)
 
 逐层连接器没有采用拉取式 `finished_sending` 的额外保留规则，但分配器仍可能延后归还页。本次没有记录实际 `block_pool.free_blocks` 或下一请求覆盖地址。因此，释放调用先返回不能证明物理页已被覆盖，也不能直接判定输出错误。
 
-预热输出与本地参考仍一致。后面四次测量都是四个 WRITE 返回后，P 才开始释放调用；结果同时保留这两种先后。
+预热输出与本地参考仍一致。随后四次测量的顺序与首次预热不同，每次都是四个 WRITE 全部返回后，P 才调用释放函数。
 
 少量成功请求不能证明任意负载下都能安全复用源页，首次建链的长 WRITE 也不能代表稳态传输时间。 [预热观察与边界](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/pd-disaggregation/results/lifecycle-summary-push.json)
 
@@ -366,7 +366,7 @@ trace_processor_shell --httpd --http-ip-address 127.0.0.1 \
   --http-port 9001 /private/capture/ASCEND_PROFILER_OUTPUT/trace_view.json
 ```
 
-通过 SSH 将该 loopback 端口转发到本机后，在 Perfetto UI 选择已加载的 trace。拉取搜索 `HixlBatchGet`，推送搜索 `HixlBatchPut`，再用请求身份、层号、字节量和连接字段确认归属，不要直接挑最长的条形。
+通过 SSH 将该 loopback 端口转发到本机后，在 Perfetto UI 选择已加载的 trace。拉取搜索 `HixlBatchGet`，推送搜索 `HixlBatchPut`，再用请求标识、层号、字节量和连接字段确认归属，不要直接挑最长的条形。
 
 Host 生命周期图来自另外导出的观察记录，图注与来源清单区分这两种文件。
 

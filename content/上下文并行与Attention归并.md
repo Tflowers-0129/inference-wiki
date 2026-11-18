@@ -1,20 +1,20 @@
 # 上下文并行：KV 分片与 Attention 归并
 
-普通 Decode 每轮只为一条请求计算一个新 Token，但 Attention 仍要读取它已有的 KV。历史越来越长时，一张卡需要保存和读取的数据也随之增加。TP 把 Attention heads 分到不同卡上，却不一定能继续减少每卡的 KV。
+普通 Decode 中，每条请求每轮只计算一个新 Token，但 Attention 仍要读取它已有的 KV。历史越来越长时，一张卡需要保存和读取的数据也随之增加。TP 把 Attention heads 分到不同卡上，却不一定能继续减少每卡的 KV。
 
 本章先解释这个限制，再看两种分工：PCP 分配本轮要计算的输入 Token，DCP 分配跨轮保存的 KV 历史。两者都需要通信，但收集的数据和合并方法不同。
 
-> 本章沿核查的 vLLM-Ascend ModelRunnerV2 与普通 GQA/MQA Attention 主线展开，MLA 的缓存单独说明；SP 的层间激活另以 `DeepseekV2DecoderLayer` 为例。机制 SVG 是可复算的教学构造，实测事件图另行标明。SP 的通信与 Norm 同时保留 CPU 数值检查和 A5 双卡前后对照；PCP/DCP 另有算子与 Runner 实操。正文的源码链接用于定位，实操对应的固定源码、软件环境、脚本和结果见实验材料。[上下文并行实验材料](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/context-parallel)
+> 本章以 vLLM-Ascend 的 ModelRunnerV2 和普通 GQA/MQA Attention 为例，另行说明 MLA 的缓存。SP 的层间激活采用 `DeepseekV2DecoderLayer` 的实现。原理图使用文中可复算的算例，设备实测图另有标注。SP 实验在 CPU 上校验通信与 Norm 的数值，在 A5 双卡上比较分片前后的执行。PCP/DCP 实验分别检查算子和 Runner。实验材料列出了对应的源码版本、环境、脚本和结果。[上下文并行实验材料](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/context-parallel)
 
 ## TP 下的 KV head 切分与复制
 
-GQA 让多个 Q head 共用一个 KV head。取普通 GQA 模型的一层：十六个 Q heads，两个 KV heads，每个 head 的维度为 128。每四个 Q heads 交给一个 TP rank，TP=4 后，Q heads 已经分开了：rank 0 处理 Q0…3，rank 1 处理 Q4…7，依次类推。
+GQA 让多个 Q head 共用一个 KV head。假设一层 GQA 有十六个 Q head、两个 KV head，每个 head 的维度为 128。TP=4 时，每个 rank 处理四个 Q head。rank 0 处理 Q0…3，rank 1 处理 Q4…7，依次类推。
 
-但 KV heads 只有两个。四个 rank 都要为自己的 Q heads 计算 Attention，因此不能让其中两个 rank 没有可读的 KV。核查的 `QKVParallelLinear` 在 TP 大于 KV head 数时复制 KV head；同一复制组加载同一份 K/V 投影权重。这个例子里，rank 0、1 都使用 KV head 0，rank 2、3 都使用 KV head 1。[模型的 head 数配置](https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/models/qwen2.py) · [QKV 权重切分与复制](https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/layers/linear.py)
+但 KV heads 只有两个。四个 rank 都要为自己的 Q heads 计算 Attention，因此不能让其中两个 rank 没有可读的 KV。当 TP 大于 KV head 数时，`QKVParallelLinear` 会复制 KV head，同一复制组的 rank 加载相同的 K/V 投影权重。这个例子里，rank 0、1 都使用 KV head 0，rank 2、3 都使用 KV head 1。[模型的 head 数配置](https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/models/qwen2.py) · [QKV 权重切分与复制](https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/layers/linear.py)
 
-### 复制的分界是 TP 与 KV head 数的关系
+### TP 增大到多少时会复制 KV head？
 
-上例的“两个”来自模型配置。设总 Q heads 为 `Hq`，总 KV heads 为 `Hkv`，TP 大小为 `T`。沿所查 Qwen2 的普通 GQA 路径，先要求 `Hq` 能被 `T` 整除，再分两种情况：[模型整除检查](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/model_executor/models/qwen2.py#L137-L149) · [QKV head 分配](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/model_executor/layers/linear.py#L1051-L1058)
+上例的“两个”来自模型配置。设总 Q heads 为 `Hq`，总 KV heads 为 `Hkv`，TP 大小为 `T`。在 Qwen2 的普通 GQA 路径上，先要求 `Hq` 能被 `T` 整除，再分两种情况：[模型整除检查](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/model_executor/models/qwen2.py#L137-L149) · [QKV head 分配](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/model_executor/layers/linear.py#L1051-L1058)
 
 | 条件 | 每 rank 的 KV heads | 同一 KV head 的副本数 | 额外整除条件 |
 | --- | --- | --- | --- |
@@ -37,7 +37,7 @@ GQA 让多个 Q head 共用一个 KV head。取普通 GQA 模型的一层：十�
 
 ![TP 按 KV head 划分或复制，DCP 再把同一 KV head 的历史位置分开](../dist/assets/cp-tp-kv-shards.svg)
 
-图的上半部是 TP4：每个 rank 的本地 KV head 都有完整的位置 0…7。下半部才加入 DCP2，让原来保存同一 KV head 的两个 rank 各持有部分位置。为方便看清，图用交替位置；真实实现按可配置的 interleave 粒度组织，后面再走一次地址计算。图中的 Q heads 是交换前的初始归属，分片后还要处理 query 交换与结果归并。
+图的上半部是 TP4：每个 rank 的本地 KV head 都有完整的位置 0…7。下半部才加入 DCP2，让原来保存同一 KV head 的两个 rank 各持有部分位置。图中让两个 rank 交替保存相邻位置。实际实现允许配置一次连续分配多少个位置（interleave），后文用它计算写入地址。图中的 Q heads 是交换前的初始归属，分片后还要处理 query 交换与结果归并。
 
 ## 加卡以后，为什么每卡 KV 可能不变？
 
@@ -56,7 +56,7 @@ GQA 让多个 Q head 共用一个 KV head。取普通 GQA 模型的一层：十�
 | TP4 | 4 | 1 | 2 | 8 MiB | 32 MiB |
 | TP4、DCP2 | 初始 4 | 1，历史位置约一半 | 同 head 的历史不再重复保存 | 约 4 MiB | 约 16 MiB |
 
-例如 TP2 一行可以复算为 `2×16384×1×128×2=8388608 B=8 MiB`。到了 TP4，Q heads 继续减少，本地 KV head 已经不能再从一个切成半个，单卡 KV 就停在 8 MiB。DCP2 的一行假设序列均衡分片，不含块尾空位；它仍使用原来的四个 worker。
+例如 TP2 一行可以复算为 `2×16384×1×128×2=8388608 B=8 MiB`。到了 TP4，Q heads 继续减少，每个 rank 仍须保存一个完整 KV head 的历史，单卡 KV 仍占 8 MiB。DCP2 的一行假设序列均衡分片，不含块尾空位；它仍使用原来的四个 worker。
 
 这也解释了几种模型的差异。MHA 的 KV heads 与 Q heads 一样多，在 head 数与配置允许时，TP 可以继续切 KV heads；GQA 更早遇到这个边界；MQA 只有一个 KV head，普通 TP 会让多个 rank 保存这一个 head 的历史。因此，“TP 增大，单卡 KV 按同样比例下降”并不普遍成立。
 
@@ -64,19 +64,19 @@ MLA 还要另算。核查实现中，它的缓存保存压缩 latent 与 RoPE �
 
 ## SP 为什么也切 token，却没有分掉历史 KV？
 
-先看 Attention 输出投影之后的归一化。设本轮有 N 个 Token，每个 Token 的隐藏向量有 H 个元素。TP 的各 rank 分别用自己的权重计算部分结果，AllReduce 将这些结果相加，使每个 rank 都得到完整的 `[N,H]`。随后 RMSNorm 逐行归一化；每张卡若都保存相同的 N 行，也就重复做了这一步。
+先看 Attention 输出投影之后的归一化。设本轮有 N 个 Token，每个 Token 的隐藏向量有 H 个元素。TP 的各 rank 分别用自己的权重计算部分结果，AllReduce 将这些结果相加，使每个 rank 都得到完整的 `[N,H]` 张量。随后 RMSNorm 逐行归一化；每张卡若都保存相同的 N 行，也就重复做了这一步。
 
 Sequence Parallelism（SP，序列并行）把这部分工作分给各张卡。ReduceScatter 先将各 rank 的部分结果求和，再按 Token 分配：行数能整除 TP 时，每张卡保留 `[N/TP,H]`，每行的 H 个元素仍完整。各卡只对自己的行做 Norm；后面需要完整输入时，再用 AllGather 收集。这是 Megatron SP 的基本组织方法；训练中还涉及反向传播与激活保存，本章只沿推理前向解释。[SP 原理](https://arxiv.org/abs/2205.05198) · [逐行分片与通信接口](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/models/common/ops/sequence_parallel.py#L23-L70)
 
-取四个 token、TP2。输出投影的两个 rank 都先产生四行部分和 `P0[t]`、`P1[t]`；ReduceScatter 后，rank 0 得到 token 0、1 的 `P0[t]+P1[t]`，rank 1 得到 token 2、3 的同一个和。Norm 必须对归约后的完整行进行计算，不能先对两个部分和各做 Norm 再相加。这里按 token 切行，也没有把同一行的 hidden 维拆给 Norm。
+取四个 token、TP2。输出投影的两个 rank 都先产生四行部分和 `P0[t]`、`P1[t]`；ReduceScatter 后，rank 0 得到 token 0、1 的 `P0[t]+P1[t]`，rank 1 得到 token 2、3 各自的和。Norm 必须对归约后的完整行进行计算，不能先对两个部分和各做 Norm 再相加。这里按 token 切行，也没有把同一行的 hidden 维拆给 Norm。
 
 ![SP 在 ReduceScatter 后按 token 保留完整激活行，逐行计算后在需要完整输入时 AllGather；KV 的历史归属另由 TP 与 CP 决定](../dist/assets/cp-sp-activation-flow.svg)
 
-图中固定 `H=4096`、BF16。一份 `[4,4096]` 是 32 KiB，分片后每 rank 的 `[2,4096]` 是 16 KiB。这只计算该边界一份激活的有效载荷；Attention 内部的完整输入、通信缓冲、残差和 KV 仍要另计，不能据此断言进程内存减半。
+图中固定 `H=4096`、BF16。一份 `[4,4096]` 是 32 KiB，分片后每 rank 的 `[2,4096]` 是 16 KiB。这里只计算 ReduceScatter 前后单个激活张量的有效数据量；Attention 内部的完整输入、通信缓冲、残差和 KV 仍要另计，不能据此断言进程内存减半。
 
 ### 推理中的 SP MoE 如何接上 Norm 与专家？
 
-MoE 还要避免重复发送。同一个 Token 经普通 TP AllReduce 后出现在每个 rank；若各 rank 都把它当成独立输入，就会重复分派专家任务。SP MoE 让 TP 组内只有一个 rank 负责发送这行，再按 Router 的选择交给专家。一个 Token 选中的 TopK 位专家仍都要计算。[SP MoE 的配置动机](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/config/parallel.py#L755-L783) · [EP 的 Token 与专家任务计数](EP通信与通算融合.md)
+MoE 还要避免重复发送。同一个 Token 经普通 TP AllReduce 后出现在每个 rank；若各 rank 都把它当成独立输入，就会重复分派专家任务。启用 SP MoE 后，TP 组内只有一个 rank 负责按 Router 的选择发送这一行。一个 Token 选中的 TopK 位专家仍都要计算。[SP MoE 的配置动机](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/config/parallel.py#L755-L783) · [EP 的 Token 与专家任务计数](EP通信与通算融合.md)
 
 <!-- DETAILS: 源码对照：DeepSeek 层间 SP、残差对齐与 Ascend 开关 -->
 
@@ -84,7 +84,7 @@ MoE 还要避免重复发送。同一个 Token 经普通 TP AllReduce 后出现�
 
 这条 Decoder 实现还要求 PP=1，并只在对应 MoE 层启用该路径；进入不使用 SP 的层前会收集 hidden 与 residual。其他模型可能只在 MoE 入口切行、出口收集，或者采用自己的通信融合。不能把一种模型的层间布局写成所有 SP 实现共有的调用顺序。[层条件](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/model_executor/models/deepseek_v2.py#L1296-L1304) · [恢复完整激活的边界](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/model_executor/models/deepseek_v2.py#L1548-L1562)
 
-在本章固定的 Ascend 源码中，SP MoE 通过 `enable_flashcomm1` 显式开启，还需 TP>1、EP 和支持的通信配置。Ascend 覆写的条件允许 DP=1；配对的上游条件另要求 DP>1。比较两边日志时，应读取实际生效的 `use_sequence_parallel_moe`，不能只凭同名开关判断路径已经进入。[Ascend 开关处理](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/ascend_config.py#L748-L769) · [Ascend 的并行条件](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/patch/platform/patch_parallel_config.py#L6-L29)
+在本章固定的 Ascend 源码中，SP MoE 通过 `enable_flashcomm1` 显式开启，还需 TP>1、EP 和支持的通信配置。Ascend 覆写的条件允许 DP=1；本实验对应的上游实现还要求 DP>1。比较两边日志时，应读取实际生效的 `use_sequence_parallel_moe`，不能只凭同名开关判断路径已经进入。[Ascend 开关处理](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/ascend_config.py#L748-L769) · [Ascend 的并行条件](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/patch/platform/patch_parallel_config.py#L6-L29)
 
 <!-- /DETAILS -->
 
@@ -121,13 +121,13 @@ SP 分配的是本轮部分层的激活计算。Attention 前可以恢复完整�
 | 129 | 0 | 158.59 µs | 208.23 µs |
 | 129 | 1 | 158.95 µs | 209.13 µs |
 
-本次小形状下，B 虽然减少了每卡 Norm 的行数，整条路径仍更慢。它把一次 AllReduce 改成了 ReduceScatter 与 AllGather，中间节省的计算需要与整条通信、提交和同步路径一起衡量。不能用“每卡只算一半行”直接推导时延减半，也不能把这组只有一个 Norm 的结果推广为完整模型中 SP 的效果。
+在这两组输入上，B 路径下每张卡只需对一半的行做 Norm，但整条路径用时都比 A 长。B 把一次 AllReduce 改成了 ReduceScatter 和 AllGather。比较总耗时，还要计入两次通信及相应的提交和同步。这个实验只包含一次 Norm，完整模型的 SP 效果仍需另测。
 
 ![SP 前后对照：两种路径各展示 rank 0 与 rank 1 的真实计算、通信与同步轨道，同尺度、独立时间原点。](../dist/assets/sp-measured-rank-streams.svg)
 
 图选取同一次采集中的相同活动迭代，各 rank 内保留真实轨道关系；不同分面使用相同时间比例，但分别归零。它们没有完成跨设备时钟校准，因此不能用条形的左右位置判定哪个 rank 先到或让另一个 rank 等了多久。图内时长来自 profiling，性能表来自前面的独立计时，两者不混用。
 
-这次机器在运行前已有 UB 总线告警 `81AF8009`，正确性与采集成功后也不据此宣布设备健康；表中数字只描述这次带告警环境的观察。实验没有运行完整模型、FlashComm 的 MoE 入口/出口或 KV 管理，不提供正常健康机器上的性能基线。[脚本、配置与复现步骤](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/profiling-ab) · [无 profiler 样本与 Trace 关联](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/profiling-ab/results/sp-ab.json)
+实验开始前，设备已有 UB 总线告警 `81AF8009`。输出通过校验，Trace 也采集成功，但告警对计时的影响尚未确定。表中结果只适用于这次环境。完整模型、FlashComm 的 MoE 入口与出口以及 KV 管理都不在测量范围内。[脚本、配置与复现步骤](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/profiling-ab) · [无 profiler 样本与 Trace 关联](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/profiling-ab/results/sp-ab.json)
 
 ## PCP 的 query 分片、DCP 的 KV 分片与调度切块
 
@@ -147,7 +147,7 @@ PCP 是 Prefill Context Parallel，DCP 是 Decode Context Parallel。名称指�
 
 <!-- DETAILS: 源码对照：V2 的 PCP 切分与采样恢复入口 -->
 
-本章 PCP 生命周期采用 ModelRunnerV2：Ascend 在模型调用前由 `pcp_manager.partition_batch()` 切分本轮输入，采样前再恢复需要的全局行。核查的实现对非 V2 Runner 的 PCP 配置会直接拒绝。DCP 在其他 Runner 也有入口，这里不把不同 Runner 的准备过程拼成一条调用链。[Runner 入口](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v2/model_runner.py) · [配置检查](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/platform.py)
+本章以 ModelRunnerV2 为例。Ascend 在模型调用前使用 `pcp_manager.partition_batch()` 切分本轮输入，采样前再恢复所需的全局行。这里核查的实现只允许在 V2 Runner 上启用 PCP。其他 Runner 也有 DCP 入口，输入准备过程需分别核对。[Runner 入口](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v2/model_runner.py) · [配置检查](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/platform.py)
 
 <!-- /DETAILS -->
 
@@ -162,7 +162,7 @@ rank 1：positions 4,5,6,7 → 可见 query-key 对数 5+6+7+8 = 26
 
 后面的 Token 能看到更多历史，所以即使行数相同，需要计算的 Q–K 配对数也不同。
 
-核查的 head-tail 路线把本轮 query 切成 `2×PCP` 个片段。rank r 配对第 r 块与倒数第 r 块：这个例子有四块 `[0,1]、[2,3]、[4,5]、[6,7]`，rank 0 取头尾，rank 1 取中间。
+核查的 head-tail 路线把本轮 query 切成 `2×PCP` 个片段。从首尾各取一块分给 rank 0，再把向内的下一对分给 rank 1，依此类推。这个例子有四块 `[0,1]、[2,3]、[4,5]、[6,7]`，rank 0 取头尾，rank 1 取中间。
 
 | PCP rank | 原始 query positions | 可见 query-key 对数 |
 | --- | --- | --- |
@@ -171,7 +171,7 @@ rank 1：positions 4,5,6,7 → 可见 query-key 对数 5+6+7+8 = 26
 
 ![八行 Prefill 的连续切分与 head-tail 配对，保留原始位置和因果范围](../dist/assets/cp-pcp-head-tail.svg)
 
-总工作仍为 `8×9/2=36` 对。这里计算的是教学 pair 数，不是 NPU 时间：长度不能整除、短请求、padding、后端分块和通信都会影响实际执行，不能由 18 比 18 推出两卡耗时相同。[上游片段与输入映射](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu/pcp_manager.py) · [Ascend PCP 划分](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v2/pcp_manager.py)
+总工作仍为 `8×9/2=36` 对。这里数的是因果掩码允许的 query-key 对。只凭两卡各有 18 对，无法判定它们的 NPU 耗时相同。序列长度不能整除、短请求、padding、后端分块和通信都会影响实际执行。[上游片段与输入映射](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu/pcp_manager.py) · [Ascend PCP 划分](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/worker/v2/pcp_manager.py)
 
 分到 rank 0 的尾部仍是请求位置 6、7，不能按本地顺序改成 2、3。它们要读取此前所有可见位置的 KV，不能只读取本卡的四行。实现因此保留原始位置和已算前缀，并收集所需 K/V、生成因果范围。一条请求的头尾片段还可能在本地表示成两条虚拟请求，因而本地请求条目数未必等于用户请求数。[GQA PCP 的当前 KV 前缀与 Attention](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/attention/context_parallel/attention_cp.py)
 
@@ -181,7 +181,7 @@ query 分给两卡后，每卡并不因此只保存半份历史 KV。所查普�
 
 <!-- DETAILS: 源码对照：Decode、短 Prefill 与递归状态的不同分配方式 -->
 
-Decode 也不能照搬长 Prefill 的头尾图。普通 PCP-only 路径可轮流指定负责各请求的 rank，同一请求本轮的 query 行，包括固定长度投机验证行，留在同一个 rank 上；没有本地 query 的 rank 仍需要参与必要的通信。有 recurrent state 等例外；叠加 DCP 时又需要各 KV 分片持有相应 query，短 Prefill 还可能走复制分支。判断一条请求被切分还是复制，要看模式和请求分类。[模式判断](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/attention/context_parallel/common_cp.py)
+Decode 也不能照搬长 Prefill 的头尾图。普通 PCP-only 路径可轮流指定负责各请求的 rank，同一请求本轮的 query 行，包括固定长度投机验证行，留在同一个 rank 上；没有本地 query 的 rank 仍需要参与必要的通信。带有递归状态（recurrent state）的模型可能采用其他分配方式。同时启用 DCP 时，各 KV 分片都需要相应的 query。短 Prefill 的 query 还可能在多个 rank 上复制。判断一条请求被切分还是复制，要看模式和请求分类。[模式判断](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/attention/context_parallel/common_cp.py)
 
 <!-- /DETAILS -->
 
@@ -189,15 +189,15 @@ Decode 也不能照搬长 Prefill 的头尾图。普通 PCP-only 路径可轮流
 
 rank 0 算出 position 0、1、6、7 的 hidden states，rank 1 算出 2、3、4、5。采样前收集这些行，再按 restore index 还原全局顺序，才能为正确的请求位置取结果。padding 行也要按映射处理。
 
-PCP 收集的是不同 query 的结果，要恢复 token 身份和顺序。DCP 会为同一个 query 得到多份局部 Attention 结果，还要做数值归并。[hidden gather 与采样恢复](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu/pcp_manager.py)
+PCP 收集的是不同 query 的结果，需要把每一行放回原来对应的 token 位置。DCP 会为同一个 query 得到多份局部 Attention 结果，还要做数值归并。[hidden gather 与采样恢复](https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu/pcp_manager.py)
 
 ## DCP 的本地 KV 写入位置与读取长度
 
-回到 TP4、两个 KV heads 的例子。对保存 KV head 0 的 rank 0、1 组成 DCP2 组，让它们保存不同历史位置，原来的两份完整历史便可以去重。它们仍需要共同完成各自 Q heads 对完整历史的 Attention。
+回到 TP4、两个 KV heads 的例子。rank 0 和 rank 1 都持有 KV head 0。让它们组成 DCP2 组，各自保存不同的历史位置，同一个位置的 KV 就只需保存一份。它们仍需要共同完成各自 Q heads 对完整历史的 Attention。
 
 <!-- DETAILS: 配置条件：DCP 组必须位于同一 KV head 的复制组内 -->
 
-对未开启 PCP 的普通 GQA/MQA，所查配置还要求 `TP>Hkv`、`DCP≤TP/Hkv`，并检查 TP 和每 KV head 对应的 Q head 数能按 DCP 整除。DCP 组要落在同一 KV head 的复制组内：上面的 TP4、Hkv=2 可以用 DCP2，不能把保存不同 KV heads 的四个 rank 当成同一份 KV 的四个历史分片。PCP 叠加后的组关系另见后面的 rank 网格。[GQA/MQA 的 DCP 校验](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/config/model.py#L1565-L1595) · [DCP 与 TP 的整除条件](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/config/parallel.py#L588-L603)
+对于未开启 PCP 的普通 GQA/MQA，该实现要求 `TP>Hkv`、`DCP≤TP/Hkv`。TP 大小和每个 KV head 对应的 Q head 数也都必须能被 DCP 大小整除。DCP 组要落在同一 KV head 的复制组内：上面的 TP4、Hkv=2 可以用 DCP2，不能把保存不同 KV heads 的四个 rank 当成同一份 KV 的四个历史分片。PCP 叠加后的组关系另见后面的 rank 网格。[GQA/MQA 的 DCP 校验](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/config/model.py#L1565-L1595) · [DCP 与 TP 的整除条件](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/config/parallel.py#L588-L603)
 
 <!-- /DETAILS -->
 
@@ -214,7 +214,7 @@ DCP 需要先决定一个请求位置由哪个 rank 保存，再计算它在本�
 
 例如位置 4 由 rank 0 保存，写入物理页 7 的第 2 行，`slot_mapping=7×4+2=30`。rank 1 保存位置 6 时也得到 30，但两卡的缓存地址不同，保存的 Token 也不同。同一请求位置只在负责它的 rank 上得到有效写入索引，另一张卡得到 −1，表示不写入。后面的虚拟块继续通过页表定位。
 
-读取历史时，FIA 需要知道本卡有多少行有效 KV。沿上表计算，全局长度为 7 时，rank 0 有位置 0、1、4、5，共 4 行；rank 1 有位置 2、3、6，共 3 行。普通分页 Decode 将各自的长度和页表交给 FIA。页尾剩余容量与有效长度分别处理，不能把已分配但尚未写入的行读进 Attention。[本地长度的计算](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/attention/backends/utils.py#L1115-L1160) · [FIA 消费本地长度与块表](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/context_parallel/attention_cp.py#L341-L371)
+读取历史时，FIA 需要知道本卡有多少行有效 KV。按上表计算，全局长度为 7 时，rank 0 有位置 0、1、4、5，共 4 行；rank 1 有位置 2、3、6，共 3 行。普通分页 Decode 将各自的长度和页表交给 FIA。页尾剩余容量与有效长度分别处理，不能把已分配但尚未写入的行读进 Attention。[本地长度的计算](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/attention/backends/utils.py#L1115-L1160) · [FIA 消费本地长度与块表](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/attention/context_parallel/attention_cp.py#L341-L371)
 
 <!-- DETAILS: 复算任意长度在各 rank 的分配 -->
 
@@ -232,7 +232,7 @@ floor(L/(C×I))×I + clamp(L%(C×I)−r×I, 0, I)
 
 ## 两份局部 Attention，为什么不能取平均？
 
-设同一个 query 的历史被分到两个 rank。每个 rank 可以对本地 scores 做 softmax，再得到一个局部输出，但本地归一化各用了一份分母。要把局部输出合在一起，还需要两边各自的归一化分母；直接平均只有在这两个分母相等时才正确。
+设同一个 query 的历史被分到两个 rank。每个 rank 对本地 scores 做 softmax，用本地的归一化分母算出局部输出。合并时，两份输出要按各自的分母加权。两边分母相等时，公式才会简化成直接平均。
 
 构造一个一维 value 算例，score 已包含缩放与 mask 后的效果：
 
@@ -264,11 +264,11 @@ LSE_global = m + log(sum_j(w_j))
 
 <!-- /DETAILS -->
 
-TP 的行并行线性层要将部分结果求和，PCP 要把不同 Token 的行恢复原序，DCP 要把同一 query 的局部 Attention 按 LSE 加权合并。虽然都会出现集合通信，三者算的不是同一个问题。
+TP 的行并行线性层将部分结果求和，PCP 把不同 Token 的行恢复到原来的顺序，DCP 则按 LSE 将同一 query 的局部 Attention 结果加权合并。
 
 ## DCP 的 Q 收集与输出交换
 
-先看 TP-only 叠 DCP 的普通 GQA/MQA 主线。TP rank 原本只拥有部分 Q heads。KV 现在沿序列分片，如果 rank 0 只计算自己的 Q heads 与自己那半份 KV，另一半历史就漏掉了。因此 DCP 组先收集需要的 Q heads，让每个历史分片能够为这些 query 提供局部结果。
+先看普通 GQA/MQA 在 TP 基础上启用 DCP、关闭 PCP 的情况。TP rank 原本只拥有部分 Q heads。KV 现在沿序列分片，如果 rank 0 只计算自己的 Q heads 与自己那半份 KV，另一半历史就漏掉了。因此 DCP 组先收集需要的 Q heads，让每个历史分片能够为这些 query 提供局部结果。
 
 ```text
 本地 TP Q heads
@@ -281,7 +281,7 @@ TP 的行并行线性层要将部分结果求和，PCP 要把不同 Token 的行
 
 <!-- DETAILS: 源码对照：Q 交换与归并接口 -->
 
-`common_cp.py` 的 query 准备与 `attention_cp.py` 的 decode 路线连接了这些步骤；输出交换调用注册的 `torch.ops.vllm.dcp_a2a_fused`。PCP+DCP 的 query 是否还需交换，要继续看组覆盖哪些维度，不能机械地再加一遍 AllGather。[公共通信与归并接口](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/attention/context_parallel/common_cp.py) · [GQA/MQA 的 CP Attention](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/attention/context_parallel/attention_cp.py)
+`common_cp.py` 的 query 准备与 `attention_cp.py` 的 decode 路线连接了这些步骤；输出交换调用注册的 `torch.ops.vllm.dcp_a2a_fused`。同时开启 PCP 和 DCP 时，是否还要交换 query，取决于通信组覆盖的并行维度。[公共通信与归并接口](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/attention/context_parallel/common_cp.py) · [GQA/MQA 的 CP Attention](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/attention/context_parallel/attention_cp.py)
 
 <!-- /DETAILS -->
 
@@ -337,15 +337,15 @@ PCP 是 worker 布局中的一维，这里共四个 worker。DCP=2 复用这四�
 
 ## A5 上的布局、算子与 Runner 校验
 
-这次使用两张 A5 NPU，分三层验证，避免把一个算子通过写成完整服务通过。所有设备预热、运行与采集在同一双卡排他租约下串行执行；CPU 布局回放不占用 NPU。完整命令与固定环境见[实操 README](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/context-parallel/README.md)。
+实验分别检查 PCP 的位置分配、DCP 的 Attention 算子和 ModelRunnerV2 的输出。位置分配在 CPU 上验证。设备实验都独占同一组两张 A5 NPU，依次完成预热、运行和采集。完整命令与固定环境见[实操 README](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/context-parallel/README.md)。
 
 <!-- DETAILS: CPU 源码回放：PCP 的位置分配 -->
 
 ### PCP 位置分配的源码回放
 
-从已安装源码 AST 提取未修改的 `_iter_rank_chunks` 函数体，在受控 CPU 对象上回放。每轮八组输入、重复两轮，覆盖长度整除、不能整除、极短、零长度及混合请求；确认各位置由哪一 rank 负责、没有遗漏或重复分配。八行 PCP2 得到 `[0,1,6,7]` 与 `[2,3,4,5]`；十六行 PCP4 的四个 rank 各有 34 个教学 query-key 对。
+从已安装源码 AST 提取未修改的 `_iter_rank_chunks` 函数体，在受控 CPU 对象上回放。每轮八组输入、重复两轮，覆盖长度整除、不能整除、极短、零长度及混合请求；确认各位置由哪一 rank 负责、没有遗漏或重复分配。八行 PCP2 得到 `[0,1,6,7]` 与 `[2,3,4,5]`；十六行 PCP4 的四个 rank 各有 34 个符合因果掩码的 query-key 对。
 
-这是源码方法回放，不是整 Runner 的证明。它先让位置算例能复查；完整 Runner 另在下面运行。[位置回放脚本与结果](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/context-parallel)
+这项检查只执行位置分配函数。后面的双卡实验再运行完整 Runner。[位置回放脚本与结果](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/context-parallel)
 
 <!-- /DETAILS -->
 
@@ -369,9 +369,9 @@ PCP 是 worker 布局中的一维，这里共四个 worker。DCP=2 复用这四�
 | TP2、PCP1、DCP2 | 2 | 两轮均一致 | 131072 |
 | TP1、PCP2、DCP1 | 2 | 两轮均一致 | 65536 |
 
-容量一列是引擎报告的 KV token capacity，不是本次请求实际占用，也不是进程总 HBM。DCP2 在相同缓存预算下报告双倍容量，与去除 MQA KV 副本的方向一致；不能再把它改写为“本次进程内存下降一半”。
+最后一列是引擎按缓存预算计算的 Token 容量（KV token capacity）。DCP2 在相同预算下报告的容量翻了一倍，与 MQA KV 按位置分片、避免重复保存相符。表中没有测量请求实际占用的 KV 空间或整个进程占用的 HBM。
 
-生成 token 一致仍不等于逐位数值一致。DCP2 相对对照的 chosen logprob 最大绝对差约 0.01552，PCP2 约 0.00774；PCP2 自身两轮的 logprob 也有差异。实验保留原始数值与逐项比较，不把 tiny 随机模型的结果推广为任意模型、任意长度的精度或服务吞吐保证。[Runner 脚本、三组输出与比较](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/context-parallel)
+生成 token 一致仍不等于逐位数值一致。DCP2 相对对照的 chosen logprob 最大绝对差约 0.01552，PCP2 约 0.00774；PCP2 自身两轮的 logprob 也有差异。原始结果列出了逐项差值。这些测量只覆盖该随机初始化的小模型及所测输入长度，服务吞吐仍需另测。[Runner 脚本、三组输出与比较](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/context-parallel)
 
 ## TP、DCP 与 PCP 的设备时间线
 
@@ -383,7 +383,7 @@ PCP 是 worker 布局中的一维，这里共四个 worker。DCP=2 复用这四�
 
 DCP1 的每个 rank 只记录到一个 FIA。DCP2 除 FIA 外，还增加 Q AllGather、output/LSE 的打包与 AllToAll、归并，以及流间同步。FIA 在这个例子里没有缩到一半：每卡读取的历史位置从 4096 减为 2048，但计算的 Q heads 从 4 增为 8。本实验说明 KV 分片后增加了哪些工作，不能仅凭缓存容量增加就推导整轮更快。
 
-橙色块是实际记录的 `EVENT WAIT`，不是根据留白猜出的等待；HCCL 单独一行是 profiler 的通信聚合轨道，不是新编的设备 stream。rank 1 的长通信区间旁也能看到较长的流间等待，但这张未校准跨 rank 时钟的图不能直接回答谁让谁等。下文继续核对通信配对和证据缺口。
+橙色块对应实测的流间等待事件 `EVENT WAIT`。profiler 把 HCCL 通信汇总在单独一行，这一行没有对应的物理 stream 编号。rank 1 的长通信区间旁也记录到较长的流间等待。由于两卡的时钟未经校准，仅凭图中位置无法判定是哪一侧造成了等待。
 
 原生截图由 Linux Trace Processor 加载原始 trace，浏览器通过 Perfetto native RPC 查看后直接截取，仅裁掉空白并转换格式。每张截图独立缩放，画面宽度不能相除计算加速比。[截图来源与窗口](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/context-parallel/results/profiling-screenshots.json)
 
@@ -431,9 +431,9 @@ TP2、DCP1 的 Attention 对照里，两卡各有一个 FIA 设备任务，使�
 | Q AllGather 的导出区间 | 43.565 µs | 123.603 µs |
 | output/LSE AllToAll 的导出区间 | 42.377 µs | 145.990 µs |
 
-只看这张表，很容易把 collective 更长的 rank 1 判为慢卡。但在原始导出轴上，rank 1 更早进入这两次通信，两个 rank 的完成点接近；较早到达者等待同轮参与者，也会留下较长区间。它提示要继续检查：两卡进入通信前，各有哪些计算尚未完成，不能仅凭 collective 长短完成根因判断。这些是 HCCL AICPU 父区间，包含同步等开销，不是纯传输时间，也不与嵌套的 transport 子任务累加。
+只看这张表，很容易把 collective 更长的 rank 1 判为慢卡。在未经跨卡时钟校准的原始导出时间轴上，rank 1 的两个通信起点都画得较早，两卡的结束位置接近。较长的区间可能包含等待其他参与者的时间。要确定原因，还需核对两卡在进入通信前各有哪些计算尚未完成。表中记录的是 HCCL AICPU 父区间，包含同步等开销。统计耗时时还要避免重复累加其中嵌套的 transport 子任务。
 
-通信导出行 `Group … Communication` 是 profiler 的通信聚合轨道，不是真实设备 stream 编号。`RECORD/WAIT` 是流间同步控制，也不是额外的 Attention kernel。判断一处等待是否由对端造成，还需要同一轮的输入数据就绪、collective 提交与完成、后续算子等待输入等因果证据；当前截图没有把这些缺口补成已测结论。
+通信导出行 `Group … Communication` 是 profiler 的通信聚合轨道，不是真实设备 stream 编号。`RECORD/WAIT` 是流间同步控制，也不是额外的 Attention kernel。判断一处等待是否由对端造成，还需要同一轮的输入数据就绪、collective 提交与完成、后续算子等待输入等因果证据；当前截图缺少这组完整记录。
 
 ### PCP：首个与第九个 Attention 窗口
 
@@ -459,7 +459,7 @@ TP2、DCP1 的 Attention 对照里，两卡各有一个 FIA 设备任务，使�
 
 <!-- /DETAILS -->
 
-这里“未观测到”只描述 trace。当前采集没有每层的有效 query、请求位置和显式 step 标记，不能把这个差异直接归因为空 query、实际跳过计算、丢采样或计算失败，更不能用 30/22 推算负载均衡度或加速比。需要进一步解释时，应补这些 metadata，并把对应 Host 调用、设备任务和输出验证接起来。
+这里“未观测到”只描述 trace。当前采集没有每层的有效 query、请求位置和显式 step 标记，不能把这个差异直接归因为空 query、实际跳过计算、丢采样或计算失败，更不能用 30/22 推算负载均衡度或加速比。需要进一步解释时，应补这些 metadata，再按同一迭代核对 Host 调用、设备任务和输出校验结果。
 
 两卡完整采集中的 AllGather 还包含 embedding、输出头和行恢复等用途，不能全部计为 KV 同步。完整 DCP Runner 也观察到其他打包与 combine 内核；算子实验展示的单条路径，不是模型内每次 Attention 的唯一实现。
 

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1110" viewBox="0 0 1000 1110" role="img" aria-labelledby="title desc">
-<title id="title">两份 KV、两个页池：拉取交接的生命周期</title><desc id="desc">拉取式教学地址示意，沿用正文实测页号。上层P和D各自预分配KV池并向Transfer Engine注册背后的内存区域，这些区域可以服务多个请求。下层同一请求的逻辑页0、1映射为P物理页1、2和D物理页5、4，传输复制内容，不迁移P的物理页身份。交接期间P保留源引用，D预留目标页并等待写入。数据完成后的D调度资格与P引用解除经过两支独立完成协议；D在生成期间继续持有目标页。请求释放不等于注销TE内存，也不等于进程归还整个KV池。</desc>
+<title id="title">两份 KV、两个页池：拉取交接的生命周期</title><desc id="desc">拉取式教学地址示意，沿用正文实测页号。上层P和D各自预分配KV池并向Transfer Engine注册背后的内存区域，这些区域可以服务多个请求。下层同一请求的逻辑页0、1映射为P物理页1、2和D物理页5、4，传输时把 KV 内容复制到 D 的目标页，P 和 D 各自管理自己的页号。交接期间P保留源引用，D预留目标页并等待写入。传输结束后，D 恢复调度和 P 解除引用分别等待各自的完成通知；D在生成期间继续持有目标页。请求释放不等于注销TE内存，也不等于进程归还整个KV池。</desc>
 <defs><style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif}</style><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M1 1L8 4.5L1 8" fill="none" stroke="#475569" stroke-width="1.5"/></marker><marker id="teal" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M1 1L8 4.5L1 8" fill="none" stroke="#0f766e" stroke-width="1.5"/></marker></defs>
 <rect width="1000" height="1110" fill="#f8fafc"/>
 <text x="32" y="46" font-size="27" fill="#172b4d" font-weight="700" text-anchor="start">两份 KV、两个页池：拉取交接的生命周期</text>

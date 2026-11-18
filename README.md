@@ -16,7 +16,7 @@
 
 《负载均衡：DPLB 与 EPLB》从请求入口的 DPLB 走到单层 MoE 的 EPLB，用五张 SVG 展开 DP/EP 维度、等请求数与不同工作量、同容量专家副本放置、rank × stream 泳道和权重/映射安全切换。两个交互分别演示固定遥测下的新请求评分与等待请求估计，以及同十二个专家权重存储位置、八十次专家任务下的布局和热度变化。正文追到 DPLB 快照替换、EPLB 逻辑到物理查表与 STAIR 计数汇总。泳道是明确标注的教学构造，不使用工作坊原图推断负载均衡收益，也不把专家计数均衡度写成实际加速比。
 
-《EP 通信与计算重叠：算子选择与融合执行》从专家任务的收发入手，比较 AllGather、AllToAll、MC2 与 MegaMoE 的通信组织和选择条件。源码算例复算 AllToAllV 的 split 数组、专家行展开和结果逆重排。跨 DP 的 FULL_DECODE_ONLY 以四个 rank 的不同 Decode 行数说明捕获集合、模式和档位协调、空 rank dummy 与整组 eager 回退。副本实验室固定四十个 token、八十次专家任务与同一专家布局，只切换目标 rank 分布，区分专家任务、本地使用、远端激活副本与 BF16 逻辑 payload，不预测耗时。模拟 profiling 沿已核查的 W8A8 自定义内核，区分普通 MC2 的默认局部融合与 Fused-MC2 的 AIV / AIC flag 协作；支持单步、事件依赖和源码定位，横轴为教学推进格。A5 实操先以双 rank 同尺度事件图展示 MC2／MegaMoE 的差异，再用四张真实 Perfetto 截图对照 MC2／CANN MegaMoE 的 rank0、rank1，保留专家任务数、flow 归属、异窗定位和解释边界。
+《EP 通信与计算重叠：算子选择与融合执行》从专家任务的收发入手，比较 AllGather、AllToAll、MC2 与 MegaMoE 的通信组织和选择条件。源码算例复算 AllToAllV 的 split 数组、专家行展开和结果逆重排。跨 DP 的 FULL_DECODE_ONLY 以四个 rank 的不同 Decode 行数说明捕获集合、模式和档位协调、空 rank dummy 与整组 eager 回退。副本实验室固定四十个 token、八十次专家任务与同一专家布局，只切换目标 rank 分布，区分专家任务、本地使用、远端激活副本与 BF16 逻辑 payload，不预测耗时。模拟 profiling 沿已核查的 W8A8 自定义内核，区分普通 MC2 的默认局部融合与 Fused-MC2 的 AIV / AIC flag 协作；支持单步、事件依赖和源码定位，横轴用格数表示模拟进度。A5 实操先以双 rank 同尺度事件图展示 MC2／MegaMoE 的差异，再用四张真实 Perfetto 截图对照 MC2／CANN MegaMoE 的 rank0、rank1，列出专家任务数，标明各条 flow 所属的 rank 和截图对应的采样窗口，并说明据此能得出哪些结论。
 
 《上下文并行：KV 分片与 Attention 归并》先按 TP 与总 KV head 数的关系说明切分与复制，再以 ReduceScatter、逐行 Norm 和 AllGather 解释 SP 的激活分片，随后追踪 PCP 的 query 划分、DCP 的本地块表和有效长度。用 A5 算例对齐 Q AllGather、output/LSE 打包和归并的张量形状与通信 count。A5 实操用 DCP1／DCP2 双 rank 同尺度事件图、真实截图、同轮通信配对和逐卡任务记录对照，区分本地调用链、跨 rank 等待线索与尚未确认的原因。
 

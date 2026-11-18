@@ -13,8 +13,8 @@
     $('lb-count').setAttribute('aria-pressed', String(policy === 'count'));
     $('lb-kv').setAttribute('aria-pressed', String(policy === 'kv'));
     $('lb-route-result').textContent = `下一条目标：DP ${next}，当前最低分 ${fmt(scores[next])}。已送入 ${state.assigned.length} 条新请求。`;
-    $('lb-ranks').innerHTML = scores.map((score, rank) => `<div class="lb-rank${rank === next ? ' is-target' : ''}"><h5>DP rank ${rank}<span>${rank === next ? '下一条目标' : '队列留在原 rank'}</span></h5><dl><div><dt>等待请求估计</dt><dd>${state.waiting[rank]}</dd></div><div><dt>running</dt><dd>${state.running[rank]}</dd></div><div><dt>KV 使用率</dt><dd>${Math.round(state.kvUsage[rank] * 100)}%</dd></div><div><dt>本入口未结束请求</dt><dd>${state.ownInflight[rank]}</dd></div></dl><div class="lb-score"><span>当前评分</span><strong>${fmt(score)}</strong></div></div>`).join('');
-    $('lb-route-history').textContent = state.assigned.length ? state.assigned.map((rank, i) => `R${i + 1} → DP ${rank}`).join('　·　') : '新请求尚未到达，表中已有请求不被搬走。';
+    $('lb-ranks').innerHTML = scores.map((score, rank) => `<div class="lb-rank${rank === next ? ' is-target' : ''}"><h5>DP rank ${rank}<span>${rank === next ? '下一条目标' : '已有请求留在此处'}</span></h5><dl><div><dt>预计等待请求数</dt><dd>${state.waiting[rank]}</dd></div><div><dt>运行请求数</dt><dd>${state.running[rank]}</dd></div><div><dt>KV 使用率</dt><dd>${Math.round(state.kvUsage[rank] * 100)}%</dd></div><div><dt>本入口未结束请求</dt><dd>${state.ownInflight[rank]}</dd></div></dl><div class="lb-score"><span>当前评分</span><strong>${fmt(score)}</strong></div></div>`).join('');
+    $('lb-route-history').textContent = state.assigned.length ? state.assigned.map((rank, i) => `R${i + 1} → DP ${rank}`).join('　·　') : '尚未分配新请求。已有请求继续由原 rank 处理。';
     $('lb-send').disabled = state.assigned.length >= 8;
   }
   for (const choice of ['count', 'kv']) $('lb-' + choice).addEventListener('click', () => {policy = choice; state = M.initialDplbState(); renderDplb();});
@@ -45,8 +45,8 @@
       out.push(`<g opacity="${phase >= 3 ? 1 : .25}">`+rect(end,y+48,70,27,'#eee8f7','#b69acb')+text(end+6,y+67,'归还',14,'#6b478a')+'</g>');
       out.push(`<path d="M${consumer} ${y+7}V${y+80}" stroke="${phase >= 4 ? '#0f766e' : '#94a3b8'}" stroke-width="2" stroke-dasharray="4 4"/>`);
     });
-    out.push(text(24,566,phase >= 3 ? '斜线：等待所需结果的区间，可体现为通信等待，也可能被其他工作覆盖。' : '步骤展示依赖顺序；条宽不是播放器停留时间。',16,'#805c1d'));
-    out.push(text(24,589,'按整组结果到齐后继续计算来简化；真实后端可分块/重叠，不代表源码存在额外全局 barrier。',14,'#475569'),'</svg>');
+    out.push(text(24,566,phase >= 3 ? '斜线：等待所需结果的区间，可体现为通信等待，也可能被其他工作覆盖。' : '步骤按依赖关系排列，条宽不表示播放时长。',16,'#805c1d'));
+    out.push(text(24,589,'本例等整组结果到齐后再继续计算。实际后端可以分块或重叠执行，这里没有额外的全局 barrier。',14,'#475569'),'</svg>');
     return out.join('');
   }
   function renderEplb() {
@@ -61,7 +61,7 @@
     $('lb-phase-label').value = phaseLabels[phase];
     $('lb-phase-label').textContent = phaseLabels[phase];
     $('lb-expert-scene').innerHTML = scene(placement, result);
-    $('lb-expert-note').textContent = (heatKey === 'shifted' ? '热度已经改变，原先适配 E0/E1 的放置可能更差；需要重新统计与安排，不能瞬时知道未来。' : '旧、新放置使用相同的 12 个专家槽；逻辑选择仍是同一组 80 次专家任务。') + ' 期望值假设副本均分；计算任务计数不等于真实耗时，也不表示加速比。';
+    $('lb-expert-note').textContent = (heatKey === 'shifted' ? '现在 E4、E5 收到的任务最多。按 E0、E1 的旧负载安排副本，可能使各 rank 的任务数更不均衡。要重新安排副本，需要收集新的任务计数。' : '两种布局各有 12 个专家槽。Router 选中的专家相同，总任务数都是 80 次。') + ' 这里假设同一专家的任务由其副本均分。仅凭预计的任务数无法推算实际耗时或加速比。';
   }
   function stop() {if (timer) clearInterval(timer); timer = null; $('lb-play').textContent = '播放步骤'; $('lb-play').classList.remove('is-playing');}
   for (const key of ['old','new']) $('lb-'+key).addEventListener('click', () => {stop(); placementKey=key; phase=4; renderEplb();});

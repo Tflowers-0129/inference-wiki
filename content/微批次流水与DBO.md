@@ -1,6 +1,6 @@
 # 微批次流水：两批 MoE 工作怎样重叠
 
-上一章的 A5 算例中，Dispatch 把激活送给专家，专家算完，Combine 再把结果送回。假设一次 Decode 有四行激活。把四行一起发出，本批专家计算依赖这次 Dispatch 的结果。如果先发两行，后两行还有独立的 Attention、路由和专家计算可做。Dual Batch Overlap（DBO）就从这里切开一次前向，让一批的通信有机会与另一批的计算同时进行。[MoE 的 Dispatch 与 Combine](EP通信与通算融合.md) · [vLLM 的 DBO 设计](https://github.com/vllm-project/vllm/blob/5df63a72/docs/design/dbo.md#L3-L27)
+上一章的 A5 算例中，Dispatch 把激活送给专家，专家算完，Combine 再把结果送回。假设一次 Decode 有四行激活。把四行一起发出，本批专家计算依赖这次 Dispatch 的结果。如果先为前两行发起 Dispatch，后两行可以同时做 Attention 和路由。后两行的专家计算仍要等自己所需的输入到达。Dual Batch Overlap（DBO）把一次前向拆成两个微批，让一批的通信有机会与另一批的计算同时进行。[MoE 的 Dispatch 与 Combine](EP通信与通算融合.md) · [vLLM 的 DBO 设计](https://github.com/vllm-project/vllm/blob/5df63a72/docs/design/dbo.md#L3-L27)
 
 ## 四个 Decode 请求怎样拆成两批？
 
@@ -30,7 +30,7 @@ Combine 解决的是**一层之内**专家结果回到哪一行。到整个模�
 
 ## 怎样判断重叠带来了收益？
 
-这四行拆前拆后都要走各自的专家。拆开后，每批专家可一起计算的行可能变少，每层还要分别为两个微批发起通信。另一批的计算如果在接收完成前就已做完，剩下的通信仍在本轮的关键路径上。比较两种配置时，可以先问两个问题。开 DBO 后，每次专家矩阵乘处理多少行？从第一批开始前向到两批输出都可采样，整个区间缩短了多少？[每微批的专家通信](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/ubatch_utils.py#L395-L425)
+拆成微批后，这四行仍由各自选中的专家处理，但一次专家矩阵乘能一起处理的行数可能减少，每层还要分别为两个微批发起通信。另一批的计算如果在接收完成前就已做完，剩下的通信仍在本轮的关键路径上。比较两种配置时，可以先问两个问题。开 DBO 后，每次专家矩阵乘处理多少行？从第一批开始前向到两批输出都可采样，整个区间缩短了多少？[每微批的专家通信](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/ubatch_utils.py#L395-L425)
 
 设备验证要让关闭和开启 DBO 的两组使用同一权重、后端、请求序列、并发和图配置。先核对输出及逐请求归属，在关闭 profiler 时重复测量吞吐、TTFT 和逐 token 间隔。再对同条件下的一轮采集所有相关 rank 的 Host、计算、通信和同步事件，按微批配对 Dispatch、专家计算与 Combine，核对通信和计算重叠后整轮还有多少等待。跨 rank 对齐需要校准时钟。若只有独立起点，只能比较各 rank 本地的事件与依赖。[项目实操流程](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/README.md#特性前后对照的固定流程)
 

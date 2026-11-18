@@ -72,7 +72,7 @@
     function add(rank, name, lane, kind, label, duration, deps, extra = {}) {
       const event = {id: id(rank, name), rank, lane: `r${rank}-${lane}`, kind, label, duration,
         deps, source: SOURCES[kind === 'dispatch' || kind === 'init' ? 'dispatch' : kind === 'combine' ? 'combine' : kind === 'gmm2' ? 'gmm2' : 'experts'],
-        evidence: '源码调用顺序；角色与分段为教学聚合', assumption: '块宽使用教学时长；不代表真实 trace', ...extra};
+        evidence: '任务依赖取自源码，图中按工作类型和专家分段显示。', assumption: '各块宽度表示模拟时长。', ...extra};
       events.push(event);
       return event.id;
     }
@@ -83,7 +83,7 @@
       names.forEach((name, index) => {
         previous = add(rank, `submit-${name}`, 'host', 'host', index === names.length - 1 ? '提交后续任务' : method === 'fused' ? 'Fused' : `提交 ${index + 1}`,
           timing.submit, previous ? [previous] : [], {release: rank === 1 ? timing.peer : 0,
-            operator: name === 'fused' ? 'dispatch_ffn_combine' : name, source: SOURCES[method === 'fused' ? 'fused' : 'experts'], evidence: '教学 Host 发起顺序；未加入逐算子 Host 同步'});
+            operator: name === 'fused' ? 'dispatch_ffn_combine' : name, source: SOURCES[method === 'fused' ? 'fused' : 'experts'], evidence: 'Host 按图中顺序提交，提交下一项前无需等待上一项在设备上完成。'});
       });
     }
     for (let rank = 0; rank < RANKS; rank++) {
@@ -96,14 +96,14 @@
         if (localFusion) {
           g1 = act = add(rank, 'local-fused', 'aic', 'localFused', 'G1 + S + Quant · 内部不展开', SEGMENTS * (timing.gmm1 + timing.activation), [dispatch, prefix('submit-local-fused')],
             {operator: '_C_ascend.grouped_matmul_swiglu_quant_weight_nz', group: 'E0…E3', opaque: true,
-              evidence: '默认局部融合 API；只模拟总区间，未从 Fused-MC2 借用其内部微调度'});
+              evidence: '默认开启局部融合。图中只给出这次调用的模拟总时长，内部时序取决于 tiling。'});
         } else {
           g1 = add(rank, 'gmm1', 'aic', 'gmm1', 'G1 · E0…E3', SEGMENTS * timing.gmm1, [dispatch, prefix('submit-gmm1')], {operator: 'torch_npu.npu_grouped_matmul · GMM1', group: 'E0…E3'});
           act = add(rank, 'activation', 'aiv', 'activation', 'S · 整批', SEGMENTS * timing.activation, [g1, prefix('submit-activation')], {operator: 'torch.ops._C_ascend.npu_dequant_swiglu_quant', group: 'E0…E3'});
         }
         const g2 = add(rank, 'gmm2', 'aic', 'gmm2', 'G2 · E0…E3', SEGMENTS * timing.gmm2, [act, prefix('submit-gmm2')], {operator: 'GMM2', group: 'E0…E3'});
         const combine = add(rank, 'combine', 'aiv', 'combine', 'C · 整批', SEGMENTS * timing.combine, [g2, id(peer, 'gmm2'), prefix('submit-combine')], {operator: 'MC2 Combine', group: 'E0…E3',
-          evidence: '调用数据依赖；所需远端专家结果在本模型中保守聚合到齐，不表示源码存在全 rank barrier'});
+          evidence: '模拟假设所需的远端专家结果全部到齐后才开始 Combine。这一依赖只涉及 Combine 需要的结果。'});
         const middle = localFusion ? [['local-fused', 'GMM1+S+Quant', [g1]]] : [['gmm1', 'GMM1', [g1]], ['activation', 'SwiGLU', [act]]];
         for (const [key, label, ids] of [['dispatch', 'Dispatch_v2', [init, dispatch]], ...middle, ['gmm2', 'GMM2', [g2]], ['combine', 'Combine_v2', [combine]]]) {
           boundaries.push({id: `${prefix('boundary')}-${key}`, rank, label, events: ids, source: SOURCES[key === 'dispatch' || key === 'combine' || key === 'gmm2' ? key : 'experts'], operator: label, evidence: 'Python 层可见调用边界；非 Host 等待区间'});
@@ -116,7 +116,7 @@
             index ? [d[index - 1]] : [init, id(peer, 'init')], {operator: '按专家 Pull Dispatch / 发布就绪 flag', group: `E${index}`, source: SOURCES.fusedDispatch}));
           g1.push(add(rank, `gmm1-${index}`, 'aic', 'gmm1', `G1·${index}`, timing.gmm1,
             index ? [d[index], g1[index - 1]] : [d[index]], {operator: 'GMM1 / 等待专家输入 flag', group: `E${index}`, source: SOURCES.fusedGmm1,
-              evidence: '源码 flag 依赖；代表性 AIC worker 任务序列，非全芯片屏障'}));
+              evidence: '该 AIC 核等待专家输入就绪标记后开始计算，其他 AIC 核可以有各自的进度。'}));
         }
         const s0 = add(rank, 'activation-0', 'aiv', 'activation', 'S0 · E0–2', 3 * timing.activation, [d[3], g1[2]], {operator: 'SwiGLU + 再量化 / 第一组', group: 'E0…E2', source: SOURCES.fusedAct});
         const s1 = add(rank, 'activation-1', 'aiv', 'activation', 'S1·E3', timing.activation, [s0, g1[3]], {operator: 'SwiGLU + 再量化 / 第二组', group: 'E3', source: SOURCES.fusedAct});
@@ -127,7 +127,7 @@
           c.push(add(rank, `combine-${index}`, 'aiv', 'combine', `C${index}`, timing.combine,
             index ? [c[index - 1], g2[index]] : [s1, g2[index]], {operator: 'Combine / 等待 GMM2 专家就绪', group: `E${index}`, source: SOURCES.fusedCombine}));
         }
-        const sync = add(rank, 'sync', 'aiv', 'sync', '跨rank同步', timing.sync, [c[3], id(peer, 'combine-3')], {operator: 'CrossRankSync', source: SOURCES.fusedAct, evidence: '源码在 Combine 后执行 CrossRankSync；教学聚合为对端完成依赖'});
+        const sync = add(rank, 'sync', 'aiv', 'sync', '跨rank同步', timing.sync, [c[3], id(peer, 'combine-3')], {operator: 'CrossRankSync', source: SOURCES.fusedAct, evidence: '源码在 Combine 后执行 CrossRankSync。示意图用两端 Combine 完成来表示这项依赖。'});
         const unpermute = add(rank, 'unpermute', 'aiv', 'unpermute', '归并', timing.unpermute, [sync], {operator: 'Unpermute / top-k 加权归并', source: SOURCES.fusedAct});
         boundaries.push({id: prefix('boundary-fused'), rank, label: 'dispatch_ffn_combine · 一个外部算子', events: [init, ...d, ...g1, s0, s1, ...g2, ...c, sync, unpermute], operator: 'dispatch_ffn_combine', source: SOURCES.fused,
           evidence: '一个外部自定义算子；内部 AIV 与 AIC 以 flag 协作'});
@@ -154,7 +154,7 @@
     }
     const duration = Math.max(result.mc2.duration, result.fused.duration);
     return {profile, timing, localFusion, ...result, duration, steps: [...new Set([0, ...Object.values(result).flatMap(schedule => schedule.events.flatMap(event => [event.start, event.end]))])].sort((a, b) => a - b),
-      assumptions: ['两逻辑 rank，各四个本地专家段 E0…E3；分段数用于读图，不等于设备 tiling。', 'AIV 与 AIC 是角色轨道；代表性 worker 的顺序不能推出全芯片 barrier。', '同一教学工作量、任意教学时长；横轴不能换算为毫秒或预测加速比。']};
+      assumptions: ['两个逻辑 rank 各有四个本地专家 E0…E3。图中按专家分段，实际计算还会按 tiling 细分。', 'AIV 和 AIC 两行按工作类型分组，单个计算单元的执行顺序只代表它自己。', '两种方案处理相同的工作量。每项任务的时长由模拟参数决定，实际耗时和加速比需要在设备上测量。']};
   }
 
   function snapshot(schedule, time) {

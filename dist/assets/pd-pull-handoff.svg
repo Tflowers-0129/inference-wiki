@@ -25,7 +25,7 @@
 <path d="M288 392H500" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
 <text x="304" y="376" font-size="19" fill="#1d4ed8" font-weight="600" text-anchor="start">③ 返回交接元数据</text>
 <rect x="372" y="414" width="256" height="74" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
-<text x="392" y="445" font-size="19" fill="#172b4d" font-weight="400" text-anchor="start">P 的源页号、请求身份</text>
+<text x="392" y="445" font-size="19" fill="#172b4d" font-weight="400" text-anchor="start">P 的源页号、请求标识</text>
 <text x="392" y="472" font-size="18" fill="#475569" font-weight="400" text-anchor="start">连接入口与布局；不含 KV</text>
 <path d="M500 516H840" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
 <text x="575" y="503" font-size="20" fill="#0f766e" font-weight="600" text-anchor="start">④ 再选 D，转发请求</text>

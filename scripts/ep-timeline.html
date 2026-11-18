@@ -1,20 +1,20 @@
 <section class="ep-timeline" id="ep-timeline" aria-labelledby="ep-time-heading">
-  <header><span class="ep-time-eyebrow">源码依赖 → 教学泳道 / 非设备实测</span><h4 id="ep-time-heading">MC2 与 Fused-MC2：不同调用怎样在一个算子内协作？</h4><p class="ep-time-intro">固定 TP=1、EP=2、W8A8 + SiLU，每 rank 四个非空专家，不启用共享专家多流。普通 MC2 分多次调用；自定义 Fused-MC2 在一个调用内，让 AIV 搬运与向量计算、AIC 矩阵计算按就绪标记交接。编号仅用于区分示例对象，横轴不是毫秒。</p></header>
+  <header><span class="ep-time-eyebrow">根据源码绘制的任务依赖示意</span><h4 id="ep-time-heading">MC2 与 Fused-MC2 怎样协调输入搬运、专家计算和结果回传？</h4><p class="ep-time-intro">固定 TP=1、EP=2、W8A8 + SiLU，每 rank 四个非空专家，不启用共享专家多流。普通 MC2 分多次调用。自定义 Fused-MC2 在一次调用内用就绪标记协调两类计算核：AIV 负责搬运和向量计算，AIC 负责矩阵计算。编号只用于区分示例对象，横轴以格为单位表示模拟时间。</p></header>
   <div class="ep-time-controls">
-    <label for="ep-time-profile">教学时长假设<select id="ep-time-profile"><option value="balanced">相近的通信与矩阵时长</option><option value="communication">通信搬运较长</option><option value="matrix">矩阵计算较长</option><option value="peer">逻辑 rank 1 输入晚到</option></select></label>
+    <label for="ep-time-profile">模拟时长<select id="ep-time-profile"><option value="balanced">相近的通信与矩阵时长</option><option value="communication">通信搬运较长</option><option value="matrix">矩阵计算较长</option><option value="peer">逻辑 rank 1 输入晚到</option></select></label>
     <label for="ep-time-layout">对照布局<select id="ep-time-layout"><option value="stack">上下 · 共用横轴</option><option value="side">并排 · 各图可横滑</option></select></label>
     <label class="ep-time-checkbox" for="ep-time-local-fusion"><input id="ep-time-local-fusion" type="checkbox" checked>普通 MC2 局部融合（默认开）</label>
     <div class="ep-time-actions"><button id="ep-time-play" type="button" aria-pressed="false">播放</button><button id="ep-time-step" type="button">下一事件</button><button id="ep-time-reset" type="button">回到起点</button></div>
-    <div class="ep-time-scrubber"><label for="ep-time-position">推进位置</label><input id="ep-time-position" type="range" min="0" max="40" step="0.01" value="0" aria-label="模拟推进位置"><output id="ep-time-clock" for="ep-time-position">0 格</output></div>
+    <div class="ep-time-scrubber"><label for="ep-time-position">播放进度</label><input id="ep-time-position" type="range" min="0" max="40" step="0.01" value="0" aria-label="模拟播放进度"><output id="ep-time-clock" for="ep-time-position">0 格</output></div>
   </div>
   <p class="ep-time-config-note" id="ep-time-config-note"></p>
   <ul class="ep-time-legend" aria-label="泳道图例"><li><i class="dispatch"></i>D：输入搬运</li><li><i class="matrix"></i>G1 / G2：两段矩阵</li><li><i class="vector"></i>S：SwiGLU / 再量化</li><li><i class="combine"></i>C：回传</li><li>↔：跨 rank 同步 · U：加权归并</li><li><i class="wait"></i>等待所需数据</li></ul>
   <p class="ep-time-reading">整张图一开始就显示完整流程，竖线标记播放位置。点击一个任务，可查看它必须等待哪些任务，以及对应源码。Host 小块表示提交，不表示 CPU 等设备完成。超出容器的部分可横向滑动查看。</p>
   <div class="ep-time-panels" id="ep-time-panels">
-    <section class="ep-time-panel" aria-labelledby="ep-time-mc2-heading"><div class="ep-time-panel-heading"><h5 id="ep-time-mc2-heading">MC2 · 多个外部调用顺序接续</h5><p id="ep-time-mc2-state"></p></div><div class="ep-time-chart" id="ep-time-mc2" tabindex="0" aria-label="MC2 教学泳道，可横向滚动"></div></section>
-    <section class="ep-time-panel" aria-labelledby="ep-time-fused-heading"><div class="ep-time-panel-heading"><h5 id="ep-time-fused-heading">Fused-MC2 · 单一外部调用，内部就绪标记交接</h5><p id="ep-time-fused-state"></p></div><div class="ep-time-chart" id="ep-time-fused" tabindex="0" aria-label="Fused-MC2 教学泳道，可横向滚动"></div></section>
+    <section class="ep-time-panel" aria-labelledby="ep-time-mc2-heading"><div class="ep-time-panel-heading"><h5 id="ep-time-mc2-heading">MC2 · 多个外部调用依次执行</h5><p id="ep-time-mc2-state"></p></div><div class="ep-time-chart" id="ep-time-mc2" tabindex="0" aria-label="MC2 教学泳道，可横向滚动"></div></section>
+    <section class="ep-time-panel" aria-labelledby="ep-time-fused-heading"><div class="ep-time-panel-heading"><h5 id="ep-time-fused-heading">Fused-MC2 · 一次外部调用，内部通过就绪标记协作</h5><p id="ep-time-fused-state"></p></div><div class="ep-time-chart" id="ep-time-fused" tabindex="0" aria-label="Fused-MC2 教学泳道，可横向滚动"></div></section>
   </div>
   <aside class="ep-time-detail" id="ep-time-detail" aria-label="所选事件的源码与依赖"></aside>
-  <details class="execution-source-details"><summary>读图条件：四专家分组、等待点与模拟限制</summary><p class="ep-time-caveat">AIV 合并通信、搬运与向量角色；AIC 展示代表性 worker 的顺序，不能据此增加全芯片屏障。四个专家段、同一角色串行和全部块宽均为读图假设。E=4 时，Fused 的 epilogueGranularity=E-1=3，S0 覆盖 E0…E2，S1 覆盖 E3；GMM2 在 E2 前再等 S1。MC2 的 Combine 输入按所需远端专家结果到齐作保守聚合，不增加显式全 rank 屏障。Fused 不等于每段都走完 D→完整 FFN→C 后再处理下一段；模拟终点也不是实测加速比。</p></details>
+  <details class="execution-source-details"><summary>四个专家如何分组？哪些时序是模拟的？</summary><p class="ep-time-caveat">AIV 行汇总通信、搬运和向量计算。AIC 行只展示一个代表性计算单元的执行顺序，其他核可以有不同进度。图中按四个专家分段，假设同一行的任务串行执行，时长由模拟参数决定。E=4 时，Fused 的 epilogueGranularity=E-1=3，S0 覆盖 E0…E2，S1 覆盖 E3；GMM2 在 E2 前再等 S1。模拟假设普通 MC2 的 Combine 等所需远端专家结果全部到齐后开始。仅凭这项模拟设定，无法判断源码是否设有全 rank 屏障。自定义 Fused-MC2 中，一个专家的计算可以和其他专家的输入搬运交叠。要比较两种实现的耗时，还需在设备上计时。</p></details>
   <noscript>此模拟需要 JavaScript。基本依赖：MC2 由 Dispatch、专家 FFN 与 Combine 等多个调用接续。Fused-MC2 把这些角色放入一个自定义算子，以专家就绪 flag 和 epilogue flag 交接。AIV 先完成所有 Dispatch，才进入 SwiGLU；代表性 AIC worker 先做 GMM1，再进入 GMM2。</noscript>
 </section>
