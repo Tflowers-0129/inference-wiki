@@ -16,13 +16,13 @@
   </defs>
 
   <rect width="1120" height="880" rx="20" fill="#fbfaf7"/>
-  <text x="32" y="48" font-size="30" font-weight="700" class="ink">每轮选图：看形状，不看 Decode 比例</text>
+  <text x="32" y="48" font-size="24" font-weight="700" class="ink">每轮选图：看形状，不看 Decode 比例</text>
   <text x="32" y="80" font-size="17" class="muted">同一轮先排出完整批次，再决定怎样执行；不会在 forward 半途临时换成整图。</text>
 
   <rect x="32" y="104" width="1056" height="76" rx="12" fill="#edf2f8"/>
   <text x="50" y="134" font-size="17" font-weight="650" class="ink">显式图配置 · 教学示例</text>
   <text x="410" y="134" class="body muted">ms = 200 · mbt = 8192 · 普通单 token Decode</text>
-  <text x="50" y="162" class="body muted">FULL_AND_PIECEWISE · 上限设为 400 · 包含 200 / 336 桶 · 后端兼容</text>
+  <text x="50" y="162" class="body muted">FULL_AND_PIECEWISE · 上限设为 400 · 包含 200 / 336 档位 · 后端兼容</text>
 
   <rect x="32" y="208" width="250" height="108" rx="13" fill="#e8f0fd" stroke="#a9c5ef"/>
   <text x="50" y="240" font-size="22" font-weight="700" class="ink">Scheduler</text>
@@ -32,7 +32,7 @@
   <path d="M289 262H320" fill="none" stroke="#60728d" stroke-width="2" marker-end="url(#arrow)"/>
   <rect x="328" y="208" width="300" height="108" rx="13" fill="#e8f5f2" stroke="#9cd2ca"/>
   <text x="346" y="240" font-size="22" font-weight="700" class="ink">Runner 轮前判定</text>
-  <text x="346" y="270" class="body ink">捕获范围 → bucket → 批次结构</text>
+  <text x="346" y="270" class="body ink">检查捕获范围、档位和批次结构</text>
   <text x="346" y="295" class="body muted">同时检查后端与功能兼容性</text>
 
   <path d="M635 262H666" fill="none" stroke="#60728d" stroke-width="2" marker-end="url(#arrow)"/>
@@ -61,18 +61,18 @@
 
   <rect x="32" y="518" width="1056" height="60" rx="10" fill="#e8f0fd"/>
   <text x="50" y="555" font-size="19" font-weight="650" class="ink">199 D + 128 P = 327</text>
-  <text x="450" y="555" font-size="17" class="ink">padding → bucket 336</text>
+  <text x="450" y="555" font-size="17" class="ink">补齐到 336 档位</text>
   <text x="944" y="555" text-anchor="middle" font-size="19" font-weight="700" fill="#1d4ed8" class="mono">PIECEWISE</text>
 
   <rect x="32" y="590" width="1056" height="60" rx="10" fill="#e8f5f2"/>
   <text x="50" y="627" font-size="19" font-weight="650" class="ink">200 D = 200</text>
-  <text x="450" y="627" font-size="17" class="ink">bucket 200；uniform decode</text>
+  <text x="450" y="627" font-size="17" class="ink">200 档位；每请求 1 Token</text>
   <text x="944" y="627" text-anchor="middle" font-size="19" font-weight="700" fill="#108579" class="mono">FULL</text>
 
   <text x="50" y="679" font-size="15" class="muted">D：每个 Decode 请求的 1 个新 token；P：本轮调度的 Prefill token 数。表中数字均为 token 数。</text>
 
   <rect x="32" y="705" width="1056" height="145" rx="12" fill="#fff" stroke="#d3dce8"/>
-  <text x="50" y="736" font-size="18" font-weight="650" class="ink">后两行还要满足：对应 bucket 的图已捕获，且本轮功能兼容。</text>
+  <text x="50" y="736" font-size="18" font-weight="650" class="ink">后两行还要满足：对应档位的图已捕获，且本轮功能兼容。</text>
   <text x="50" y="766" class="body muted">PIECEWISE 按算子可捕获的边界分段，不是只把批次里的 Decode 请求单独放进图。</text>
   <text x="50" y="796" class="body muted">这是用于说明判定规则的构造批次，不对应播放器的固定轮次。</text>
   <text x="50" y="826" class="body muted">Ascend 的捕获范围、支持后端和模式分派，请核对实际部署的后端与有效配置。</text>

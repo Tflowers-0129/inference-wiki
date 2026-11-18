@@ -7,7 +7,7 @@
 </defs>
 <rect width="1120" height="1190" rx="18" fill="#fff" />
 
-<text x="28" y="40" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:28px;font-weight:700;fill:#223855">一次投机验证：算四行，确认三个新输出</text>
+<text x="28" y="40" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:24.5px;font-weight:700;fill:#223855">一次投机验证：算四行，确认三个新输出</text>
 <text x="28" y="72" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">K=3 · 连续接受 a=2 个候选 · 单请求、单候选链的贪心构造例</text>
 <rect x="29" y="91" width="14" height="14" rx="3" fill="#eaf5ee" stroke="#7fb39b" stroke-width="1.2" />
 <text x="52" y="104" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:400;fill:#526780">已确认 / 有效 Target KV</text>
@@ -65,7 +65,7 @@
 <circle cx="47" cy="459" r="16" fill="#234c82" />
 <text x="47" y="465" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:700;fill:#fff" text-anchor="middle">3</text>
 <text x="77" y="466" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:22px;font-weight:700;fill:#223855">Target 一次输入：[t0, d1, d2, d3]，位置为 [8, 9, 10, 11]</text>
-<text x="42" y="492" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">每行生成自身 KV；该行 logits 预测下一个位置，用来验证右侧候选。</text>
+<text x="42" y="492" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">每行生成自己的 KV，并预测下一个位置；用这个预测验证右侧候选。</text>
 <text x="75" y="524" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#526780">Target 输入行</text>
 <text x="420" y="524" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#526780">这行 logits 验证谁？</text>
 <text x="820" y="524" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:17px;font-weight:600;fill:#526780">验证结果</text>
@@ -113,7 +113,7 @@
 <rect x="22" y="789" width="1076" height="213" rx="10" fill="#fcfdff" stroke="#d4deeb" stroke-width="1.2" />
 <circle cx="47" cy="817" r="16" fill="#234c82" />
 <text x="47" y="823" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:700;fill:#fff" text-anchor="middle">4</text>
-<text x="77" y="824" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:22px;font-weight:700;fill:#223855">回收结果：输出确认与有效 Target KV 的边界不同</text>
+<text x="77" y="824" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:22px;font-weight:700;fill:#223855">验证结果：新输出与有效 Target KV 分别记录</text>
 <text x="42" y="850" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:18px;font-weight:400;fill:#526780">本轮新输出：[d1, d2, x]；有效 Target KV：位置 0…10，长度 11。</text>
 <text x="295" y="877" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:400;fill:#526780" text-anchor="middle">位置 0…7</text>
 <text x="479" y="877" style="font-family:-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;font-size:16px;font-weight:400;fill:#526780" text-anchor="middle">位置 8</text>

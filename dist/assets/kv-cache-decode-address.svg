@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="350" height="340" viewBox="0 0 350 340" role="img" aria-labelledby="title desc">
-  <title id="title">请求 A 的写槽与分页读取</title>
-  <desc id="desc">管理块与 kernel 块均有四个槽。请求 A 的 a0 到 a7 已缓存。块表 [7,2,9] 将三个逻辑块映射到三个物理块。本轮 a8 在位置 8，通过 slot_mapping 写到物理块 9 的第 0 行，即槽 36。Attention 按块表从三页分别读取 4、4、1 个有效位置。块 9 的三个虚线槽不计入有效长度。</desc>
+  <title id="title">请求 A 的 KV 写入与分页读取</title>
+  <desc id="desc">每页四个Token。请求A已有位置0到7的KV，页表为[7,2,9]。本轮a8的KV写入物理页9、页内偏移0，slot_mapping=36。Attention从三页分别读取4、4、1个有效位置。</desc>
   <defs>
     <style>
       text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
@@ -28,15 +28,15 @@
 
   <rect width="350" height="340" fill="#fff"/>
   <text x="16" y="28" class="label">请求 A</text>
-  <text x="78" y="28" class="minor">每块 4 槽</text>
+  <text x="78" y="28" class="minor">每页 4 个 Token</text>
   <path d="M16 42H208" fill="none" stroke="#cbd5e1"/>
 
   <text x="16" y="65" class="field blue">block_table = [7, 2, 9]</text>
-  <text x="222" y="28" class="label orange">a8 → 槽 36</text>
-  <text x="222" y="48" class="field orange">slot_mapping</text>
+  <text x="242" y="28" class="label orange">a8 写入</text>
+  <text x="210" y="48" class="field orange" style="font-size:12px">slot_mapping=36</text>
   <path d="M262 55V160" fill="none" stroke="#b45309" stroke-width="1.6" marker-end="url(#write-arrow)"/>
 
-  <text x="16" y="95" class="minor">逻辑位置</text>
+  <text x="16" y="95" class="minor">请求位置</text>
   <g class="label center">
     <text x="116" y="95">0–3</text>
     <text x="204" y="95">4–7</text>
@@ -46,14 +46,14 @@
   <path d="M204 104V125" class="mapping"/>
   <path d="M299 104V125" class="mapping"/>
 
-  <text x="16" y="148" class="minor">物理块</text>
+  <text x="16" y="148" class="minor">物理页</text>
   <g class="label center blue">
     <text x="116" y="148" class="blue">7</text>
     <text x="204" y="148" class="blue">2</text>
     <text x="299" y="148" class="blue">9</text>
   </g>
 
-  <text x="16" y="184" class="minor">页内槽</text>
+  <text x="16" y="184" class="minor">Token</text>
   <rect x="76" y="164" width="80" height="30" class="page"/>
   <rect x="164" y="164" width="80" height="30" class="page"/>
   <path d="M96 164V194M116 164V194M136 164V194M184 164V194M204 164V194M224 164V194"
@@ -67,7 +67,7 @@
     <text x="262" y="184" class="orange">a8</text>
   </g>
 
-  <text x="16" y="230" class="minor">有效行</text>
+  <text x="16" y="230" class="minor">有效位置</text>
   <path d="M76 200V207H156V200M164 200V207H244V200M252 200V207H272V200" class="gather"/>
   <g class="label center">
     <text x="116" y="230" class="teal">4</text>

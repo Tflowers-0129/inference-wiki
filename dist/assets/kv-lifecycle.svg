@@ -6,11 +6,11 @@
     <marker id="amber" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#d98b21" stroke-width="1.5"/></marker>
     <style>
       text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
-      .eyebrow{font-size:12px;letter-spacing:2px;font-weight:700;fill:#60728d}.title{font-size:27px;font-weight:750}.sub{font-size:14px;fill:#60728d}.name{font-size:16px;font-weight:700}.small{font-size:12px;fill:#60728d}.line{fill:none;stroke:#73859e;stroke-width:1.8;marker-end:url(#arrow)}.branch{fill:none;stroke:#d98b21;stroke-width:1.8;marker-end:url(#amber)}
+      .eyebrow{font-size:12px;letter-spacing:2px;font-weight:700;fill:#60728d}.title{font-size:24px;font-weight:750}.sub{font-size:14px;fill:#60728d}.name{font-size:16px;font-weight:700}.small{font-size:12px;fill:#60728d}.line{fill:none;stroke:#73859e;stroke-width:1.8;marker-end:url(#arrow)}.branch{fill:none;stroke:#d98b21;stroke-width:1.8;marker-end:url(#amber)}
     </style>
   </defs>
   <rect width="1000" height="420" rx="22" fill="#fbfaf7"/>
-  <text x="32" y="32" class="eyebrow">显存里的上下文 · KV 生命周期</text>
+  <text x="32" y="32" class="eyebrow">KV 页怎样分配和归还</text>
   <text x="32" y="70" class="title">完成会归还引用，抢占会改变请求的去向</text>
   <text x="32" y="97" class="sub">块可以复用；释放请求占用，不等于立即把所有显存交还给系统。</text>
 
@@ -33,7 +33,7 @@
   <g>
     <rect x="795" y="124" width="173" height="98" rx="16" fill="#e8f6f3" stroke="#b4ded7"/>
     <path d="M869 146a13 13 0 1 1 0 10M865 143l5 3-2 6" fill="none" stroke="#159c91" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="881.5" y="182" text-anchor="middle" class="name">释放请求引用</text><text x="881.5" y="206" text-anchor="middle" class="small">可回收块进入复用</text>
+    <text x="881.5" y="182" text-anchor="middle" class="name">释放请求引用</text><text x="881.5" y="206" text-anchor="middle" class="small">可回收页供后续分配</text>
   </g>
 
   <path d="M324 222v20H97v33" class="branch"/>

@@ -5,13 +5,13 @@
   const { MAX_STEP, stateAt } = window.KVDecodeModel;
   const delay = 2200;
   const steps = [
-    ['已有两页历史', 'a8 是本轮输入。位置 0～7 的 K/V 已在块 7 和块 2。'],
-    ['预留物理块 9', '块表为逻辑块 2 补上块号 9。位置 8 对应新页第 0 槽，扁平槽号为 36。'],
-    ['写入 a8 的 K/V', '第 0 槽写入后，有效长度为 9。块 9 的其余三槽还没有这条请求的 KV。'],
-    ['按块表读取位置 0～3', '逻辑块 0 指向物理块 7。页中的四行都有效。'],
-    ['按块表读取位置 4～7', '逻辑块 1 指向物理块 2。读取范围推进到位置 7。'],
-    ['按块表读取位置 8', '逻辑块 2 指向物理块 9。有效长度为 9，尾页只用第 0 槽。'],
-    ['生成 Attention 输出', 'Q(a8) 与九行 K 的分数经 softmax 得到权重，再用权重汇总对应的 V。']
+    ['已有两页历史', 'a8 是本轮输入。位置 0～7 的 K/V 已在物理页 7、2。'],
+    ['分配物理页 9', '页表下标 2 记入物理页号 9。位置 8 的页内偏移为 0，所以 slot_mapping = 9×4+0 = 36。'],
+    ['写入 a8 的 K/V', '写入页内偏移 0 后，有效长度为 9。物理页 9 的其余三个位置还没有这条请求的 KV。'],
+    ['按页表读取位置 0～3', '页表下标 0 指向物理页 7，四个位置都有效。'],
+    ['按页表读取位置 4～7', '页表下标 1 指向物理页 2，继续读取位置 4～7。'],
+    ['按页表读取位置 8', '页表下标 2 指向物理页 9。有效长度为 9，尾页只读页内偏移 0。'],
+    ['生成 Attention 输出', 'Q(a8) 与九个位置的 K 的分数经 softmax 得到权重，再用权重汇总对应的 V。']
   ];
 
   const field = name => player.querySelector(`[data-field="${name}"]`);
@@ -26,7 +26,7 @@
 
   region('table').innerHTML = finalState.blockTable.map((_, index) =>
     `<div class="kv-decode-entry" role="listitem" data-logical="${index}">
-       <span>逻辑块 ${index}</span><b></b>
+       <span>下标 ${index}</span><b></b>
      </div>`
   ).join('');
 
@@ -41,8 +41,8 @@
 
   region('pages').innerHTML = physicalOrder.map(block =>
     `<div class="kv-decode-page" role="listitem" data-page="${block}">
-       <div class="kv-decode-page-label">物理块 <b>${block}</b></div>
-       <ol class="kv-decode-slots" aria-label="块 ${block} 的槽位">
+       <div class="kv-decode-page-label">物理页 <b>${block}</b></div>
+       <ol class="kv-decode-slots" aria-label="物理页 ${block} 的各个位置">
          ${Array.from({ length: finalState.blockSize }, () => '<li data-slot><span></span></li>').join('')}
        </ol>
        <div class="kv-decode-page-state"></div>
@@ -99,8 +99,8 @@
       const read = page.slots.filter(position => readPositions.has(position)).length;
       view.dataset.allocated = String(page.allocated);
       view.dataset.active = page.physicalBlock === activeBlock ? (writing ? 'write' : 'read') : '';
-      status.textContent = read > 0 ? `已读 ${read} 行`
-        : valid > 0 ? `${valid} 行有效` : page.allocated ? '已分配' : '未分配';
+      status.textContent = read > 0 ? `已读 ${read} 个位置`
+        : valid > 0 ? `${valid} 个位置有效` : page.allocated ? '已分配' : '未分配';
       slots.forEach((slot, offset) => {
         const position = page.slots[offset];
         const tone = position === null ? 'empty'
@@ -110,7 +110,7 @@
         if (position === null) delete slot.dataset.position;
         else slot.dataset.position = String(position);
         const label = position === null ? '本请求无有效 KV' : `a${position}${tone === 'read' ? '，已读' : ''}`;
-        slot.setAttribute('aria-label', `槽 ${offset}，${label}`);
+        slot.setAttribute('aria-label', `页内偏移 ${offset}，${label}`);
       });
     }
 

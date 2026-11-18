@@ -28,7 +28,7 @@
 | mbt = 8192 | 每轮新计算的 Token 预算上限，P 与 D 共用 | KV 只能保存 8192 Token，或每轮必须填满 |
 | KV Cache 容量 | 保存已经计算过的上下文状态所需的块空间 | 由 ms 或 mbt 直接决定 |
 
-ms 与 mbt 是不同维度的约束；KV 是否足够还取决于模型结构、精度、并行方式、可用显存、上下文长度和缓存共享情况。不同实现可能把运行态准入与每轮序列容量进一步分开，因此应核对实际参数定义。[vLLM SchedulerConfig](https://docs.vllm.ai/en/latest/api/vllm/config/scheduler/)
+ms 与 mbt 是不同维度的约束；KV 是否足够还取决于模型结构、精度、并行方式、可用显存、上下文长度和缓存共享情况。不同实现可能把新请求能否开始运行与每轮序列容量进一步分开，因此应核对实际参数定义。[vLLM SchedulerConfig](https://docs.vllm.ai/en/latest/api/vllm/config/scheduler/)
 
 ## 一个请求的生命周期
 
@@ -45,7 +45,9 @@ ms 与 mbt 是不同维度的约束；KV 是否足够还取决于模型结构、
 
 ### 从 Scheduler 到模型前向
 
-本章使用 **ModelRunnerV2**，先看无 PP、普通文本生成的同步逐轮路径。`EngineCore.step()` 调用 `Scheduler.schedule()` 得到 `SchedulerOutput`，再交给执行器；调度器不直接运行模型。输出携带每请求调度行数、新请求数据和 KV 块号，描述的是本轮要推进的工作。[EngineCore](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/engine/core.py#L589-L619)
+本章使用 **ModelRunnerV2**，先看无 PP、普通文本生成的同步逐轮路径。`EngineCore.step()` 调用 `Scheduler.schedule()` 得到 `SchedulerOutput`，再交给执行器；调度器不直接运行模型。输出携带每请求本轮输入 Token 数、新请求数据和 KV 块号，描述的是本轮要推进的工作。[EngineCore](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/engine/core.py#L589-L619)
+
+<!-- DETAILS: V2 从调度到采样的具体调用链 -->
 
 ```text
 EngineCore.step()
@@ -53,7 +55,7 @@ EngineCore.step()
   ├─ Executor.execute_model(..., non_block=True)
   │    └─ Ascend Worker.execute_model()
   │         └─ worker/v2/NPUModelRunner.execute_model()
-  │              ├─ 更新持久请求状态与块表，协调本轮图描述符
+  │              ├─ 更新跨轮保存的请求状态与块表，确定本轮图执行方式
   │              ├─ prepare_inputs() → prepare_attn() → Attention metadata
   │              └─ self.model(...) 或 run_fullgraph(...) → 保存隐藏状态
   ├─ Executor.sample_tokens() → Runner.sample_tokens()
@@ -63,6 +65,8 @@ EngineCore.step()
 ```
 
 Ascend Worker 把执行与采样分别转给 V2 Runner。`NPUModelRunner` 继承上游 `vllm/v1/worker/gpu/model_runner.py` 的主流程，并覆写 NPU 输入准备等环节。`vllm/v1` 是引擎目录，V2 Runner 的定位要看后面的 `gpu/model_runner.py`。模型前向返回隐藏状态后，普通生成路径把中间状态留给后续 `sample_tokens()`；不能把这两个调用混成一次已完成的客户端输出。[Ascend Worker](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/worker/worker.py#L877-L956) · [V2 执行主流程](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/worker/gpu/model_runner.py#L1632-L1995) · [V2 采样与接续](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/worker/gpu/model_runner.py#L1997-L2181)
+
+<!-- /DETAILS -->
 
 “先分配 D 的预算”与“D 在设备上先独立执行完、立刻返回”不是同一件事。本轮调度输出仍可能组织成一个混合批次，调度顺序本身不能给出毫秒数。执行器、PP 与异步队列会改变调用如何排队；请求状态、输入准备和输出回收的具体关系见[ModelRunnerV2 的一次前向](从一轮调度到一次前向.md)。
 
@@ -123,7 +127,23 @@ R1 D：1 + R2 D：1 + R3 P：4096 + R4 P：4094 = 8192
 
 #### 第二轮的 SchedulerOutput
 
-用与 ModelRunnerV2 配对的 Scheduler 字段核对第二轮。它先遍历 `running`，这个列表既可以有 Decode，也可以有上轮留下的 Prefill chunk。对运行请求，待推进量从 `num_tokens_with_spec + num_output_placeholders - num_computed_tokens` 算起，再受本轮预算、长度上限等约束。轮到等待请求时，Scheduler 还要检查运行态准入、前缀命中和 KV 分配。所查实现允许用 `max_num_active_seqs` 单独收紧准入，用 `max_num_scheduled_tokens` 单独限制调度量。两者缺省时分别回落到 ms、mbt。[预算与准入配置](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L128-L141) · [运行请求的待推进量](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L657-L721) · [等待请求的准入](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L912-L929)
+调度器先处理已经在运行的请求，其中既有 Decode，也有尚未完成的分块 Prefill。它先计算每条请求还有多少 Token 需要处理，再用本轮预算和长度上限限制实际安排量。接着接纳等待中的请求，同时检查前缀缓存和 KV 空间。
+
+<!-- DETAILS: 源码怎样计算待处理 Token 数和准入限制 -->
+
+`running` 保存已经在运行的请求。源码从下面的式子计算待处理量，再应用各项上限：
+
+```text
+num_tokens_with_spec + num_output_placeholders - num_computed_tokens
+```
+
+前两项包括已知序列、投机候选，以及异步调度预留的输出位置；最后一项扣除已经计算的部分。本例同步、无投机，仍按前面列出的第二轮预算计算。
+
+`max_num_active_seqs` 可以单独限制接纳多少运行请求，`max_num_scheduled_tokens` 可以单独限制本轮安排的 Token 数；未设置时分别使用 ms、mbt。
+
+[预算与准入配置](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L128-L141) · [运行请求的待推进量](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L657-L721) · [等待请求的准入](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/scheduler.py#L912-L929)
+
+<!-- /DETAILS -->
 
 按本例的同步、无投机、无前缀命中条件，第二轮输出的核心字段可以写成下面这样。R3、R4 首次被调度，Worker 收到它们的 prompt、块号和起始进度。R1、R2 已在 Worker 缓存请求状态，本轮带的是更新量。[调度输出结构](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/output.py#L41-L78) · [已缓存请求与本轮 Token 数](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/core/sched/output.py#L232-L249)
 
@@ -274,7 +294,7 @@ PD 分离先把 Prefill 与 Decode 交给不同的引擎实例。沿一条请求
 4. D 发起拉取。拉取完成、确认满足源端释放条件后，才通知 P 归还对应 KV 引用；不能只因为请求已经转发，就把源块拿去覆写。
 5. D 有了执行需要的 KV 后继续 Decode。源端释放与 D 后续计算是交接后的两项工作，不能把通知发出当成源块已经在同一瞬间完成回收。D 的 KV 还要保留到后续生成结束或被其他机制回收。
 
-所以 PD 多出来的不只是网络时间，还有 KV 的驻留时间。P 完成到释放确认之间，源 KV 仍可能占着块；D 预分配到实际解码期间，目标块也已经占用。若 D 无法准入或分配目标空间，使拉取迟迟不能开始，P 端 hold 的 KV 就会堆积。若拉取已经完成并确认释放，D 后续的本地排队会继续占用 D 的缓存，但不能再一概说它还占着 P 的源 KV。
+所以 PD 多出来的不只是网络时间，还有 KV 的驻留时间。P 完成到释放确认之间，源 KV 仍可能占着块；D 预分配到实际解码期间，目标块也已经占用。若 D 无法准入或分配目标空间，使拉取迟迟不能开始，P 端尚不能释放的 KV 就会堆积。若拉取已经完成并确认释放，D 后续的本地排队会继续占用 D 的缓存，但不能再一概说它还占着 P 的源 KV。
 
 P、D 是不同引擎实例，各自有 ms、mbt 与 KV 块池，不能把它们画成共同争抢一份 8192 的预算。PD 也不替代单实例内部调度；P 是否继续使用 Chunked Prefill、D 是否需要本地补算，应查实际后端和连接器配置，这里不假设 D 端永远没有 Prefill。
 
@@ -290,7 +310,7 @@ D 分配到块号后先等远端 KV。执行器收齐两个 Worker 的接收完�
 
 ### P/D 实例池、本地块池与共享 KV 池
 
-当部署从一对实例变成多 P、多 D 时，代理可以从 P 实例池、D 实例池分别选择承接者；两侧可分别调整实例数和并行配置。池化组织的是一组可路由的实例，单个实例仍有自己的调度预算、本地 KV 块池和执行状态，不是所有设备共享同一份 ms、mbt。独立扩容能力也不意味着配置会自动随负载改变。[Ascend PD 设计](https://docs.vllm.ai/projects/ascend/en/main/developer_guide/Design_Documents/disaggregated_prefill.html)
+当部署从一对实例变成多 P、多 D 时，代理可以从 P 实例池、D 实例池分别选择处理请求的实例；两侧可分别调整实例数和并行配置。池化组织的是一组可路由的实例，单个实例仍有自己的调度预算、本地 KV 块池和执行状态，不是所有设备共享同一份 ms、mbt。独立扩容能力也不意味着配置会自动随负载改变。[Ascend PD 设计](https://docs.vllm.ai/projects/ascend/en/main/developer_guide/Design_Documents/disaggregated_prefill.html)
 
 | 这里说的“池” | 组织的对象 | 主要回答的问题 |
 | --- | --- | --- |
@@ -302,16 +322,16 @@ D 分配到块号后先等远端 KV。执行器收齐两个 Worker 的接收完�
 
 在 Ascend 文档给出的组合路径中，P 查询共享 KV 池并加载额外命中的前缀，再处理剩余输入；D 仍通过 P2P 连接器从 P 获取执行需要的 KV。这里减少的是重复 Prefill 工作，仍要计算查询、加载的成本；不是 D 直接在远端存储上做 Attention。复用前应核对命中范围、数据身份及模型和布局兼容性。[Ascend KV Pool 设计](https://docs.vllm.ai/projects/ascend/en/main/developer_guide/Design_Documents/KV_Cache_Pool_Guide.html)
 
-因此，计算池主要改变承接者和容量组织，共享 KV 池改变前缀从哪里获得。选定 P、D 之后，这条请求仍要满足目标空间、KV 到齐和 D 可运行等条件，才会进入下一步。
+因此，计算池主要改变使用哪个实例以及分配多少资源，共享 KV 池改变前缀从哪里获得。选定 P、D 之后，这条请求仍要满足目标空间、KV 到齐和 D 可运行等条件，才会进入下一步。
 
-### 用队列与块水位定位交接等待
+### 用队列和 KV 占用定位交接等待
 
-下面是**教学推导，尚无本项目实测**。要定位瓶颈，需要把 P/D 等待队列、P 计算结束时间、未确认释放的 KV、D 缓存水位与传输耗时放在同一时间轴上。这里的 hold 指“已完成 P、尚未满足源端释放条件的 KV”，不是单独一项已确认存在的监控指标名。
+下面是**教学推导，尚无本项目实测**。要定位瓶颈，需要把 P/D 等待队列、P 计算结束时间、未确认释放的 KV、D 缓存占用与传输耗时放在同一时间轴上。这里要记录的是 P 已经算完、但传输和释放条件尚未满足的 KV。
 
 | 现象 | 更需要排查的地方 | 能帮助区分的证据 |
 | --- | --- | --- |
-| 请求在 P 前越等越久，P 产出跟不上输入；D 经常等不到可运行请求 | P 计算能力、P 准入或路由分布 | P 等待队列增长、TTFT 抬高；若传输正常且 D 本身不拥塞，进入 D 后的 ITL 可能仍稳定。还要检查 P 是否因源 KV hold 过多而无法准入，避免把缓存反压误判成纯算力不足 |
-| P 已经算完，但交接与 D 等待越积越多 | 传输链路、D 目标 KV 空间或 D 服务能力 | 传输受限时，交接耗时和未确认 KV 可能一起增长；D 算力/驻留压力较大时，D 就绪队列、KV 水位或 ITL 可能先抬高，再反压交接。传输正常但 D 本地队列长，与远端 KV 一直未到，是两种不同的等待 |
+| 请求在 P 前越等越久，P 产出跟不上输入；D 经常等不到可运行请求 | P 计算能力、P 准入或路由分布 | P 等待队列增长、TTFT 抬高；若传输正常且 D 本身不拥塞，进入 D 后的 ITL 可能仍稳定。还要检查 P 是否因尚不能释放的源 KV 过多而无法准入，避免把缓存反压误判成纯算力不足 |
+| P 已经算完，但交接与 D 等待越积越多 | 传输链路、D 目标 KV 空间或 D 服务能力 | 传输受限时，交接耗时和未确认 KV 可能一起增长；D 算力/驻留压力较大时，D 就绪队列、KV 占用或 ITL 可能先抬高，再反压交接。传输正常但 D 本地队列长，与远端 KV 一直未到，是两种不同的等待 |
 
 TTFT 是否包含全部 D 等待，要看代理何时第一次向客户端输出；已在 D 稳定生成的请求 ITL 也不能代表还没进入 D 的请求没有拥塞。闭环测试还会因响应变慢而减慢补入，因此最终看见队列“停止增长”时，也要确认是不是请求到达率跟着降了。
 
@@ -355,6 +375,8 @@ nP、nD 是配置固定的实例数。若 P、D 每实例占用的设备数不�
 
 先区分两种状态：KDA 把历史压入递归状态；Lightning Indexer + DSA 保留历史缓存，再为当前 Query 选择参与 Attention 的位置。以下按**单请求、单个续算边界、完整逻辑单副本**计算，不含模型权重、临时工作区、块尾浪费、对齐与额外检查点；MiB = 2²⁰ 字节。
 
+<!-- DETAILS: KDA、MLA 与 Indexer 的容量公式和模型配置 -->
+
 #### KDA：递归矩阵与短卷积状态都要保存
 
 单个 KDA 层保存每头一个 `dk × dv` 的递归矩阵，以及 Q、K、V 的短卷积边界状态。设 KDA 层数 LK、头数 H、卷积缓存宽度 w，递归和卷积状态每元素分别为 sr、sc 字节：
@@ -363,7 +385,7 @@ nP、nD 是配置固定的实例数。若 P、D 每实例占用的设备数不�
 MKDA = LK × [H × dk × dv × sr + H × (2dk + dv) × w × sc]
 ```
 
-以 Kimi-Linear-48B-A3B-Instruct 为例：20 个 KDA 层，H=32、dk=dv=128、w=4。选 recurrent FP32、卷积 BF16，按 FLA 分配的完整 w 个槽位计算：
+以 Kimi-Linear-48B-A3B-Instruct 为例：20 个 KDA 层，H=32、dk=dv=128、w=4。选 recurrent FP32、卷积 BF16，按 FLA 为卷积状态保留的完整 w 个位置计算：
 
 ```text
 递归矩阵 = 20 × 32 × 128 × 128 × 4 = 40 MiB
@@ -399,6 +421,8 @@ MDSA(T) = 61 × T × (1,152 + 132) = 78,324 × T  [字节]
 ```
 
 若改用 vLLM FlashMLA 的 `fp8_ds_mla` 格式，主缓存每位置为 `512 B latent + 16 B scales + 128 B BF16 RoPE = 656 B`；加上 Indexer 的 132 B，全模型变为 `61×(656+132)=48,068 B/Token`。这说明量化后的字节数应从实际布局计算。[FlashMLA 缓存布局](https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/backends/mla/flashmla_sparse.py#L76)、[Indexer 独立缓存](https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/models/deepseek_v2.py#L638)
+
+<!-- /DETAILS -->
 
 #### 从状态大小到交接带宽
 
@@ -468,6 +492,6 @@ mbt 记录本轮要新计算的 Token；KV 保存请求已经走过的上下文�
 
 ## 继续阅读
 
-Runner 收到调度计划后，要确定输入行、KV 写槽和各请求的可见范围。输入准备、Host/Device 同步和跨轮接续也决定了前向之间会不会出现空泡。[从一轮调度到一次前向](从一轮调度到一次前向.md)
+Runner 收到调度计划后，要确定输入 Token、KV 写入位置和各请求的可见范围。输入准备、Host/Device 同步和跨轮接续也决定了前向之间会不会出现空泡。[从一轮调度到一次前向](从一轮调度到一次前向.md)
 
-投机解码会让一条请求带多行 query，改变 KV 有效边界和客户端的输出事件。[投机解码与流式指标](投机解码与流式指标.md)
+投机解码会让一条请求同时输入多个 Token，改变 KV 有效边界和客户端的输出事件。[投机解码与流式指标](投机解码与流式指标.md)

@@ -5,11 +5,11 @@
     <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#73859e" stroke-width="1.5"/></marker>
     <style>
       text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
-      .eyebrow{font-size:12px;letter-spacing:2px;font-weight:700;fill:#60728d}.title{font-size:27px;font-weight:750}.sub{font-size:14px;fill:#60728d}.name{font-size:16px;font-weight:700}.label{font-size:13px;fill:#60728d}.small{font-size:12px;fill:#60728d}.line{fill:none;stroke:#73859e;stroke-width:1.8;marker-end:url(#arrow)}
+      .eyebrow{font-size:12px;letter-spacing:2px;font-weight:700;fill:#60728d}.title{font-size:24px;font-weight:750}.sub{font-size:14px;fill:#60728d}.name{font-size:16px;font-weight:700}.label{font-size:13px;fill:#60728d}.small{font-size:12px;fill:#60728d}.line{fill:none;stroke:#73859e;stroke-width:1.8;marker-end:url(#arrow)}
     </style>
   </defs>
   <rect width="1000" height="420" rx="22" fill="#fbfaf7"/>
-  <text x="32" y="32" class="eyebrow">请求的旅程 · PD 分离</text>
+  <text x="32" y="32" class="eyebrow">一条请求怎样完成 PD 交接</text>
   <text x="32" y="70" class="title">两类计算之间，还有一段 KV 传输</text>
   <text x="32" y="97" class="sub">Prefill 建立上下文，Decode 逐步生成；队列和网络连接着整条链路。</text>
 

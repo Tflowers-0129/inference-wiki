@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1080" viewBox="0 0 1120 1080" role="img" aria-labelledby="title desc">
-  <title id="title">A3 fused overlap：搬运与计算重叠后，谁仍然要等谁？</title>
-  <desc id="desc">依据 vllm-ascend PR 14957 绘制的教学依赖泳道，非实测 profiling。范围为 A3、use_fused_overlap 开启、图捕获的 decode 分支。TP0 使用独立计划侧流和当前 KV 写回侧流；Host LRU planner 没有消失。TopK 元数据 D2H 后，CPU planner 写共享紧凑计划，当前 KV 槽位 H2D，并广播计划元数据。计算流等待计划、注入当前 KV 后运行 fused sparse attention；TP0 返回前等待当前 KV 的 D2H 写回完成。图中宽度和横坐标不表示时间或收益。</desc>
+  <title id="title">A3：CPU 先规划，设备融合搬运与计算</title>
+  <desc id="desc">依据 vllm-ascend PR 14957 绘制的教学依赖泳道，非实测 profiling。范围为 A3、use_fused_overlap 开启、图捕获的 decode 分支。TP0 使用独立计划侧流和当前 KV 写回侧流；Host LRU planner 没有消失。TopK 元数据 D2H 后，CPU planner 写共享紧凑计划，当前 KV 写入位置传回设备，并广播计划元数据。计算流等待计划、注入当前 KV 后运行 fused sparse attention；TP0 返回前等待当前 KV 的 D2H 写回完成。图中宽度和横坐标不表示时间或收益。</desc>
   <metadata>Source: https://github.com/vllm-project/vllm-ascend/pull/14957/files ; checked: 2026-11-03 ; pinned provenance is stored outside public assets.</metadata>
   <defs>
     <style>
@@ -13,10 +13,10 @@
     <pattern id="wait" width="10" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#fff7ed"/><path d="M-3 3L3 -3M0 10L10 0M7 13L13 7" stroke="#c2772c" stroke-width="1"/></pattern>
   </defs>
   <rect width="1120" height="1080" fill="#f8fafc"/>
-  <text class="title" x="32" y="47">A3 fused overlap：搬运与计算重叠后，谁仍然要等谁？</text>
-  <text class="note" x="32" y="80">教学依赖泳道，非实测 Trace · 各框宽度不代表耗时，只通过箭头表达执行依赖。</text>
+  <text class="title" x="32" y="47">A3：CPU 先规划，设备融合搬运与计算</text>
+  <text class="note" x="32" y="80">教学泳道，非实测 Trace；箭头表示先后，框宽不表示耗时。</text>
   <rect x="32" y="106" width="1056" height="48" rx="6" fill="#eff6ff" stroke="#93c5fd"/>
-  <text class="body" x="48" y="137">范围：A3 · use_fused_overlap=true · 图捕获 decode 分支；两个侧流由 TP0 使用。</text>
+  <text class="body" x="48" y="137">范围：A3、开启 fused overlap、图捕获 Decode；两个侧流由 TP0 使用。</text>
   <path d="M240 190H1076" class="link"/>
   <text class="small" x="240" y="180">依赖顺序 →</text>
   <text class="small" x="1074" y="180" text-anchor="end">非毫秒横轴 / 不表示重叠比例</text>
@@ -27,9 +27,9 @@
     <rect class="lane" x="32" y="640" width="1056" height="108" rx="8"/>
     <rect class="lane" x="32" y="780" width="1056" height="112" rx="8"/>
     <text class="heading" x="48" y="257">各 TP rank</text><text class="note" x="48" y="285">计算流</text>
-    <text class="heading" x="48" y="540">TP0 计划侧流</text><text class="small" x="48" y="568">fused_plan_stream</text>
-    <text class="heading" x="48" y="680">TP0 Host</text><text class="note" x="48" y="708">外部 LRU planner</text>
-    <text class="heading" x="48" y="820">TP0 写回侧流</text><text class="small" x="48" y="848">current_kv_save_stream</text>
+    <text class="heading" x="48" y="540">TP0 计划侧流</text><text class="small" x="48" y="568">准备本轮取数计划</text>
+    <text class="heading" x="48" y="680">TP0 Host</text><text class="note" x="48" y="708">CPU 缓存规划</text>
+    <text class="heading" x="48" y="820">TP0 写回侧流</text><text class="small" x="48" y="848">保存当前新 KV</text>
   </g>
 
   <g id="dependencies">
@@ -51,17 +51,17 @@
 
   <g id="compute-stream">
     <rect class="blue" x="240" y="250" width="118" height="64" rx="5"/>
-    <text class="body center" x="299" y="276">当前 KV</text><text class="small center" x="299" y="301">ready</text>
+    <text class="body center" x="299" y="276">当前 KV</text><text class="small center" x="299" y="301">已生成</text>
     <rect class="blue" x="390" y="250" width="118" height="64" rx="5"/>
-    <text class="body center" x="449" y="276">TopK</text><text class="small center" x="449" y="301">ready</text>
+    <text class="body center" x="449" y="276">TopK</text><text class="small center" x="449" y="301">已生成</text>
     <rect x="532" y="250" width="200" height="64" rx="5" fill="url(#wait)" stroke="#b45309" stroke-width="1.7"/>
-    <text class="body center" x="632" y="276">等外部计划</text><text class="small center" x="632" y="301">含槽位与广播依赖</text>
+    <text class="body center" x="632" y="276">等 CPU 计划</text><text class="small center" x="632" y="301">含写入位置与广播</text>
     <rect class="blue" x="756" y="250" width="148" height="64" rx="5"/>
-    <text class="body center" x="830" y="276">当前 KV</text><text class="small center" x="830" y="301">注入 Selection</text>
+    <text class="body center" x="830" y="276">当前 KV</text><text class="small center" x="830" y="301">写入工作集</text>
     <rect class="blue" x="920" y="238" width="160" height="100" rx="5"/>
-    <text class="body center" x="1000" y="266">读取 miss</text><text class="small center" x="1000" y="294">更新 Selection</text><text class="body center" x="1000" y="322">执行 SFA</text>
-    <text class="small" x="756" y="354">融合 attention 数据面</text>
-    <text class="small" x="756" y="379">Host 管理仍然存在</text>
+    <text class="body center" x="1000" y="266">读取缺少行</text><text class="small center" x="1000" y="294">更新工作集</text><text class="body center" x="1000" y="322">执行 SFA</text>
+    <text class="small" x="756" y="354">同一融合算子内</text>
+    <text class="small" x="756" y="379">CPU 仍负责管理</text>
     <rect x="920" y="364" width="160" height="46" rx="5" fill="url(#wait)" stroke="#b45309" stroke-width="1.7"/>
     <text class="body center" x="1000" y="394">TP0 等写回</text>
     <text class="body center" x="1000" y="449">返回输出</text>
@@ -71,26 +71,26 @@
     <rect class="orange" x="520" y="526" width="120" height="58" rx="5"/>
     <text class="body center" x="580" y="551">TopK 等</text><text class="small center" x="580" y="575">元数据 D2H</text>
     <rect class="orange" x="800" y="526" width="128" height="58" rx="5"/>
-    <text class="body center" x="864" y="551">当前 KV</text><text class="small center" x="864" y="575">槽位 H2D</text>
+    <text class="body center" x="864" y="550">KV 写入位置</text><text class="small center" x="864" y="575">传回设备</text>
     <rect class="orange" x="944" y="526" width="136" height="58" rx="5"/>
     <text class="body center" x="1012" y="551">TP 广播</text><text class="small center" x="1012" y="575">计划元数据</text>
   </g>
   <g id="host-planner">
     <rect class="orange" x="660" y="665" width="124" height="56" rx="5"/>
-    <text class="body center" x="722" y="690">CPU LRU</text><text class="small center" x="722" y="713">写共享计划</text>
-    <text class="small" x="890" y="680">紧凑计划存于</text><text class="small" x="890" y="706">mapped CPU 内存</text>
+    <text class="small center" x="722" y="690">CPU 缓存管理</text><text class="small center" x="722" y="713">写共享计划</text>
+    <text class="small" x="890" y="680">复制计划存于</text><text class="small" x="890" y="706">可映射的 CPU 内存</text>
   </g>
   <g id="writeback-stream">
     <rect class="teal" x="350" y="807" width="148" height="58" rx="5"/>
-    <text class="body center" x="424" y="832">等 KV ready</text><text class="small center" x="424" y="856">event 依赖</text>
+    <text class="body center" x="424" y="832">等新 KV 写好</text><text class="small center" x="424" y="856">等待对应事件</text>
     <rect class="teal" x="520" y="807" width="540" height="58" rx="5"/>
-    <text class="body center" x="790" y="843">当前 KV → CPU full KV pool（D2H）</text>
+    <text class="body center" x="790" y="843">新 KV → Host 完整主 KV 池</text>
   </g>
 
   <g id="reading-notes">
-    <text class="heading" x="32" y="936">可以并行推进的，是两个侧流各自的工作；消费数据前仍要满足依赖。</text>
-    <text class="note" x="32" y="970">① TopK 元数据先到 Host，planner 才能分配槽位；计算流随后注入当前 KV 并执行融合算子。</text>
-    <text class="note" x="32" y="1000">② 新 KV 可在独立侧流写回；TP0 返回前仍需等待写回完成。依赖箭头不代表每轮一定阻塞。</text>
-    <text class="small" x="32" y="1040">依据 #14957 所核查实现；eager 模式走同步 planner 分支，不能照搬本图侧流时序。</text>
+    <text class="heading" x="32" y="936">两个侧流可以分别推进；计算前仍须等计划，返回前仍须等写回。</text>
+    <text class="note" x="32" y="970">① CPU 收到 TopK 后安排缓存；计算流拿到计划后，才写当前 KV 并运行融合算子。</text>
+    <text class="note" x="32" y="1000">② 新 KV 另行写回 Host；TP0 返回前等写完。箭头不表示每轮都实际阻塞。</text>
+    <text class="small" x="32" y="1040">依据 #14957；eager 模式使用同步规划，不能照搬本图。</text>
   </g>
 </svg>

@@ -19,10 +19,10 @@
       ['真实输入', `${result.tokenCount} token`, '每 rank 十个'],
       ['有效专家任务', `${result.assignments} 次`, `rank 0～3：${result.rankTasks.join(' / ')}`],
       ['AllGather 远端副本', `${result.allGather.remoteCopies} 份`, payload(result.allGather.payloadBytes)],
-      ['定向去重远端副本', `${result.routed.remoteCopies} 份`, payload(result.routed.payloadBytes)]
+      ['按目标去重的远端副本', `${result.routed.remoteCopies} 份`, payload(result.routed.payloadBytes)]
     ].map(([label, value, detail]) => `<div><span>${label}</span><strong>${value}</strong><small>${detail}</small></div>`).join('');
     byId('ep-matrices').innerHTML = matrixTable('AllGather：每个 rank 获得全部输入', result.allGather, 'AllGather 源到目标激活副本矩阵') + matrixTable('定向路由：同一目标 rank 只传一份', result.routed, '按目标 rank 去重的激活副本矩阵');
-    byId('ep-ledger').textContent = `任务守恒：本地专家任务 ${result.localTasks} ＋远端专家任务 ${result.remoteTasks} ＝ ${result.assignments}。专家任务按 top-k 计数；激活副本按目标 rank 计数。定向远端 payload ＝ ${result.routed.remoteCopies} × 4096 × 2 ＝ ${result.routed.payloadBytes.toLocaleString('en-US')} B。`;
+    byId('ep-ledger').textContent = `任务总数：本地专家任务 ${result.localTasks} ＋远端专家任务 ${result.remoteTasks} ＝ ${result.assignments}。专家任务按 top-k 计数；激活副本按目标 rank 计数。定向发送的远端数据量 ＝ ${result.routed.remoteCopies} × 4096 × 2 ＝ ${result.routed.payloadBytes.toLocaleString('en-US')} B。`;
     const tokens = result.tokens.filter(token => token.sourceRank === Number(source.value));
     const tokenRows = tokens.map(token => {
       const destinations = [...new Set(token.experts.map(expert => Math.floor(expert / 2)))];

@@ -39,9 +39,9 @@
 <rect x="224" y="706" width="672" height="138" rx="10" fill="#e6f4f1" stroke="#0f766e" stroke-width="1.6"/>
 <text x="248" y="744" font-size="23" fill="#0f766e" font-weight="700">combine：回到原 rank 0 的 row 7</text>
 <text x="248" y="783" font-size="22" fill="#172b4d" font-weight="600">y = w₂ × z₂ + w₅ × z₅</text>
-<text x="248" y="820" font-size="18" fill="#475569" font-weight="400">合并保持原行身份；权重应用位置随后端实现而异。</text>
+<text x="248" y="820" font-size="18" fill="#475569" font-weight="400">合并后回到原 Token 对应行；权重在哪一步使用取决于后端。</text>
 <rect x="32" y="876" width="1056" height="108" rx="10" fill="#fff7ed" stroke="#b45309" stroke-width="1.6"/>
 <text x="52" y="912" font-size="23" fill="#b45309" font-weight="700">40 个真实 token × top-2 = 80 次专家任务</text>
-<text x="52" y="948" font-size="19" fill="#172b4d" font-weight="400">80 是 assignments；本地专家无需远端发送，同目的 rank 的载荷组织也取决于后端。</text>
+<text x="52" y="948" font-size="19" fill="#172b4d" font-weight="400">80 是专家计算次数；本地任务无需远端发送，同 rank 的输入怎样合并取决于后端。</text>
 <text x="52" y="975" font-size="18" fill="#475569" font-weight="400">不能把专家任务数直接当作网络消息数、远端副本数或传输字节数。</text>
 </svg>

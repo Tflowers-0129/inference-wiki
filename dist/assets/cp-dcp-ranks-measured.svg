@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="1110" viewBox="0 0 960 1110" role="img" aria-labelledby="title desc">
+<title id="title">DCP 关闭与开启：两个 rank 的计算、通信和同步时间线</title>
+<desc id="desc">A5真实事件复绘。TP2，batch4，总Q heads8，KV head1，dim128，历史4096，BF16，iteration2。DCP1各rank一个FIA。DCP2各rank展示Stream61计算和同步、Stream59同步、Group group_name_3 Communication聚合轨道，共17个事件。四个rank/配置窗口分别以首事件归零，统一0至600微秒比例；不是同步起点，不能判断跨rank先后。蓝色计算与布局转换、青色通信父区间、橙色EVENT WAIT、灰色EVENT RECORD。通信父区间含同步，不是纯传输时间。单次算子实验不代表服务加速比。来源profiling-events.json。</desc>
+<style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif}</style>
+<rect width="960" height="1110" fill="#f8fafc"/>
+<text x="30" y="40" font-size="24" fill="#172b4d" font-weight="700" text-anchor="start">DCP 关闭 → 开启：两卡的计算、通信与同步</text>
+<text x="30" y="70" font-size="15" fill="#52627a" font-weight="400" text-anchor="start">真实事件复绘 · TP2 · batch 4 · Q heads 8 / KV head 1 · dim 128 · 历史 4096 · BF16</text>
+<rect x="30" y="88" width="900" height="58" rx="8" fill="#fff7ed"/>
+<text x="46" y="112" font-size="17" fill="#9a4f18" font-weight="600" text-anchor="start">同一时间比例，每个 rank / 配置以自己的首事件归零。</text>
+<text x="46" y="135" font-size="15" fill="#9a4f18" font-weight="400" text-anchor="start">未校准跨 rank 时钟；以下上下对照只能比较本地任务组成与区间。</text>
+<text x="30" y="179" font-size="19" fill="#172b4d" font-weight="700" text-anchor="start">DCP1：两卡各用 4 个 Q heads，读取完整历史</text>
+<text x="240.0" y="206" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">0</text>
+<path d="M240.0 214V333" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="350.0" y="206" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">100</text>
+<path d="M350.0 214V333" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="460.0" y="206" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">200</text>
+<path d="M460.0 214V333" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="570.0" y="206" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">300</text>
+<path d="M570.0 214V333" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="680.0" y="206" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">400</text>
+<path d="M680.0 214V333" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="790.0" y="206" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">500</text>
+<path d="M790.0 214V333" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="900.0" y="206" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">600</text>
+<path d="M900.0 214V333" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="44" y="253" font-size="16" fill="#172b4d" font-weight="600" text-anchor="start">rank 0 · Stream 61</text>
+<rect data-window="TP2_DCP1/rank0" data-track="Stream 61" data-start-us="0.000" data-duration-us="12.2879375" x="240.0000" y="238" width="13.51673125" height="24" fill="#2563eb"><title>TP2_DCP1/rank0 · Stream 61 · FusedInferAttentionScore · 0.000–12.2879375 µs · duration 12.2879375 µs</title></rect>
+<text x="240.0000" y="229" font-size="14" fill="#1d4ed8" font-weight="400" text-anchor="start">FIA 12.29 µs</text>
+<text x="44" y="315" font-size="16" fill="#172b4d" font-weight="600" text-anchor="start">rank 1 · Stream 61</text>
+<rect data-window="TP2_DCP1/rank1" data-track="Stream 61" data-start-us="0.000" data-duration-us="12.552" x="240.0000" y="300" width="13.8072" height="24" fill="#2563eb"><title>TP2_DCP1/rank1 · Stream 61 · FusedInferAttentionScore · 0.000–12.552 µs · duration 12.552 µs</title></rect>
+<text x="240.0000" y="291" font-size="14" fill="#1d4ed8" font-weight="400" text-anchor="start">FIA 12.55 µs</text>
+<rect x="30" y="353" width="900" height="280" rx="8" fill="#ffffff" stroke="#dce4ed"/>
+<text x="44" y="377" font-size="18" fill="#172b4d" font-weight="600" text-anchor="start">DCP2 · rank 0：收集 8 个 Q heads，读取本地 2048 个历史位置</text>
+<text x="240.0" y="407" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">0</text>
+<path d="M240.0 415V585" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="350.0" y="407" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">100</text>
+<path d="M350.0 415V585" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="460.0" y="407" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">200</text>
+<path d="M460.0 415V585" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="570.0" y="407" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">300</text>
+<path d="M570.0 415V585" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="680.0" y="407" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">400</text>
+<path d="M680.0 415V585" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="790.0" y="407" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">500</text>
+<path d="M790.0 415V585" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="900.0" y="407" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">600</text>
+<path d="M900.0 415V585" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="44" y="455" font-size="16" fill="#172b4d" font-weight="600" text-anchor="start">Stream 61</text>
+<text x="44" y="476" font-size="14" fill="#52627a" font-weight="400" text-anchor="start">计算 / 转换 / 同步</text>
+<text x="44" y="509" font-size="16" fill="#172b4d" font-weight="600" text-anchor="start">Stream 59</text>
+<text x="44" y="530" font-size="14" fill="#52627a" font-weight="400" text-anchor="start">同步控制</text>
+<text x="44" y="560" font-size="15" fill="#172b4d" font-weight="600" text-anchor="start">HCCL 通信聚合轨道</text>
+<text x="44" y="581" font-size="14" fill="#52627a" font-weight="400" text-anchor="start">group_name_3</text>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 61" data-start-us="0.000" data-duration-us="0.028" x="240.0000" y="442" width="0.0308" height="24" fill="#64748b"><title>TP2_DCP2/rank0 · Stream 61 · EVENT RECORD · 0.000–0.028 µs · duration 0.028 µs</title></rect>
+<circle cx="240.0000" cy="454" r="2" fill="#64748b"><title>TP2_DCP2/rank0 · Stream 61 · EVENT RECORD · 0.000–0.028 µs · duration 0.028 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 59" data-start-us="6.261" data-duration-us="0.027" x="246.8871" y="496" width="0.0297" height="24" fill="#b45309"><title>TP2_DCP2/rank0 · Stream 59 · EVENT WAIT · 6.261–6.288 µs · duration 0.027 µs</title></rect>
+<circle cx="246.8871" cy="508" r="2" fill="#b45309"><title>TP2_DCP2/rank0 · Stream 59 · EVENT WAIT · 6.261–6.288 µs · duration 0.027 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank0" data-track="Group group_name_3 Communication" data-start-us="59.527" data-duration-us="43.565" x="305.4797" y="550" width="47.9215" height="24" fill="#0f766e"><title>TP2_DCP2/rank0 · Group group_name_3 Communication · hcom_allGather_AicpuKernel_503_2_1 · 59.527–103.092 µs · duration 43.565 µs</title></rect>
+<text x="305.4797" y="598" font-size="14" fill="#0f766e" font-weight="400" text-anchor="start">Q AllGather · 43.56 µs</text>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 59" data-start-us="103.222" data-duration-us="0.028" x="353.5442" y="496" width="0.0308" height="24" fill="#64748b"><title>TP2_DCP2/rank0 · Stream 59 · EVENT RECORD · 103.222–103.250 µs · duration 0.028 µs</title></rect>
+<circle cx="353.5442" cy="508" r="2" fill="#64748b"><title>TP2_DCP2/rank0 · Stream 59 · EVENT RECORD · 103.222–103.250 µs · duration 0.028 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 59" data-start-us="103.271" data-duration-us="0.028" x="353.5981" y="496" width="0.0308" height="24" fill="#64748b"><title>TP2_DCP2/rank0 · Stream 59 · EVENT RECORD · 103.271–103.299 µs · duration 0.028 µs</title></rect>
+<circle cx="353.5981" cy="508" r="2" fill="#64748b"><title>TP2_DCP2/rank0 · Stream 59 · EVENT RECORD · 103.271–103.299 µs · duration 0.028 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 61" data-start-us="92.820" data-duration-us="10.9529375" x="342.1020" y="442" width="12.04823125" height="24" fill="#b45309"><title>TP2_DCP2/rank0 · Stream 61 · EVENT WAIT · 92.820–103.7729375 µs · duration 10.9529375 µs</title></rect>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 61" data-start-us="108.871" data-duration-us="3.074" x="359.7581" y="442" width="3.3814" height="24" fill="#2563eb"><title>TP2_DCP2/rank0 · Stream 61 · aclnnInplaceCopy_TransposeAiCore_Transpose · 108.871–111.945 µs · duration 3.074 µs</title></rect>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 61" data-start-us="214.070" data-duration-us="11.3679375" x="475.4770" y="442" width="12.50473125" height="24" fill="#2563eb"><title>TP2_DCP2/rank0 · Stream 61 · FusedInferAttentionScore · 214.070–225.4379375 µs · duration 11.3679375 µs</title></rect>
+<text x="475.4770" y="433" font-size="14" fill="#1d4ed8" font-weight="400" text-anchor="start">FIA 11.37 µs</text>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 61" data-start-us="322.164" data-duration-us="1.947" x="594.3804" y="442" width="2.1417" height="24" fill="#2563eb"><title>TP2_DCP2/rank0 · Stream 61 · _pack_token_peer · 322.164–324.111 µs · duration 1.947 µs</title></rect>
+<text x="594.3804" y="433" font-size="14" fill="#1d4ed8" font-weight="400" text-anchor="start">打包</text>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 61" data-start-us="372.686" data-duration-us="0.028" x="649.9546" y="442" width="0.0308" height="24" fill="#64748b"><title>TP2_DCP2/rank0 · Stream 61 · EVENT RECORD · 372.686–372.714 µs · duration 0.028 µs</title></rect>
+<circle cx="649.9546" cy="454" r="2" fill="#64748b"><title>TP2_DCP2/rank0 · Stream 61 · EVENT RECORD · 372.686–372.714 µs · duration 0.028 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 59" data-start-us="377.280" data-duration-us="0.027" x="655.0080" y="496" width="0.0297" height="24" fill="#b45309"><title>TP2_DCP2/rank0 · Stream 59 · EVENT WAIT · 377.280–377.307 µs · duration 0.027 µs</title></rect>
+<circle cx="655.0080" cy="508" r="2" fill="#b45309"><title>TP2_DCP2/rank0 · Stream 59 · EVENT WAIT · 377.280–377.307 µs · duration 0.027 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank0" data-track="Group group_name_3 Communication" data-start-us="422.758" data-duration-us="42.377" x="705.0338" y="550" width="46.6147" height="24" fill="#0f766e"><title>TP2_DCP2/rank0 · Group group_name_3 Communication · hcom_alltoall_AicpuKernel_503_3_1 · 422.758–465.135 µs · duration 42.377 µs</title></rect>
+<text x="751.6485" y="598" font-size="14" fill="#0f766e" font-weight="400" text-anchor="end">output/LSE AllToAll · 42.38 µs</text>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 59" data-start-us="465.253" data-duration-us="0.028" x="751.7783" y="496" width="0.0308" height="24" fill="#64748b"><title>TP2_DCP2/rank0 · Stream 59 · EVENT RECORD · 465.253–465.281 µs · duration 0.028 µs</title></rect>
+<circle cx="751.7783" cy="508" r="2" fill="#64748b"><title>TP2_DCP2/rank0 · Stream 59 · EVENT RECORD · 465.253–465.281 µs · duration 0.028 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 59" data-start-us="465.302" data-duration-us="0.028" x="751.8322" y="496" width="0.0308" height="24" fill="#64748b"><title>TP2_DCP2/rank0 · Stream 59 · EVENT RECORD · 465.302–465.330 µs · duration 0.028 µs</title></rect>
+<circle cx="751.8322" cy="508" r="2" fill="#64748b"><title>TP2_DCP2/rank0 · Stream 59 · EVENT RECORD · 465.302–465.330 µs · duration 0.028 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 61" data-start-us="459.076" data-duration-us="6.776" x="744.9836" y="442" width="7.4536" height="24" fill="#b45309"><title>TP2_DCP2/rank0 · Stream 61 · EVENT WAIT · 459.076–465.852 µs · duration 6.776 µs</title></rect>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 61" data-start-us="500.752" data-duration-us="2.892" x="790.8272" y="442" width="3.1812" height="24" fill="#2563eb"><title>TP2_DCP2/rank0 · Stream 61 · _fused_merge_kernel · 500.752–503.644 µs · duration 2.892 µs</title></rect>
+<text x="794.0084" y="433" font-size="14" fill="#1d4ed8" font-weight="400" text-anchor="end">归并 / 转换</text>
+<rect data-window="TP2_DCP2/rank0" data-track="Stream 61" data-start-us="541.143" data-duration-us="1.177" x="835.2573" y="442" width="1.2947" height="24" fill="#2563eb"><title>TP2_DCP2/rank0 · Stream 61 · aclnnInplaceCopy_CastAiCore_Cast · 541.143–542.320 µs · duration 1.177 µs</title></rect>
+<text x="900" y="621" font-size="14" fill="#52627a" font-weight="400" text-anchor="end">本窗口首尾跨度 542.32 µs</text>
+<rect x="30" y="645" width="900" height="280" rx="8" fill="#ffffff" stroke="#dce4ed"/>
+<text x="44" y="669" font-size="18" fill="#172b4d" font-weight="600" text-anchor="start">DCP2 · rank 1：收集 8 个 Q heads，读取本地 2048 个历史位置</text>
+<text x="240.0" y="699" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">0</text>
+<path d="M240.0 707V877" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="350.0" y="699" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">100</text>
+<path d="M350.0 707V877" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="460.0" y="699" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">200</text>
+<path d="M460.0 707V877" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="570.0" y="699" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">300</text>
+<path d="M570.0 707V877" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="680.0" y="699" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">400</text>
+<path d="M680.0 707V877" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="790.0" y="699" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">500</text>
+<path d="M790.0 707V877" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="900.0" y="699" font-size="14" fill="#52627a" font-weight="400" text-anchor="middle">600</text>
+<path d="M900.0 707V877" stroke="#dce4ed" stroke-dasharray="3 4"/>
+<text x="44" y="747" font-size="16" fill="#172b4d" font-weight="600" text-anchor="start">Stream 61</text>
+<text x="44" y="768" font-size="14" fill="#52627a" font-weight="400" text-anchor="start">计算 / 转换 / 同步</text>
+<text x="44" y="801" font-size="16" fill="#172b4d" font-weight="600" text-anchor="start">Stream 59</text>
+<text x="44" y="822" font-size="14" fill="#52627a" font-weight="400" text-anchor="start">同步控制</text>
+<text x="44" y="852" font-size="15" fill="#172b4d" font-weight="600" text-anchor="start">HCCL 通信聚合轨道</text>
+<text x="44" y="873" font-size="14" fill="#52627a" font-weight="400" text-anchor="start">group_name_3</text>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 61" data-start-us="0.000" data-duration-us="0.028" x="240.0000" y="734" width="0.0308" height="24" fill="#64748b"><title>TP2_DCP2/rank1 · Stream 61 · EVENT RECORD · 0.000–0.028 µs · duration 0.028 µs</title></rect>
+<circle cx="240.0000" cy="746" r="2" fill="#64748b"><title>TP2_DCP2/rank1 · Stream 61 · EVENT RECORD · 0.000–0.028 µs · duration 0.028 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 59" data-start-us="8.568" data-duration-us="0.027" x="249.4248" y="788" width="0.0297" height="24" fill="#b45309"><title>TP2_DCP2/rank1 · Stream 59 · EVENT WAIT · 8.568–8.595 µs · duration 0.027 µs</title></rect>
+<circle cx="249.4248" cy="800" r="2" fill="#b45309"><title>TP2_DCP2/rank1 · Stream 59 · EVENT WAIT · 8.568–8.595 µs · duration 0.027 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank1" data-track="Group group_name_3 Communication" data-start-us="58.634" data-duration-us="123.603" x="304.4974" y="842" width="135.9633" height="24" fill="#0f766e"><title>TP2_DCP2/rank1 · Group group_name_3 Communication · hcom_allGather_AicpuKernel_503_2_1 · 58.634–182.237 µs · duration 123.603 µs</title></rect>
+<text x="304.4974" y="890" font-size="14" fill="#0f766e" font-weight="400" text-anchor="start">Q AllGather · 123.60 µs</text>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 59" data-start-us="182.364" data-duration-us="0.028" x="440.6004" y="788" width="0.0308" height="24" fill="#64748b"><title>TP2_DCP2/rank1 · Stream 59 · EVENT RECORD · 182.364–182.392 µs · duration 0.028 µs</title></rect>
+<circle cx="440.6004" cy="800" r="2" fill="#64748b"><title>TP2_DCP2/rank1 · Stream 59 · EVENT RECORD · 182.364–182.392 µs · duration 0.028 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 59" data-start-us="182.413" data-duration-us="0.028" x="440.6543" y="788" width="0.0308" height="24" fill="#64748b"><title>TP2_DCP2/rank1 · Stream 59 · EVENT RECORD · 182.413–182.441 µs · duration 0.028 µs</title></rect>
+<circle cx="440.6543" cy="800" r="2" fill="#64748b"><title>TP2_DCP2/rank1 · Stream 59 · EVENT RECORD · 182.413–182.441 µs · duration 0.028 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 61" data-start-us="96.359" data-duration-us="86.5489375" x="345.9949" y="734" width="95.20383125" height="24" fill="#b45309"><title>TP2_DCP2/rank1 · Stream 61 · EVENT WAIT · 96.359–182.9079375 µs · duration 86.5489375 µs</title></rect>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 61" data-start-us="182.930" data-duration-us="2.906" x="441.2230" y="734" width="3.1966" height="24" fill="#2563eb"><title>TP2_DCP2/rank1 · Stream 61 · aclnnInplaceCopy_TransposeAiCore_Transpose · 182.930–185.836 µs · duration 2.906 µs</title></rect>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 61" data-start-us="185.858" data-duration-us="11.197" x="444.4438" y="734" width="12.3167" height="24" fill="#2563eb"><title>TP2_DCP2/rank1 · Stream 61 · FusedInferAttentionScore · 185.858–197.055 µs · duration 11.197 µs</title></rect>
+<text x="444.4438" y="725" font-size="14" fill="#1d4ed8" font-weight="400" text-anchor="start">FIA 11.20 µs</text>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 61" data-start-us="294.130" data-duration-us="1.987" x="563.5430" y="734" width="2.1857" height="24" fill="#2563eb"><title>TP2_DCP2/rank1 · Stream 61 · _pack_token_peer · 294.130–296.117 µs · duration 1.987 µs</title></rect>
+<text x="563.5430" y="725" font-size="14" fill="#1d4ed8" font-weight="400" text-anchor="start">打包</text>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 61" data-start-us="339.115" data-duration-us="0.028" x="613.0265" y="734" width="0.0308" height="24" fill="#64748b"><title>TP2_DCP2/rank1 · Stream 61 · EVENT RECORD · 339.115–339.143 µs · duration 0.028 µs</title></rect>
+<circle cx="613.0265" cy="746" r="2" fill="#64748b"><title>TP2_DCP2/rank1 · Stream 61 · EVENT RECORD · 339.115–339.143 µs · duration 0.028 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 59" data-start-us="346.170" data-duration-us="0.027" x="620.7870" y="788" width="0.0297" height="24" fill="#b45309"><title>TP2_DCP2/rank1 · Stream 59 · EVENT WAIT · 346.170–346.197 µs · duration 0.027 µs</title></rect>
+<circle cx="620.7870" cy="800" r="2" fill="#b45309"><title>TP2_DCP2/rank1 · Stream 59 · EVENT WAIT · 346.170–346.197 µs · duration 0.027 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank1" data-track="Group group_name_3 Communication" data-start-us="397.544" data-duration-us="145.99" x="677.2984" y="842" width="160.589" height="24" fill="#0f766e"><title>TP2_DCP2/rank1 · Group group_name_3 Communication · hcom_alltoall_AicpuKernel_503_3_1 · 397.544–543.534 µs · duration 145.99 µs</title></rect>
+<text x="837.8874" y="890" font-size="14" fill="#0f766e" font-weight="400" text-anchor="end">output/LSE AllToAll · 145.99 µs</text>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 59" data-start-us="543.652" data-duration-us="0.028" x="838.0172" y="788" width="0.0308" height="24" fill="#64748b"><title>TP2_DCP2/rank1 · Stream 59 · EVENT RECORD · 543.652–543.680 µs · duration 0.028 µs</title></rect>
+<circle cx="838.0172" cy="800" r="2" fill="#64748b"><title>TP2_DCP2/rank1 · Stream 59 · EVENT RECORD · 543.652–543.680 µs · duration 0.028 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 59" data-start-us="543.701" data-duration-us="0.028" x="838.0711" y="788" width="0.0308" height="24" fill="#64748b"><title>TP2_DCP2/rank1 · Stream 59 · EVENT RECORD · 543.701–543.729 µs · duration 0.028 µs</title></rect>
+<circle cx="838.0711" cy="800" r="2" fill="#64748b"><title>TP2_DCP2/rank1 · Stream 59 · EVENT RECORD · 543.701–543.729 µs · duration 0.028 µs；圆点仅定位起点，不表示持续时间</title></circle>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 61" data-start-us="435.877" data-duration-us="108.355875" x="719.4647" y="734" width="119.1914625" height="24" fill="#b45309"><title>TP2_DCP2/rank1 · Stream 61 · EVENT WAIT · 435.877–544.232875 µs · duration 108.355875 µs</title></rect>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 61" data-start-us="544.349" data-duration-us="2.927" x="838.7839" y="734" width="3.2197" height="24" fill="#2563eb"><title>TP2_DCP2/rank1 · Stream 61 · _fused_merge_kernel · 544.349–547.276 µs · duration 2.927 µs</title></rect>
+<text x="842.0036" y="725" font-size="14" fill="#1d4ed8" font-weight="400" text-anchor="end">归并 / 转换</text>
+<rect data-window="TP2_DCP2/rank1" data-track="Stream 61" data-start-us="547.298" data-duration-us="1.07" x="842.0278" y="734" width="1.177" height="24" fill="#2563eb"><title>TP2_DCP2/rank1 · Stream 61 · aclnnInplaceCopy_CastAiCore_Cast · 547.298–548.368 µs · duration 1.07 µs</title></rect>
+<text x="900" y="913" font-size="14" fill="#52627a" font-weight="400" text-anchor="end">本窗口首尾跨度 548.37 µs</text>
+<rect x="30" y="960" width="14" height="14" fill="#2563eb"/>
+<text x="53" y="973" font-size="15" fill="#172b4d" font-weight="400" text-anchor="start">计算 / 布局转换</text>
+<rect x="265" y="960" width="14" height="14" fill="#0f766e"/>
+<text x="288" y="973" font-size="15" fill="#172b4d" font-weight="400" text-anchor="start">HCCL 父区间</text>
+<rect x="490" y="960" width="14" height="14" fill="#b45309"/>
+<text x="513" y="973" font-size="15" fill="#172b4d" font-weight="400" text-anchor="start">EVENT WAIT</text>
+<rect x="715" y="960" width="14" height="14" fill="#64748b"/>
+<text x="738" y="973" font-size="15" fill="#172b4d" font-weight="400" text-anchor="start">EVENT RECORD</text>
+<text x="30" y="1005" font-size="15" fill="#52627a" font-weight="400" text-anchor="start">横轴：µs。小圆点定位极短同步事件，不表示时长；所有条宽保持真实比例。</text>
+<text x="30" y="1031" font-size="15" fill="#52627a" font-weight="400" text-anchor="start">HCCL 是通信聚合轨道，不是 stream 编号；父区间包含同步，不与内部传输任务累加。</text>
+<text x="30" y="1057" font-size="15" fill="#52627a" font-weight="400" text-anchor="start">只含选定 Attention 调用，未包含完整模型；空白未归因，不据此计算服务加速比。</text>
+<text x="30" y="1088" font-size="14" fill="#52627a" font-weight="400" text-anchor="start">采集：2026-11-05 · 数据：experiments/context-parallel/results/profiling-events.json</text>
+</svg>

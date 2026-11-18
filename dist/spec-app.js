@@ -49,7 +49,7 @@
       `上一轮拒绝 ${previous.draftCount} − ${previous.accepted} = ${previous.invalidTailLength} 个候选，起点从 12 纠正到 ${previous.validKvLength}。下一轮从 x@${previous.validKvLength} 开始，${next.nextK === 0 ? '没有新候选，也要计算 x 的 KV。' : `再加 ${next.nextK} 个新候选，共 ${next.queryTokens.length} 行 Query。`}`;
     byId('spec-continuation-address').textContent = next.queryPositions.map((position, i) => {
       const logicalBlock = Math.floor(position / next.blockSize);
-      return `${next.queryTokens[i]}@${position} → 块 ${logicalBlock} → 物理块 ${next.blockTable[logicalBlock]}，slot ${next.slotMapping[i]}`;
+      return `${next.queryTokens[i]}@${position} → 页表下标 ${logicalBlock} → 物理页 ${next.blockTable[logicalBlock]}，slot_mapping=${next.slotMapping[i]}`;
     }).join('；');
   }
   function stop() {

@@ -9,7 +9,7 @@
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const X = 178, W = 1060, RIGHT = 25, AXIS = 32, ROW = 39, RANK = 230, HEIGHT = 526;
   const roles = ['host', 'boundary', 'aiv', 'aic', 'consumer'];
-  const labels = ['Host 提交', 'Device 算子边界', 'AIV 通信 / 向量', 'AIC 矩阵 / 局部算子', '后继消费'];
+  const labels = ['Host 提交', 'Device 算子边界', 'AIV 通信 / 向量', 'AIC 矩阵 / 局部算子', '后续使用'];
   let comparison, time = 0, playing = false, frame = null, last = null;
   let selection = {method: 'fused', id: 'fused-r0-gmm1-0'};
   const y = (rank, role) => AXIS + rank * RANK + roles.indexOf(role) * ROW + 43;
@@ -23,7 +23,7 @@
     const selectedBoundary = selection.method === schedule.method && schedule.boundaries.find(boundary => boundary.id === selection.id);
     const selectedIds = new Set(chosen ? [chosen.id] : selectedBoundary ? selectedBoundary.events : []);
     const step = Math.ceil(comparison.duration / 8);
-    let html = `<svg class="ep-time-svg" viewBox="0 0 ${W} ${HEIGHT}" width="${W}" height="${HEIGHT}" role="img" aria-labelledby="${uid}-title ${uid}-desc"><title id="${uid}-title">${escape(schedule.label)}：教学依赖泳道</title><desc id="${uid}-desc">两逻辑 rank；横轴为模拟推进格，非实测时间。点击矩形可查看算子、来源和前驱。AIV 与 AIC 行是角色聚合，不是真实 stream 号。</desc><defs><pattern id="${uid}-wait" width="7" height="7" patternUnits="userSpaceOnUse"><rect width="7" height="7" fill="#fff7ed"/><path d="M-2 2L2-2M0 7L7 0M5 9L9 5" stroke="#c48b48" stroke-width=".7"/></pattern><marker id="${uid}-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M1 1L6 3.5L1 6" fill="none" stroke="#9a4d10" stroke-width="1.3"/></marker></defs><rect width="${W}" height="${HEIGHT}" fill="#fff"/>`;
+    let html = `<svg class="ep-time-svg" viewBox="0 0 ${W} ${HEIGHT}" width="${W}" height="${HEIGHT}" role="img" aria-labelledby="${uid}-title ${uid}-desc"><title id="${uid}-title">${escape(schedule.label)}：教学依赖泳道</title><desc id="${uid}-desc">两逻辑 rank；横轴为模拟推进格，非实测时间。点击矩形可查看算子、来源和所需数据。AIV 与 AIC 行是角色聚合，不是真实 stream 号。</desc><defs><pattern id="${uid}-wait" width="7" height="7" patternUnits="userSpaceOnUse"><rect width="7" height="7" fill="#fff7ed"/><path d="M-2 2L2-2M0 7L7 0M5 9L9 5" stroke="#c48b48" stroke-width=".7"/></pattern><marker id="${uid}-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M1 1L6 3.5L1 6" fill="none" stroke="#9a4d10" stroke-width="1.3"/></marker></defs><rect width="${W}" height="${HEIGHT}" fill="#fff"/>`;
     for (let rank = 0; rank < M.RANKS; rank++) {
       const top = AXIS + rank * RANK + 14;
       html += `<rect x="4" y="${top}" width="${W - 8}" height="${RANK - 10}" rx="8" fill="${rank ? '#f5f9fc' : '#f8fafc'}" stroke="#d8e3eb"/><text x="16" y="${top + 20}" class="ep-time-rank">逻辑 rank ${rank}</text>`;
@@ -44,7 +44,7 @@
       if (event.kind === 'host' || event.kind === 'consume' || gap < .7) continue;
       const xx = x(waitStart), width = x(event.start) - xx;
       html += `<rect x="${xx}" y="${eventY(event) - 12}" width="${width}" height="24" fill="url(#${uid}-wait)" stroke="#c49050" stroke-width=".7"><title>该角色的下一事件 ${escape(event.label)} 等待 ${escape(event.waitsFor.map(id => schedule.byId[id].label).join('、') || '输入到达')}；不是设备全局空闲。</title></rect>`;
-      if (width > 82) html += `<text x="${xx + width / 2}" y="${eventY(event) + 4}" text-anchor="middle" class="ep-time-wait-label">等前驱就绪</text>`;
+      if (width > 82) html += `<text x="${xx + width / 2}" y="${eventY(event) + 4}" text-anchor="middle" class="ep-time-wait-label">等所需数据</text>`;
     }
     for (const event of schedule.events.filter(candidate => candidate.opaque)) {
       const xx = x(event.start), width = x(event.end) - xx;
@@ -62,7 +62,7 @@
         if (from.kind === 'host' && to.kind === 'host') continue;
         const fromX = x(from.end), toX = x(to.start), fromY = eventY(from), toY = eventY(to);
         const middle = (fromX + toX) / 2;
-        html += `<path d="M${fromX} ${fromY}C${middle} ${fromY},${middle} ${toY},${toX} ${toY}" class="ep-time-dependency" marker-end="url(#${uid}-arrow)"><title>${escape(from.label)} 完成 → ${escape(to.label)} 可消费</title></path>`;
+        html += `<path d="M${fromX} ${fromY}C${middle} ${fromY},${middle} ${toY},${toX} ${toY}" class="ep-time-dependency" marker-end="url(#${uid}-arrow)"><title>${escape(from.label)} 完成 → ${escape(to.label)} 可使用结果</title></path>`;
       }
     }
     for (const event of schedule.events) {
@@ -88,10 +88,10 @@
     const dependencyText = deps.length ? deps.map(id => {
       const predecessor = schedule.byId[id];
       return `<button type="button" data-jump="${escape(id)}" data-method="${selection.method}">R${predecessor.rank} · ${escape(predecessor.label)}</button>`;
-    }).join('') : event.events ? '选择下方内部角色事件可查看其前驱。' : '本模型中的提交起点。';
+    }).join('') : event.events ? '选择下方内部事件可查看它需要等待哪些任务。' : '本模型中的提交起点。';
     const active = event.start <= time && event.end > time;
     const state = event.end <= time ? '已完成' : active ? '当前推进中' : '尚未推进到';
-    byId('ep-time-detail').innerHTML = `<div class="ep-time-detail-heading"><div><span>${escape(schedule.label)} · 逻辑 rank ${event.rank}</span><h5>${escape(event.operator || event.label)}</h5></div><strong>${state}</strong></div><dl><div><dt>源码顺序 / 边界</dt><dd>${escape(event.evidence)}</dd></div><div><dt>教学时长</dt><dd>${number(event.start)} → ${number(event.end)} 格${event.duration ? `；块宽 ${number(event.duration)} 格` : ''}。可切换假设，不能换算为设备耗时。</dd></div><div><dt>前驱依赖</dt><dd class="ep-time-dep-buttons">${dependencyText}</dd></div>${successors.length ? `<div><dt>下游消费者</dt><dd>${successors.map(next => `R${next.rank} · ${escape(next.label)}`).join('；')}</dd></div>` : ''}<div><dt>源码定位</dt><dd><a href="${escape(source.url)}" target="_blank" rel="noopener">${escape(source.path)}</a><br><code>${escape(source.symbol)}</code></dd></div></dl>`;
+    byId('ep-time-detail').innerHTML = `<div class="ep-time-detail-heading"><div><span>${escape(schedule.label)} · 逻辑 rank ${event.rank}</span><h5>${escape(event.operator || event.label)}</h5></div><strong>${state}</strong></div><dl><div><dt>源码顺序 / 边界</dt><dd>${escape(event.evidence)}</dd></div><div><dt>教学时长</dt><dd>${number(event.start)} → ${number(event.end)} 格${event.duration ? `；块宽 ${number(event.duration)} 格` : ''}。可切换假设，不能换算为设备耗时。</dd></div><div><dt>需要先完成的任务</dt><dd class="ep-time-dep-buttons">${dependencyText}</dd></div>${successors.length ? `<div><dt>使用该结果的任务</dt><dd>${successors.map(next => `R${next.rank} · ${escape(next.label)}`).join('；')}</dd></div>` : ''}<div><dt>源码定位</dt><dd><a href="${escape(source.url)}" target="_blank" rel="noopener">${escape(source.path)}</a><br><code>${escape(source.symbol)}</code></dd></div></dl>`;
   }
 
   function render() {
@@ -102,7 +102,7 @@
     }
     for (const method of ['mc2', 'fused']) {
       byId(`ep-time-${method}`).innerHTML = svg(comparison[method]);
-      byId(`ep-time-${method}-state`).textContent = `${comparison[method].boundaries.length / M.RANKS} 个外部边界 / rank${method === 'mc2' ? comparison.localFusion ? ' · 默认局部融合开启，内部时序不展开' : ' · 受控教学配置：局部融合关闭' : ' · AIV / AIC 以 flag 交接，末端同步后归并'}`;
+      byId(`ep-time-${method}-state`).textContent = `${comparison[method].boundaries.length / M.RANKS} 次外部调用 / rank${method === 'mc2' ? comparison.localFusion ? ' · 默认局部融合开启，内部时序不展开' : ' · 受控教学配置：局部融合关闭' : ' · AIV / AIC 以 flag 交接，末端同步后归并'}`;
     }
     byId('ep-time-position').value = time;
     byId('ep-time-position').max = comparison.duration;

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1120" height="860" viewBox="0 0 1120 860" role="img" aria-labelledby="title desc">
 <title id="title">跨 DP 的 Decode 图：先协调，再各自回放</title>
-<desc id="desc">教学示意，非实测时间线。DP4、TP1、EP4，普通单 token Decode，四个 rank 的真实行数分别为3、5、0、2。空 rank 通过一个 dummy query 进入协调。所有 rank 已捕获1、2、4、8行的本地图，先通过 CPU 组协调模式与形状，再统一使用8行的 FULL 图，EP 通信顺序相容。图容量32行，真实请求10行，差额22行不能算作输出或有效 KV。任一 rank 混入 Prefill 或超过最大图桶，则全组使用 eager。</desc>
+<desc id="desc">教学示意，非实测时间线。DP4、TP1、EP4，普通单 token Decode，四个 rank 的真实行数分别为3、5、0、2。空 rank 通过一个 dummy query 进入协调。所有 rank 已捕获1、2、4、8行的本地图，先通过 CPU 组协调模式与形状，再统一使用8行的 FULL 图，EP 通信顺序相容。图容量32行，真实请求10行，差额22行不能算作输出或有效 KV。任一 rank 混入 Prefill 或超过最大捕获档位，则全组使用 eager。</desc>
 <defs>
 <style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}.title{font-size:28px;font-weight:700}.label{font-size:22px;font-weight:600}.body{font-size:20px}.small{font-size:18px;fill:#475569}.blue{fill:#1d4ed8}.teal{fill:#0f766e}.amber{fill:#9a4c10}</style>
 <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M1 1L7 4L1 7" fill="none" stroke="#64748b" stroke-width="1.5"/></marker>
@@ -14,7 +14,7 @@
 <text x="52" y="174" class="body">相同捕获配置与顺序 → 各 rank 预热、捕获 → 本地保存 graph 与固定缓冲</text>
 <text x="52" y="207" class="small">图中的 EP 调用仍使用通信组；四个 rank 各持自己的图、权重与 KV 地址。</text>
 
-<text x="32" y="272" class="label">这一轮：真实请求不同，共同桶为 8</text>
+<text x="32" y="272" class="label">这一轮：真实请求不同，共同档位为 8</text>
 <text x="52" y="308" class="small">DP rank</text>
 <text x="178" y="308" class="small">本地候选</text>
 <text x="462" y="308" class="small">前向前的协调</text>
@@ -26,8 +26,8 @@
 <text x="586" y="447" text-anchor="middle" class="body">所有候选均为 FULL</text>
 <text x="586" y="485" text-anchor="middle" class="body">uniform query = 1</text>
 <path d="M466 506H706" stroke="#94a3b8" stroke-width="1"/>
-<text x="586" y="540" text-anchor="middle" class="label blue">max = 5 → 桶 8</text>
-<text x="586" y="578" text-anchor="middle" class="body">各 rank 再匹配描述符</text>
+<text x="586" y="540" text-anchor="middle" class="label blue">max = 5 → 档位 8</text>
+<text x="586" y="578" text-anchor="middle" class="body">各 rank 再确认图条件</text>
 <text x="586" y="607" text-anchor="middle" class="small">此协调发生在模型图外</text>
 
 <text x="52" y="368" class="label">DP0</text>
@@ -72,7 +72,7 @@
 
 <text x="32" y="664" class="body">图容量 4×8=32 行；真实请求 3+5+0+2=10 行；差额 22 行不计输出或有效 KV。</text>
 <rect x="32" y="690" width="1056" height="136" rx="8" fill="#fff7ed" stroke="#b45309" stroke-width="1.5"/>
-<text x="52" y="725" class="label amber">若 DP1 混入 Prefill，或任一 rank 超过最大图桶</text>
+<text x="52" y="725" class="label amber">若 DP1 混入 Prefill，或任一 rank 超过最大捕获档位</text>
 <text x="52" y="763" class="body">本地候选 NONE → 协调后全组 NONE → 各 rank 用 eager 执行本轮前向</text>
-<text x="52" y="800" class="small">其他 rank 的 Decode 仍继续；此非 DBO 分支保留各自输入行数，不为图再补到统一桶。</text>
+<text x="52" y="800" class="small">其他 rank 的 Decode 仍继续；此非 DBO 分支保留各自输入行数，不为图再补到统一档位。</text>
 </svg>

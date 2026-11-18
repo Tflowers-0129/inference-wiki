@@ -1,34 +1,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1120" height="936" viewBox="0 0 1120 936" role="img" aria-labelledby="title desc">
-<title id="title">HiSparse：有了 Host 副本，Device 页何时才算释放？</title>
-<desc id="desc">基于社区 PR62592 合入点的教学图，非实测。Source 保存 Host 主 KV 历史与前缀身份；Resident 是设备主 KV 页；Hot 是按请求分配的设备热点行；Index 是普通设备 indexer K 缓存组。页从 dirty 到 Host 拷贝完成后的 clean，再到有 Hot 保障时 unpin。unpin 后旧设备内容仍可读；块实际复用后旧 Resident 映射才失效。示例共有六页，最后两页保留，不能回收。Source 逻辑块由 Coordinator 管理，Host 字节由 Worker 持有；设备租约由 KV manager 与 HMA 提供，Runtime 负责 Hot 内容和替换。</desc>
+<title id="title">HiSparse：允许回收，不等于已经覆盖旧页</title>
+<desc id="desc">基于社区 PR62592 合入点的教学图，非实测。Source 保存 Host 完整主 KV 与前缀归属；Resident 是设备主 KV 页；Hot 是按请求分配的设备热点行；Index 是普通设备 indexer K 缓存组。页从 dirty 到 Host 拷贝完成后的 clean，再到有 Hot 保障时 unpin。unpin 后旧设备内容仍可读；块实际复用后旧 Resident 映射才失效。示例共有六页，最后两页保留，不能回收。Source 逻辑块由 Coordinator 管理，Host 字节由 Worker 持有；设备租约由 KV manager 与 HMA 提供，Runtime 负责 Hot 内容和替换。</desc>
 <defs>
 <style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}.title{font-size:28px;font-weight:700}.head{font-size:23px;font-weight:700}.body{font-size:20px}.note{font-size:18px;fill:#475569}.small{font-size:17px;fill:#475569}.blue{fill:#1d4ed8}.teal{fill:#0f766e}.orange{fill:#a64b08}</style>
 <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M1 1L7 4L1 7" fill="none" stroke="#64748b" stroke-width="1.7"/></marker>
 </defs>
 <rect width="1120" height="936" fill="#f8fafc"/>
-<text x="32" y="46" class="title">HiSparse：有了 Host 副本，Device 页何时才算释放？</text>
-<text x="32" y="80" class="note">基于社区 PR62592 合入点的教学图 · 页状态与所有权示意，不代表实测耗时。</text>
+<text x="32" y="46" class="title">HiSparse：允许回收，不等于已经覆盖旧页</text>
+<text x="32" y="80" class="note">社区 PR62592 合入点的教学图；箭头表示状态变化，不表示耗时。</text>
 
 <rect x="32" y="112" width="254" height="210" rx="9" fill="#fff7ed" stroke="#b45309" stroke-width="1.5"/>
 <text x="50" y="148" class="head orange">Source / Host</text>
-<text x="50" y="187" class="body">主 KV 历史与前缀身份</text>
-<text x="50" y="225" class="body">Coordinator 管逻辑块</text>
-<text x="50" y="261" class="body">Worker 持有 Host 字节</text>
-<text x="50" y="300" class="small">独立 CPU block pool</text>
+<text x="50" y="187" class="body">完整主 KV 与前缀归属</text>
+<text x="50" y="225" class="body">Coordinator 记录块归属</text>
+<text x="50" y="261" class="body">Host 内存保存 KV 内容</text>
+<text x="50" y="300" class="small">独立 CPU 块池</text>
 
 <rect x="300" y="112" width="254" height="210" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.5"/>
 <text x="318" y="148" class="head blue">Resident / Device</text>
 <text x="318" y="187" class="body">仍驻留的主 KV 页</text>
-<text x="318" y="225" class="body">KV manager 管页租约</text>
+<text x="318" y="225" class="body">缓存管理器保留页引用</text>
 <text x="318" y="261" class="body">安全副本完成后可回收</text>
 <text x="318" y="300" class="small">HMA 提供设备容量</text>
 
 <rect x="568" y="112" width="254" height="210" rx="9" fill="#e6f4f1" stroke="#0f766e" stroke-width="1.5"/>
 <text x="586" y="148" class="head teal">Hot / Device</text>
-<text x="586" y="187" class="body">每请求的热点行缓存</text>
-<text x="586" y="225" class="body">Runtime 解析与替换</text>
-<text x="586" y="261" class="body">miss 从 Source 回填</text>
-<text x="586" y="300" class="small">HMA 提供设备租约</text>
+<text x="586" y="187" class="body">每请求近期读过的行</text>
+<text x="586" y="225" class="body">Runtime 查找与替换</text>
+<text x="586" y="261" class="body">缺少行从 Source 搬回</text>
+<text x="586" y="300" class="small">HMA 分配设备容量</text>
 
 <rect x="836" y="112" width="252" height="210" rx="9" fill="#f5f3ff" stroke="#6d28d9" stroke-width="1.5"/>
 <text x="854" y="148" class="head" fill="#6d28d9">Index / Device</text>
@@ -37,28 +37,28 @@
 <text x="854" y="261" class="body">HiSparse 不另存</text>
 <text x="854" y="297" class="body">它的 CPU 副本</text>
 
-<text x="32" y="374" class="head">同一页的四个阶段：unpin 之后，旧 Device 内容还可能命中</text>
+<text x="32" y="374" class="head">同一页的四个阶段：unpin 后，旧内容仍可能命中</text>
 <rect x="32" y="400" width="234" height="162" rx="8" fill="#ffffff" stroke="#b45309" stroke-width="1.7"/>
 <text x="52" y="439" class="head orange">① dirty</text>
-<text x="52" y="480" class="body">Device 是最新副本</text>
+<text x="52" y="480" class="body">设备上是最新内容</text>
 <text x="52" y="519" class="body">此页还不能回收</text>
 <path d="M273 481H301" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
 <rect x="308" y="400" width="234" height="162" rx="8" fill="#ffffff" stroke="#1d4ed8" stroke-width="1.7"/>
 <text x="328" y="439" class="head blue">② clean</text>
 <text x="328" y="480" class="body">Host 拷贝已完成</text>
-<text x="328" y="519" class="body">Device 仍持有租约</text>
+<text x="328" y="519" class="body">设备页仍被保留</text>
 <path d="M549 481H577" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
 <rect x="584" y="400" width="234" height="162" rx="8" fill="#e6f4f1" stroke="#0f766e" stroke-width="1.7"/>
 <text x="604" y="439" class="head teal">③ unpin</text>
-<text x="604" y="480" class="body">释放 Device 页租约</text>
-<text x="604" y="519" class="body">旧内容暂时仍可读</text>
+<text x="604" y="480" class="body">解除分配引用</text>
+<text x="604" y="519" class="body">未复用时仍可读</text>
 <path d="M825 481H853" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
 <rect x="860" y="400" width="228" height="162" rx="8" fill="#ffffff" stroke="#64748b" stroke-width="1.7"/>
 <text x="880" y="439" class="head">④ reuse</text>
 <text x="880" y="480" class="body">块被分给新用途</text>
 <text x="880" y="519" class="body">旧驻留映射失效</text>
-<text x="32" y="600" class="body">clean 且 Hot 已准备好，才允许 unpin；实际复用时，再把旧页的 Resident 映射移除。</text>
-<text x="32" y="636" class="note">Hot 是后续 miss 的落点。unpin 让池可重用空间，并不要求立即抹掉仍可命中的 KV 字节。</text>
+<text x="32" y="600" class="body">副本安全且 Hot 已备好，才允许 unpin；块实际复用后，删除旧驻留记录。</text>
+<text x="32" y="636" class="note">Hot 接收以后需要搬回的行。unpin 不会立即抹掉设备上仍可读取的 KV。</text>
 
 <rect x="32" y="675" width="1056" height="190" rx="9" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
 <text x="52" y="713" class="head">尾部两页保留：保护仍可能被在途步骤写入的 KV</text>
@@ -77,5 +77,5 @@
 <rect x="907" y="772" width="150" height="68" rx="6" fill="#e6f4f1" stroke="#0f766e" stroke-width="2"/>
 <text x="982" y="798" class="teal">尾页 5 · 保留</text><text x="982" y="827">20…22</text>
 </g>
-<text x="32" y="902" class="note">Coordinator 决定逻辑页状态；Worker / Runtime 执行字节搬运。设备容量分配与 Host KV 身份各有所有者。</text>
+<text x="32" y="902" class="note">Coordinator 管页状态，Worker / Runtime 搬数据；设备容量与 Host 历史分别管理。</text>
 </svg>

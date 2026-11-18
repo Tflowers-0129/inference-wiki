@@ -145,7 +145,7 @@ def attention_merge():
         '局部输出O0为1，LSE为ln2。分片1的scores是ln3、ln3，values是10、14，Z1为6，O1为12，'
         'LSE为ln6。稳定归并以ln6为最大LSE，得到未归一化权重1/3和1，归一化权重1/4和3/4，'
         '最终输出9.25。直接平均局部输出得到6.5，是错误结果。')
-    parts += [text(32, 82, '教学算例 · 同一 query / head，两片 KV；LSE 记录各片 softmax 的归一化规模', 19, MUTED)]
+    parts += [text(32, 82, '教学算例 · 同一 query / head，两片 KV；LSE 保存各片归一化分母的对数', 19, MUTED)]
     rows = [
         (0, 32, BLUE, BLUE_BG, ['scores = [0, 0]', 'values = [0, 2]', 'exp(scores) = [1, 1]', 'Z₀ = 2，L₀ = ln 2', 'O₀ = (0 + 2) / 2 = 1']),
         (1, 608, TEAL, TEAL_BG, ['scores = [ln 3, ln 3]', 'values = [10, 14]', 'exp(scores) = [3, 3]', 'Z₁ = 6，L₁ = ln 6', 'O₁ = (3×10 + 3×14) / 6 = 12']),

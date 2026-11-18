@@ -56,7 +56,7 @@
 <text x="32" y="914" class="small">本图取相邻 SP MoE 层的数据边界；进入不使用 SP 的层前也需恢复完整激活。</text>
 
 <rect x="32" y="944" width="1056" height="168" rx="10" fill="#fff" stroke="#64748b"/>
-<text x="54" y="980" class="head">两本账分别计算</text>
+<text x="54" y="980" class="head">当前激活与历史 KV 分开计算</text>
 <text x="54" y="1019" class="body">当前激活：一份 [4,4096] = 32 KiB → 每 rank [2,4096] = 16 KiB</text>
 <text x="54" y="1056" class="body">历史 KV：head 由 TP 切分或复制，历史位置由 DCP 决定归属</text>
 <text x="54" y="1090" class="small">SP 的激活分片不会自动改变 KV cache；上述字节数不是进程 HBM 占用。</text>

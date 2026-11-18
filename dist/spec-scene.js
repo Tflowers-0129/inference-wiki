@@ -88,13 +88,13 @@
     parts.push(text(44, 74, '进入本轮前：Target KV 已覆盖位置 0–7，共 8 个位置', 13, '#255c48', 600));
     parts.push(box(524, 48, 548, 41, '#edf3ff', '#c9d9f1', 8, phase === 0 ? 'stroke-width="2"' : ''));
     parts.push(text(540, 74, '起点：t0@8 已确认输出，但尚无自己的 Target KV', 13, '#28518f', 650));
-    parts.push(text(44, 110, '下方按逻辑位置对齐', 11.5, '#687b8e'));
+    parts.push(text(44, 110, '下方按请求内的位置对齐', 11.5, '#687b8e'));
     for (let i = 0; i < 8; i++) {
       parts.push(text(GRID_X + i * PITCH + CELL_WIDTH / 2, 110, 8 + i, 11.5, '#61768b', 500, 'middle'));
     }
 
     parts.push(row(120, 'Draft 提议记录', '单条候选链，逐个扩展', phase >= 1 && phase <= 3));
-    parts.push(token(8, 120, 't0', '本轮起始 anchor', 'anchor', 1, phase === 0));
+    parts.push(token(8, 120, 't0', '本轮起始 Token', 'anchor', 1, phase === 0));
     for (let i = 1; i <= 3; i++) {
       parts.push(token(8 + i, 120, i <= proposed ? `d${i}` : '·', i <= proposed ? hasVerification ? '曾作为候选' : '候选 · 待验证' : '尚未提出', i <= proposed ? 'draft' : 'future', i <= proposed ? 1 : 0.32, phase === i));
       parts.push(text(GRID_X + i * PITCH - 4, 151, '›', 20, '#b19352', 600, 'middle').replace('<text ', `<text opacity="${i <= proposed ? 1 : 0.25}" `));
@@ -131,7 +131,7 @@
     parts.push(row(360, '下一轮 Query', `新 K = ${nextK}；x 仍要计算自身 KV`, isNext));
     if (committed) {
       nextQuery.forEach((value, i) => parts.push(token(validKvLength + i, 360, value,
-        i ? '新候选 · 待验证' : 'anchor · 无 KV', isNext ? i ? 'draft' : 'anchor' : 'future', isNext ? 1 : 0.36, isNext && i === 0)));
+        i ? '新候选 · 待验证' : '待输入 · 无 KV', isNext ? i ? 'draft' : 'anchor' : 'future', isNext ? 1 : 0.36, isNext && i === 0)));
     } else {
       parts.push(text(GRID_X + 12, 391, '先确定有效 KV 边界，再从 x 接续；此处尚未执行。', 13, '#8291a2'));
     }
@@ -225,7 +225,7 @@
     parts.push(heading('沿 t0 逐个提出候选', `已提议 ${proposed} / 3`, phase <= 3));
     parts.push('<p class="spec-web-start"><span>进入本轮</span><strong>Target KV：0–7，共 8 位</strong><span>t0@8 已确认输出，尚无自己的 Target KV。</span></p>');
     parts.push('<div class="spec-web-token-chain">');
-    parts.push(chip('t0', 8, '起始 anchor', 'anchor', phase === 0));
+    parts.push(chip('t0', 8, '本轮起始 Token', 'anchor', phase === 0));
     for (let i = 1; i <= 3; i++) {
       parts.push(chip(i <= proposed ? `d${i}` : '·', 8 + i,
         i <= proposed ? verified ? '曾作为候选' : '候选 · 待验证' : '尚未提出',
@@ -263,7 +263,7 @@
     parts.push('<section class="spec-web-next" aria-label="下一轮从 x 接续">');
     parts.push(heading('下一轮从 x 接续', `新 K = ${nextK}`, isNext));
     if (committed) {
-      parts.push(`<div class="spec-web-next-tokens">${nextQuery.map((value, i) => chip(value, validKvLength + i, i ? '新候选' : 'anchor · 无 KV', isNext ? i ? 'draft' : 'anchor' : 'future', isNext && i === 0)).join('')}</div>`);
+      parts.push(`<div class="spec-web-next-tokens">${nextQuery.map((value, i) => chip(value, validKvLength + i, i ? '新候选' : '待输入 · 无 KV', isNext ? i ? 'draft' : 'anchor' : 'future', isNext && i === 0)).join('')}</div>`);
       parts.push(`<p class="spec-web-card-note"><code>query_start_loc = [0, ${nextK + 1}]</code> · <code>seq_len = ${validKvLength + nextK + 1}</code><br>新 Query 尚未执行 Target。</p>`);
     } else {
       parts.push('<p class="spec-web-pending">先提交并纠正有效边界，再让 x 进入下一轮输入。新 Query 尚未执行。</p>');
@@ -284,7 +284,7 @@
       '前轮已确认 t0；Target KV 仍止于 7。', 't0 已确认，Draft 才能从它继续。',
       '先有 d1，再把它作为 Draft 输入。', '先有 d2，再继续扩展候选链。',
       'd1、d2、d3 都已由 Draft 提出。', '四行输入、位置与因果边界已准备。',
-      'Target 已给出连续接受长度 a。', `有效 KV 边界已纠正到 ${validKvLength}。`
+      'Target 已给出连续接受候选数 a。', `有效 KV 边界已纠正到 ${validKvLength}。`
     ];
     const after = [
       '沿 t0 逐个提议 d1、d2、d3。', 'd1 确定后，才用它提议 d2。',

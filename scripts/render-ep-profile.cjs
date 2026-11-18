@@ -9,7 +9,7 @@ const comparison = M.buildComparison('balanced', {localFusion: true});
 const revision = crypto.createHash('sha256').update(fs.readFileSync(modelPath)).digest('hex').slice(0, 16);
 const W = 1120, H = 1570, L = 184, R = 26, PANEL = 606;
 const roles = ['host', 'boundary', 'aiv', 'aic', 'consumer'];
-const roleLabels = ['Host 提交', 'Device 调用边界', 'AIV / 搬运与向量', 'AIC / 矩阵角色', '后继消费'];
+const roleLabels = ['Host 提交', 'Device 调用边界', 'AIV / 搬运与向量', 'AIC / 矩阵角色', '后续使用'];
 const palette = {host:['#e8eef8','#385a86'],init:['#fff4df','#9b6513'],dispatch:['#f2ebff','#6736bd'],gmm1:['#eaf1ff','#2458bd'],gmm2:['#eaf1ff','#2458bd'],activation:['#fff2df','#a15c12'],combine:['#e6f4f0','#157565'],sync:['#e6f4f0','#157565'],unpermute:['#e6f4f0','#157565'],consume:['#edf2f7','#475569'],localFused:['#eef1f5','#596779']};
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 const x = t => L + t / comparison.duration * (W - L - R);
@@ -65,17 +65,17 @@ for (const [panel, method] of ['mc2','fused'].entries()) {
   for(const e of schedule.events) {
     const xx=x(e.start), ww=x(e.end)-xx, yy=y(panel,e.rank,e.lane.split('-')[1]);
     const [fill,stroke]=palette[e.kind]||palette.init;
-    svg += `<g><title>${esc(e.operator||e.label)}；前驱：${esc(e.deps.join(', '))}。块宽为教学时长。</title><rect x="${xx}" y="${yy-12}" width="${Math.max(ww,2)}" height="24" rx="3" fill="${fill}" stroke="${stroke}" stroke-width="1.3"/>`;
+    svg += `<g><title>${esc(e.operator||e.label)}；需等待：${esc(e.deps.join(', '))}。块宽为教学时长。</title><rect x="${xx}" y="${yy-12}" width="${Math.max(ww,2)}" height="24" rx="3" fill="${fill}" stroke="${stroke}" stroke-width="1.3"/>`;
     const txt=short(e);
     if(txt&&ww>txt.length*8+2)svg += label(txt,xx+ww/2,yy+6,e.kind==='activation'?16:18,stroke,600,'middle');
     svg += '</g>';
   }
-  svg += label(method==='mc2'?'灰块：局部融合的内部 tiling 未展开；Combine 输出可读后由本地后继消费。':'S0=e0～e2，S1=e3；G2(e2) 前等 S1；↔ 为源码中的跨 rank 完成同步，U 为归并。',28,top+578,18,'#475569');
+  svg += label(method==='mc2'?'灰块：局部融合的内部 tiling 未展开；Combine 输出可读后，由后续任务使用。':'S0=e0～e2，S1=e3；G2(e2) 前等 S1；↔ 为源码中的跨 rank 完成同步，U 为归并。',28,top+578,18,'#475569');
 }
 svg += `<rect x="20" y="1328" width="1080" height="212" rx="10" fill="#fff7ed" stroke="#b87528" stroke-width="1.4"/>`;
 svg += label('读图边界',38,1360,22,'#9b5714',700);
 svg += label('D：输入搬运；1·i / 2·i：专家 i 的 GMM1 / GMM2；S：SwiGLU / 再量化；C：回传。',38,1394,18);
-svg += label('斜线只表示该角色等待前驱；Host 小块是提前提交，不是等待 Device 完成。',38,1426,18);
+svg += label('斜线只表示该角色等待所需数据；Host 小块是提前提交，不是等待 Device 完成。',38,1426,18);
 svg += label('AIV / AIC 为教学聚合；每核 GMM1→GMM2 的顺序不等于全芯片 Cube 屏障。',38,1458,18);
 svg += label('块宽与终点取自任意教学参数，不能换算为毫秒或实测加速比；交互版可查看全部依赖。',38,1490,18);
 svg += label('本图仅展开仓库内 W8A8 自定义 Fused-MC2，不替代 CANN MegaMoE 的内部实现证据。',38,1522,18);

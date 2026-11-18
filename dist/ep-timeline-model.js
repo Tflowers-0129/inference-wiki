@@ -30,7 +30,7 @@
   });
   const RANKS = 2;
   const SEGMENTS = 4;
-  const KIND_LABELS = Object.freeze({host: 'Host 提交', init: '准备 / 量化', dispatch: 'Dispatch', gmm1: 'GMM1', activation: 'SwiGLU / 再量化', localFused: 'GMM1+SwiGLU+Quant（内部不展开）', gmm2: 'GMM2', combine: 'Combine', sync: '跨 rank 完成同步', unpermute: '加权归并', consume: '后继消费'});
+  const KIND_LABELS = Object.freeze({host: 'Host 提交', init: '准备 / 量化', dispatch: 'Dispatch', gmm1: 'GMM1', activation: 'SwiGLU / 再量化', localFused: 'GMM1+SwiGLU+Quant（内部不展开）', gmm2: 'GMM2', combine: 'Combine', sync: '跨 rank 完成同步', unpermute: '加权归并', consume: '使用输出'});
 
   function scheduleDAG(input) {
     if (!Array.isArray(input) || !input.length) throw new TypeError('A nonempty event list is required');
@@ -81,7 +81,7 @@
       const names = method === 'mc2' ? localFusion ? ['dispatch', 'local-fused', 'gmm2', 'combine', 'consume'] : ['dispatch', 'gmm1', 'activation', 'gmm2', 'combine', 'consume'] : ['fused', 'consume'];
       let previous = null;
       names.forEach((name, index) => {
-        previous = add(rank, `submit-${name}`, 'host', 'host', index === names.length - 1 ? '后继提交' : method === 'fused' ? 'Fused' : `提交 ${index + 1}`,
+        previous = add(rank, `submit-${name}`, 'host', 'host', index === names.length - 1 ? '提交后续任务' : method === 'fused' ? 'Fused' : `提交 ${index + 1}`,
           timing.submit, previous ? [previous] : [], {release: rank === 1 ? timing.peer : 0,
             operator: name === 'fused' ? 'dispatch_ffn_combine' : name, source: SOURCES[method === 'fused' ? 'fused' : 'experts'], evidence: '教学 Host 发起顺序；未加入逐算子 Host 同步'});
       });
@@ -133,8 +133,8 @@
           evidence: '一个外部自定义算子；内部 AIV 与 AIC 以 flag 协作'});
       }
       const localEnd = prefix(method === 'mc2' ? 'combine' : 'unpermute');
-      add(rank, 'consume', 'consumer', 'consume', '后继消费', timing.consume, [localEnd, prefix('submit-consume')], {operator: '模型中下一消费者', source: method === 'mc2' ? SOURCES.combine : SOURCES.fusedAct,
-        evidence: method === 'mc2' ? '本地 Combine API 输出就绪后消费；未添加等待 peer Combine 结束的全局屏障' : 'CrossRankSync 和 Unpermute 完成后消费；未指定真实后继算子或 stream'});
+      add(rank, 'consume', 'consumer', 'consume', '使用输出', timing.consume, [localEnd, prefix('submit-consume')], {operator: '读取本轮 MoE 输出', source: method === 'mc2' ? SOURCES.combine : SOURCES.fusedAct,
+        evidence: method === 'mc2' ? '本地 Combine API 输出就绪后读取；未添加等待 peer Combine 结束的全局屏障' : 'CrossRankSync 和 Unpermute 完成后读取；未指定真实后续算子或 stream'});
     }
     return {events, boundaries};
   }

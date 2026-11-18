@@ -5,7 +5,7 @@
     <p>固定本轮 K＝3，从 t0 开始逐个提出候选，再看一次 Target 验证与下一轮接续。可拖动进度或点击步骤。</p>
   </div>
   <div class="spec-controls">
-    <label for="spec-accepted">连续接受长度 a
+    <label for="spec-accepted">连续接受候选数 a
       <select id="spec-accepted"><option value="0">0：第一个就不匹配</option><option value="1">1：接受 d1</option><option value="2" selected>2：接受 d1、d2</option><option value="3">3：全部接受</option></select>
     </label>
     <div class="spec-buttons" role="group" aria-label="投机事件播放">
@@ -33,19 +33,19 @@
   <div class="spec-stat-grid" id="spec-stats"></div>
   <p class="spec-boundary" id="spec-kv-boundary"></p>
   </details>
-  <p class="spec-footnote">泳道只有相对先后，色块宽度不表示实测耗时。不同角色可运行在同一设备，具体 stream 和 rank 由部署决定。这是记账演示：手选 a 不表示接受概率；事件不等时，也不预测速度。x 刚被采样出来，尚未作为 Target 输入，不能算入已有 Target KV。</p>
+  <p class="spec-footnote">泳道只有相对先后，色块宽度不表示实测耗时。不同角色可运行在同一设备，具体 stream 和 rank 由部署决定。这是状态变化演示：手选 a 不表示接受概率；事件不等时，也不预测速度。x 刚被采样出来，尚未作为 Target 输入，不能算入已有 Target KV。</p>
   <div class="spec-continuation" aria-labelledby="spec-continuation-title">
     <h4 id="spec-continuation-title">下一轮 metadata 预览（按所选接受长度推算）</h4>
     <p>上一轮固定 K＝3，用接受长度 a 纠正下一轮的起点；新的 K 决定这次有多少行 Query。预览使用上方选定的 a，不随播放步骤变化。</p>
     <div class="spec-controls"><label for="spec-next-k">下一轮候选数 K
-      <select id="spec-next-k"><option value="0">0：只计算 anchor x</option><option value="1" selected>1：x + e1</option><option value="3">3：x + e1、e2、e3</option></select>
+      <select id="spec-next-k"><option value="0">0：只输入 x</option><option value="1" selected>1：x + e1</option><option value="3">3：x + e1、e2、e3</option></select>
     </label></div>
     <div class="spec-continuation-result" aria-live="polite" aria-atomic="true">
       <p class="spec-boundary" id="spec-continuation-correction"></p>
       <div id="spec-continuation-metadata"></div>
-      <p class="spec-continuation-address" id="spec-continuation-address"></p>
+      <details><summary>查看页表与 slot_mapping</summary><p class="spec-continuation-address" id="spec-continuation-address"></p></details>
     </div>
-    <p class="spec-footnote">沿用 B＝4、块表 [7, 2, 9, 10] 的寻址示例。这里对照的是输入与地址，不模拟后端性能，也不决定应采用哪种投机策略。</p>
+    <p class="spec-footnote">扩展寻址示例使用每页 4 个 Token、页表 [7, 2, 9, 10]。这里对照的是输入与地址，不模拟后端性能，也不决定应采用哪种投机策略。</p>
   </div>
   <noscript><p>可展开下方“完整过程”阅读静态 SVG 图解；播放器需要 JavaScript。</p></noscript>
 </section>
