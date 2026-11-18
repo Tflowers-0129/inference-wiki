@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="340" height="1190" viewBox="0 0 480 1680" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="340" height="1326" viewBox="0 0 480 1872" role="img" aria-labelledby="title desc">
   <title id="title">两次请求中的三段 KV 复制：P0 到共享池、共享池到 P1、P1 到 D1</title>
-  <desc id="desc">先处理 R1：手册加问题一，由物理机 A 上的 P0 计算，手册 KV 在本卡 HBM 第 3 页，随后 PUT 复制到物理机 C 的 Host DRAM，成为 Store 手册对象 M，方向为 D2rH。PUT 成功且 M 仍可用后，R2 的相同手册加问题二由同机的 P1 处理；P1 本地未命中，但命中兼容的共享对象 M，GET 复制到 P1 自己分配的 HBM 第 9 页，方向为 rH2D，C 中的 M 仍保留。P1 补算问题二，将其 KV 写到第 10 页。R2 选择物理机 B 上的 D1，D1 分配第 20、21 页并发起 READ，KV 字节从 P1 第 9 页到 D1 第 20 页、P1 第 10 页到 D1 第 21 页直接复制，方向为 D2D；收到本请求所需 KV 后，D1 继续生成。此图未展开 R1 到 D0 的交接。本教学例手册为 128 Token、问题为 1 Token，页大小为 128 Token；只统计一层，K 和 V 各 16 KiB，每整页合计 32 KiB。两段池化复制各 32 KiB，R2 的 PD 交接复制两整页共 64 KiB，尾页只有一个有效位置。箭头表示数据方向，不表示耗时或并发关系；M 是教学对象名，不是实现中的实际键字符串。</desc>
+  <desc id="desc">P 机 A 运行 P0 并贡献 Host DRAM 段 A，P 机 B 运行 P1 并贡献段 B；两段组成同一个逻辑 Store，无额外存储机。主例手册对象 M 实际落在 A 段。先处理 R1：手册加问题一，P0 将本卡 HBM 第 3 页的手册 KV PUT 复制到本机 A 段，方向为 D2H。PUT 成功且 M 仍可用后，R2 的相同手册加问题二由 B 上的 P1 处理；P1 的 HBM 未命中，但命中兼容的共享对象 M，将远端 A 段的 M GET 到自己分配的 HBM 第 9 页，方向为 rH2D，A 段仍保留 M。P1 补算问题二，将其 KV 写到第 10 页。独立 Decode 机上的 D1 分配第 20、21 页并发起 READ，KV 从 B 的 P1 第 9 页到 D1 第 20 页、第 10 页到 D1 第 21 页直接复制，方向为 D2D；本请求所需 KV 就绪后，D1 继续生成。未展开的 R1 交接为 P0 第 3、4 页到 Decode 机 D0 第 12、13 页。本教学例手册为 128 Token、问题为 1 Token，页大小为 128 Token；只统计一层，K 和 V 各 16 KiB，每整页合计 32 KiB。两段池化复制各 32 KiB，R2 的 PD 交接复制两整页共 64 KiB，尾页只有一个有效位置。反事实只比较手册 M 改放 B 段，此时 P0 写入为 D2rH，P1 读回为 H2D；保修条款始终在 B 段，不随 M 改变。该对照不是迁移过程。箭头表示数据方向，不表示耗时；M 是教学对象名，不是实现中的实际键字符串。</desc>
   <defs>
     <style>
       text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
@@ -13,10 +13,10 @@
     <marker id="pool-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#0f766e" stroke-width="1.7"/></marker>
     <marker id="pd-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#b45309" stroke-width="1.7"/></marker>
   </defs>
-  <rect width="480" height="1680" rx="16" fill="#f8fafc"/>
+  <rect width="480" height="1872" rx="16" fill="#f8fafc"/>
   <text x="20" y="44" class="title">一份手册 KV，三段复制</text>
-  <text x="20" y="82" class="body">先 R1，再 R2；只跟踪一层。</text>
-  <text x="20" y="116" class="body">每整页 K + V 合计 32 KiB。</text>
+  <text x="20" y="82" class="body">先 R1，再 R2；手册 M 放 A 段。</text>
+  <text x="20" y="116" class="body">单层每整页 K + V = 32 KiB。</text>
   <g id="r1-p0-to-store">
     <rect x="20" y="144" width="440" height="390" rx="12" class="panel"/>
     <circle cx="48" cy="178" r="17" fill="#0f766e"/><text x="48" y="186" class="number">1</text>
@@ -25,26 +25,26 @@
     <text x="56" y="244" class="body blue">A / P0 · 本卡 HBM</text>
     <text x="56" y="278" class="heading teal">页 3 · 手册 KV</text>
     <path d="M72 296V386" class="pool-flow"/>
-    <text x="104" y="336" class="heading teal">PUT · D2rH</text>
+    <text x="104" y="336" class="heading teal">PUT · D2H</text>
     <text x="104" y="370" class="body">复制 32 KiB</text>
     <rect x="36" y="386" width="408" height="90" rx="8" class="store"/>
-    <text x="56" y="420" class="body">C · Host DRAM / Store</text>
-    <text x="56" y="456" class="heading teal">手册对象 M</text>
+    <text x="56" y="420" class="body">A · 本机 Host DRAM</text>
+    <text x="56" y="456" class="heading teal">Store 段 A · 手册 M</text>
     <text x="36" y="512" class="note">PUT 完成后，M 才可供 R2 复用。</text>
   </g>
   <g id="r2-store-to-p1">
     <rect x="20" y="558" width="440" height="430" rx="12" class="panel"/>
     <circle cx="48" cy="592" r="17" fill="#0f766e"/><text x="48" y="600" class="number">2</text>
     <text x="78" y="602" class="heading">R2 在 P1 命中共享手册</text>
-    <text x="36" y="636" class="note">同一手册 + 问题二；P1 本地无副本</text>
+    <text x="36" y="636" class="note">同一手册 + 问题二；P1 HBM 未命中</text>
     <rect x="36" y="654" width="408" height="84" rx="8" class="store"/>
-    <text x="56" y="686" class="body teal">C · Store 手册对象 M</text>
-    <text x="56" y="720" class="body">GET 后仍保留此副本</text>
+    <text x="56" y="686" class="body teal">A · Store 段 A / 手册 M</text>
+    <text x="56" y="720" class="body">GET 后 A 段仍保留此副本</text>
     <path d="M72 738V826" class="pool-flow"/>
     <text x="104" y="776" class="heading teal">GET · rH2D</text>
     <text x="104" y="810" class="body">复制 32 KiB</text>
     <rect x="36" y="826" width="408" height="98" rx="8" class="device"/>
-    <text x="56" y="860" class="body blue">A / P1 · 本卡 HBM</text>
+    <text x="56" y="860" class="body blue">B / P1 · 本卡 HBM</text>
     <text x="56" y="898" class="heading teal">页 9 · 手册 KV</text>
     <text x="36" y="964" class="note">P1 再计算问题二，写入页 10。</text>
   </g>
@@ -53,7 +53,7 @@
     <circle cx="48" cy="1046" r="17" fill="#b45309"/><text x="48" y="1054" class="number">3</text>
     <text x="78" y="1056" class="heading">R2 将本请求 KV 交给 D1</text>
     <rect x="36" y="1082" width="408" height="142" rx="8" class="device"/>
-    <text x="56" y="1116" class="body blue">A / P1 · 本卡 HBM</text>
+    <text x="56" y="1116" class="body blue">B / P1 · 本卡 HBM</text>
     <rect x="52" y="1134" width="180" height="72" rx="6" class="manual"/>
     <text x="142" y="1164" class="heading teal center">页 9</text>
     <text x="142" y="1194" class="body center">手册</text>
@@ -65,7 +65,7 @@
     <text x="104" y="1298" class="body">页 9 → 页 20</text>
     <text x="104" y="1332" class="body">页 10 → 页 21</text>
     <rect x="36" y="1350" width="408" height="142" rx="8" class="device"/>
-    <text x="56" y="1384" class="body blue">B / D1 · 本卡 HBM</text>
+    <text x="56" y="1384" class="body blue">Decode 机 / D1 · HBM</text>
     <rect x="52" y="1402" width="180" height="72" rx="6" class="manual"/>
     <text x="142" y="1432" class="heading teal center">页 20</text>
     <text x="142" y="1462" class="body center">手册</text>
@@ -75,6 +75,13 @@
     <text x="36" y="1530" class="note">D1 发起 READ，接收完再生成。</text>
     <text x="36" y="1566" class="note">数据从 P1 直接复制到 D1。</text>
   </g>
-  <text x="20" y="1632" class="note">页号属于各自实例；尾页仍整页传输。</text>
-  <text x="20" y="1666" class="note">箭头是 KV 字节方向，不表示耗时。</text>
+  <g id="alternate-manual-placement">
+    <rect x="20" y="1618" width="440" height="164" rx="12" class="panel"/>
+    <text x="36" y="1654" class="heading">若只把手册 M 改放 B 段</text>
+    <text x="36" y="1690" class="note">P0 写入：D2rH；P1 读回：H2D。</text>
+    <text x="36" y="1728" class="note">保修条款仍在 B 段。</text>
+    <text x="36" y="1764" class="note">只比较落点，不表示迁移过程。</text>
+  </g>
+  <text x="20" y="1818" class="note">页号属于各自实例；尾页仍整页传输。</text>
+  <text x="20" y="1852" class="note">箭头是 KV 字节方向，不表示耗时。</text>
 </svg>

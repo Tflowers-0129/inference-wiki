@@ -243,7 +243,7 @@ def build_chapters():
             player_links = '<a href="#pool-walk">两次请求怎样复用手册的 KV</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("pool-walk.css")}"><script defer src="{asset_url("pool-walk.js")}"></script>'
             next_link = '<a href="quantization.html">继续阅读量化推理 →</a>'
-            action = '<a class="primary-button" href="#kv-pooling-1">看 P、D 和缓存分别部署在哪里 →</a><a class="text-button" href="#pool-walk">两次请求怎样复用手册的 KV ↓</a>'
+            action = '<a class="primary-button" href="#kv-pooling-1">看两台 P 机器怎样组成共享池 →</a><a class="text-button" href="#pool-walk">两次请求怎样复用手册的 KV ↓</a>'
         elif key == 'quantization':
             player_links = ''
             extra = ''

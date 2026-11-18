@@ -9,20 +9,26 @@
   </header>
 
   <div class="pool-walk-static" data-pool-static>
-    <p><strong>机器 A：P0、P1 各有自己的 HBM。机器 B：D0、D1 各有自己的 HBM。机器 C：共享 Store 的 DRAM。</strong></p>
+    <p><strong>P 机 A 运行 P0，P 机 B 运行 P1；两机各贡献一段 Host DRAM，组成同一个逻辑 Mooncake Store。Decode 机运行 D0、D1，各用独立卡，本例只接 PD。</strong></p>
     <ol>
-      <li>初态：C 已存有独立前缀《保修条款》，还没有手册对象 M。</li>
+      <li>初态：B 段已存有独立前缀《保修条款》，还没有手册对象 M。</li>
       <li>R1 未命中缓存：P0 计算全部输入，把手册 KV 写入页 3，把尾 token ① 的 KV 写入页 4。</li>
-      <li>P0 → C（D2rH）：将完整的手册块保存为 M。尾页不存入池。</li>
-      <li>P0 → D0（D2D）：D0 发起 READ，将本次请求的页 [3, 4] 复制到自己的页 [12, 13]。</li>
-      <li>C → P1（rH2D）：R2 的本地前缀未命中；从 C 的 M 读到 P1 页 9。</li>
-      <li>P1 只计算第 129 个 token ② 的 KV 写入页 10。</li>
-      <li>P1 → D1（D2D）：D1 发起 READ，将本次请求的页 [9, 10] 复制到自己的页 [20, 21]。</li>
+      <li>P0 → A 段（D2H）：将完整的手册块保存为 M。尾页不存入池。</li>
+      <li>P 机 A → Decode 机（D2D）：D0 发起 READ，将 P0 的页 [3, 4] 复制到自己的页 [12, 13]。</li>
+      <li>A 段 → P1（rH2D）：R2 在 P1 显存中未命中前缀；从 A 段的 M 读到 P 机 B 的 P1 页 9。</li>
+      <li>P1 只计算第 129 个 token ② 的 KV，写入页 10。</li>
+      <li>P 机 B → Decode 机（D2D）：D1 发起 READ，将 P1 的页 [9, 10] 复制到自己的页 [20, 21]。</li>
     </ol>
-    <p>M 被读取后仍留在 C；《保修条款》一直不变。每次交接完成后的 HBM 驻留不再跟踪。</p>
+    <p>另一种独立放置推演把 M 放到 B 段：保存改为 P0 → B 段（D2rH），读回改为 B 段 → P1（H2D）。其余步骤相同，不表示运行时迁移。</p>
+    <p>M 被读取后仍留在所选段；《保修条款》固定在 B 段。两者各只有 1 个副本。每次交接完成后的 HBM 驻留不再跟踪。</p>
   </div>
 
   <div class="pool-walk-interactive" data-pool-interactive hidden>
+    <div class="pool-walk-placement" role="group" aria-label="选择 M 的放置推演">
+      <button type="button" data-pool-placement="A" aria-pressed="true">M 落 A 段</button>
+      <button type="button" data-pool-placement="B" aria-pressed="false">M 落 B 段</button>
+    </div>
+    <p class="pool-walk-placement-note">两次独立放置推演；切换保留当前步骤，不表示运行时迁移。</p>
     <div class="pool-walk-steps" role="group" aria-label="选择请求步骤">
       <button type="button" data-pool-step="0" aria-pressed="true">0 <span>初态</span></button>
       <button type="button" data-pool-step="1" aria-pressed="false">1 <span>R1 未命中缓存</span></button>
@@ -38,6 +44,7 @@
       <p data-pool-caption></p>
     </div>
     <div class="pool-walk-route" data-pool-route role="group" aria-label="本步数据流"></div>
+    <p class="pool-walk-store-scope">同一个逻辑 Mooncake Store：P 机 A 的 DRAM 段 + P 机 B 的 DRAM 段</p>
     <div class="pool-walk-machines" data-pool-machines role="group" aria-label="三台机器的相关 KV"></div>
     <p class="pool-walk-observation" data-pool-observation></p>
     <div class="pool-walk-controls" role="group" aria-label="逐步阅读">
@@ -49,7 +56,8 @@
 
   <details class="pool-walk-boundary">
     <summary>这幅图跟踪到哪里？</summary>
-    <p>这是教学示意。M 是手册完整前缀的对象键简称；只画 C 上 1 个可读副本。R2 在 P1 本地未命中，且两个 D 均需接收本次请求的两页。</p>
+    <p>这是教学示意。M 是手册完整前缀的对象键简称；只在所选 A 段或 B 段保存 1 个副本。《保修条款》一直只有 B 段的副本。两段属于同一个逻辑 Store，没有额外存储主机。</p>
+    <p>R2 在 P1 显存未命中。Decode 机的 D0、D1 各用独立卡，本例只从对应 P 接收两页，不读写 Store。</p>
     <p>页号是教学地址。每页包含对应的 K、V；尾页只有 1 个有效位置。只跟踪本次交接前的相关块与交接映射，之后不推断 HBM 页仍驻留或已释放。</p>
     <p>先保存 M、再交给 D0 是阅读顺序，两件事没有这个强制先后关系。P1 读 M 则以该副本已可读为前提；后续 Decode 不在图内。</p>
   </details>
