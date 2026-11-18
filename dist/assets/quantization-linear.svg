@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="350" height="343" viewBox="0 0 500 490" role="img" aria-labelledby="title desc">
+  <title id="title">W8A8 的一次点积</title>
+  <desc id="desc">有符号 INT8 对称量化的教学算例。将一行激活 [1.27, −0.64] 除以 0.01，将一个输出通道的权重 [0.50, 0.25] 除以预设的 0.005。量化后两组整数分别为 [127, −64] 和 [100, 50]。整数点积为 9500，乘两个尺度得到 0.475。偏置为零。</desc>
+  <defs>
+    <style>
+      text {font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
+      .title {font-size:30px;font-weight:700}
+      .head {font-size:22px;font-weight:650}
+      .num {font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+      .note {font-size:19px;fill:#475569}
+      .center {text-anchor:middle}
+      .blue {fill:#1d4ed8}
+      .teal {fill:#0f655e}
+      .amber {fill:#8a3f0b}
+      .wire {fill:none;stroke-width:2}
+    </style>
+    <marker id="blue-tip" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0L6 3L0 6Z" fill="#1d4ed8"/></marker>
+    <marker id="teal-tip" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0L6 3L0 6Z" fill="#0f655e"/></marker>
+    <marker id="amber-tip" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0L6 3L0 6Z" fill="#8a3f0b"/></marker>
+  </defs>
+  <rect width="500" height="490" fill="#f8fafc"/>
+  <text x="18" y="39" class="title">W8A8 的一次点积</text>
+  <text x="18" y="69" class="note">教学算例 · 有符号 INT8 对称量化，偏置为 0</text>
+
+  <g id="activation">
+    <rect x="16" y="90" width="229" height="163" rx="10" fill="#edf4ff" stroke="#7191c4" stroke-width="1.5"/>
+    <text x="130" y="121" class="head blue center">一个 token 的激活行</text>
+    <text x="130" y="157" class="num center">[1.27, −0.64]</text>
+    <text x="130" y="191" class="note center">÷ 行尺度 0.01</text>
+    <text x="130" y="229" class="num blue center">[127, −64]</text>
+  </g>
+  <g id="weight">
+    <rect x="255" y="90" width="229" height="163" rx="10" fill="#e8f5f1" stroke="#5b9587" stroke-width="1.5"/>
+    <text x="370" y="121" class="head teal center">一个输出通道的权重</text>
+    <text x="370" y="157" class="num center">[0.50, 0.25]</text>
+    <text x="370" y="191" class="note center">÷ 预设尺度 0.005</text>
+    <text x="370" y="229" class="num teal center">[100, 50]</text>
+  </g>
+
+  <path d="M130 254v22" class="wire" stroke="#1d4ed8" marker-end="url(#blue-tip)"/>
+  <path d="M370 254v22" class="wire" stroke="#0f655e" marker-end="url(#teal-tip)"/>
+  <g id="integer-dot">
+    <rect x="16" y="281" width="468" height="76" rx="10" fill="white" stroke="#8b9caf" stroke-width="1.5"/>
+    <text x="250" y="308" class="head center">整数点积</text>
+    <text x="250" y="339" class="num center">127 × 100 − 64 × 50 = 9500</text>
+  </g>
+
+  <path d="M250 358v22" class="wire" stroke="#8a3f0b" marker-end="url(#amber-tip)"/>
+  <g id="rescale">
+    <rect x="16" y="385" width="468" height="86" rx="10" fill="#fff6e8" stroke="#bc8a53" stroke-width="1.5"/>
+    <text x="250" y="415" class="head amber center">乘回行尺度与通道尺度</text>
+    <text x="250" y="451" class="num center">9500 × 0.01 × 0.005 = 0.475</text>
+  </g>
+</svg>

@@ -23,6 +23,8 @@ CHAPTERS = [
     ('kv-cache-layouts', 'KV缓存布局与递归状态.md', 'KV 缓存布局与递归状态', 'KV 缓存布局<br><span>与递归状态</span>'),
     ('sparse-offload', '稀疏KV卸载与HiSparse.md', '稀疏 KV：Decode Offload 与 HiSparse', '稀疏 KV 卸载<br><span>走向 HiSparse</span>'),
     ('kv-pooling', 'KV池化与跨机PD.md', 'KV 池化：单机混部与跨机 PD', 'KV 池化<br><span>单机混部与跨机 PD</span>'),
+    ('quantization', '量化推理与算子执行.md', '量化推理：位宽、尺度与算子执行', '量化推理<br><span>位宽、尺度与算子执行</span>'),
+    ('dbo', '微批次流水与DBO.md', '微批次流水：两批 MoE 工作怎样重叠', '微批次流水<br><span>两批 MoE 工作怎样重叠</span>'),
 ]
 LINKS = {name: key + '.html' for key, name, *_ in CHAPTERS}
 LINKS['LLM推理调度与执行.md'] = 'index.html'
@@ -240,8 +242,18 @@ def build_chapters():
         elif key == 'kv-pooling':
             player_links = '<a href="#pool-walk">跟着手册走两次请求</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("pool-walk.css")}"><script defer src="{asset_url("pool-walk.js")}"></script>'
-            next_link = '<a href="pd-disaggregation.html">回看：PD 交接与 KV 生命周期 →</a>'
+            next_link = '<a href="quantization.html">继续阅读量化推理 →</a>'
             action = '<a class="primary-button" href="#kv-pooling-1">认清 A、B、C 三台机器 →</a><a class="text-button" href="#pool-walk">跟着手册走两次请求 ↓</a>'
+        elif key == 'quantization':
+            player_links = ''
+            extra = ''
+            next_link = '<a href="dbo.html">继续阅读微批次流水与 DBO →</a>'
+            action = '<a class="primary-button" href="#quantization-1">算一次量化点积 →</a><a class="text-button" href="#quantization-2">看线性层如何执行 ↓</a>'
+        elif key == 'dbo':
+            player_links = ''
+            extra = ''
+            next_link = '<a href="ep-communication.html">回看 EP 通信与计算重叠 →</a>'
+            action = '<a class="primary-button" href="#dbo-1">看一个批次怎样拆开 →</a><a class="text-button" href="#dbo-2">对照计算与通信 ↓</a>'
         else:
             raise ValueError(f'Unknown chapter: {key}')
         chapter_nav = chapter_navigation(key, player_links + local_nav)

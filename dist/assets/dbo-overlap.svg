@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="350" height="399" viewBox="0 0 500 570" role="img" aria-labelledby="title desc">
+  <title id="title">一批在通信，另一批能算哪一步？</title>
+  <desc id="desc">根据 vLLM DBO 设计文档，截取有共享专家的 MoE 排程中相邻两段。多个 rank 参与交换，图中仅画一个 rank 的逻辑轨道。第一段，微批 U1 的 Dispatch 已收到，U0 发送专家输入期间可计算 U1 的路由专家。第二段，U0 的 Dispatch 已收到，U1 的路由专家已算完。U1 回传专家结果期间，先算 U1 的共享专家，再算 U0 的路由专家。横向仅表示执行顺序，通信轨道汇总收发，未区分物理流，非设备实测。</desc>
+  <style>
+    text {font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
+    .title {font-size:29px;font-weight:700}
+    .head {font-size:23px;font-weight:650}
+    .step {font-size:21px;font-weight:600;text-anchor:middle}
+    .axis {font-size:18px;fill:#475569}
+    .note {font-size:19px;fill:#475569}
+    .zero {fill:#eaf2ff;stroke:#6689be;stroke-width:1.5}
+    .one {fill:#e8f5f1;stroke:#5b9587;stroke-width:1.5}
+    .blue {fill:#19498c}
+    .green {fill:#0f655e}
+    .panel {fill:#fff;stroke:#cbd5e1;stroke-width:1.5}
+  </style>
+  <defs><marker id="tip" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0L6 3L0 6Z" fill="#52647d"/></marker></defs>
+  <rect width="500" height="570" fill="#f8fafc"/>
+  <text x="16" y="40" class="title">一批在通信，另一批能算哪一步？</text>
+  <text x="16" y="73" class="note">MoE 层的一段排程 · U0 和 U1 分别是两个微批</text>
+
+  <g id="dispatch-overlap">
+    <rect x="14" y="93" width="472" height="164" rx="10" class="panel"/>
+    <text x="28" y="126" class="head">① 已收到 U1 的专家输入</text>
+    <text x="29" y="175" class="axis">计算</text>
+    <rect x="100" y="146" width="370" height="43" rx="6" class="one"/>
+    <text x="285" y="175" class="step green">U1 算路由专家 · MLP₁</text>
+    <text x="29" y="230" class="axis">通信</text>
+    <rect x="100" y="201" width="370" height="43" rx="6" class="zero"/>
+    <text x="285" y="230" class="step blue">U0 分发专家输入 · Dispatch₀</text>
+  </g>
+  <path d="M39 260v30" stroke="#52647d" stroke-width="2" marker-end="url(#tip)"/>
+  <text x="58" y="283" class="note">U0 输入到达，U1 路由专家结果就绪。</text>
+
+  <g id="combine-overlap">
+    <rect x="14" y="302" width="472" height="164" rx="10" class="panel"/>
+    <text x="28" y="335" class="head">② U1 回传结果时，计算接着走</text>
+    <text x="29" y="383" class="axis">计算</text>
+    <rect x="100" y="354" width="157" height="43" rx="6" class="one"/>
+    <text x="178" y="383" class="step green">U1 共享专家</text>
+    <path d="M261 375h22" stroke="#52647d" stroke-width="2" marker-end="url(#tip)"/>
+    <rect x="292" y="354" width="178" height="43" rx="6" class="zero"/>
+    <text x="381" y="383" class="step blue">U0 路由专家</text>
+    <text x="29" y="438" class="axis">通信</text>
+    <rect x="100" y="409" width="370" height="43" rx="6" class="one"/>
+    <text x="285" y="438" class="step green">U1 回传专家结果 · Combine₁</text>
+  </g>
+
+  <text x="16" y="499" class="note">交换涉及多个 rank，图中只画一个 rank。</text>
+  <text x="16" y="527" class="note">通信行汇总收发，物理 stream 未展开。</text>
+  <text x="16" y="555" class="note">横向表示执行顺序，条宽没有实测时间含义。</text>
+</svg>

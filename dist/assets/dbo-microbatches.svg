@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="350" height="357" viewBox="0 0 500 510" role="img" aria-labelledby="title desc">
+  <title id="title">一批四行拆成两个微批</title>
+  <desc id="desc">纯 Decode 教学算例。四个请求各占一个 token 行，没有 padding。U0 取原行区间 [0,2)，U1 取 [2,4)。两个微批经过相同的模型层后，把各自行结果按 R0、R1、R2、R3 的顺序拼回。本图展示行归属，四行是举例，实际启用条件见正文。</desc>
+  <defs>
+    <style>
+      text {font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#172b4d}
+      .title {font-size:29px;font-weight:700}
+      .head {font-size:24px;font-weight:650}
+      .token {font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+      .note {font-size:19px;fill:#475569}
+      .mid {text-anchor:middle}
+      .blue {fill:#1d4ed8}
+      .teal {fill:#0f655e}
+      .row0 {fill:#edf4ff;stroke:#7191c4;stroke-width:1.5}
+      .row1 {fill:#e8f5f1;stroke:#5b9587;stroke-width:1.5}
+      .wire {fill:none;stroke-width:2}
+    </style>
+    <marker id="blue-tip" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0L6 3L0 6Z" fill="#1d4ed8"/></marker>
+    <marker id="teal-tip" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0L6 3L0 6Z" fill="#0f655e"/></marker>
+  </defs>
+  <rect width="500" height="510" fill="#f8fafc"/>
+  <text x="17" y="39" class="title">一批四行拆成两个微批</text>
+  <text x="17" y="69" class="note">纯 Decode，每个请求贡献一个 token 行，无填充。</text>
+
+  <g id="input">
+    <text x="18" y="112" class="head">原批次</text>
+    <g transform="translate(0 128)">
+      <rect x="18" width="112" height="44" rx="6" class="row0"/><rect x="135" width="112" height="44" rx="6" class="row0"/>
+      <rect x="253" width="112" height="44" rx="6" class="row1"/><rect x="370" width="112" height="44" rx="6" class="row1"/>
+      <text x="74" y="30" class="token blue mid">行 0 · R0</text><text x="191" y="30" class="token blue mid">行 1 · R1</text>
+      <text x="309" y="30" class="token teal mid">行 2 · R2</text><text x="426" y="30" class="token teal mid">行 3 · R3</text>
+    </g>
+    <path d="M74 176v8h117v-8 M132 184v19" class="wire" stroke="#1d4ed8"/>
+    <path d="M132 197v9" class="wire" stroke="#1d4ed8" marker-end="url(#blue-tip)"/>
+    <path d="M309 176v8h117v-8 M368 184v19" class="wire" stroke="#0f655e"/>
+    <path d="M368 197v9" class="wire" stroke="#0f655e" marker-end="url(#teal-tip)"/>
+  </g>
+
+  <g id="microbatches">
+    <rect x="18" y="212" width="229" height="98" rx="9" class="row0"/>
+    <text x="132" y="244" class="head blue mid">U0 · 原行 [0, 2)</text>
+    <text x="132" y="281" class="token mid">R0、R1</text>
+    <rect x="253" y="212" width="229" height="98" rx="9" class="row1"/>
+    <text x="368" y="244" class="head teal mid">U1 · 原行 [2, 4)</text>
+    <text x="368" y="281" class="token mid">R2、R3</text>
+  </g>
+  <g id="forward">
+    <path d="M132 312v9 M132 352v20" class="wire" stroke="#1d4ed8" marker-end="url(#blue-tip)"/>
+    <path d="M368 312v9 M368 352v20" class="wire" stroke="#0f655e" marker-end="url(#teal-tip)"/>
+    <text x="132" y="345" class="note mid">经过模型层</text>
+    <text x="368" y="345" class="note mid">经过相同的模型层</text>
+  </g>
+  <g id="restore">
+    <rect x="18" y="378" width="464" height="80" rx="9" fill="white" stroke="#8b9caf" stroke-width="1.5"/>
+    <text x="250" y="408" class="head mid">按原行序拼回输出</text>
+    <text x="250" y="441" class="token mid"><tspan class="blue">R0、R1</tspan>、<tspan class="teal">R2、R3</tspan></text>
+  </g>
+  <text x="18" y="490" class="note">行数仅供演示。实际拆批门槛见正文。</text>
+</svg>

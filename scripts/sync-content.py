@@ -22,6 +22,8 @@ CHAPTER_DOWNLOADS = {
     'KV缓存布局与递归状态.md': 'kv-cache-layouts.md',
     '稀疏KV卸载与HiSparse.md': 'sparse-offload.md',
     'KV池化与跨机PD.md': 'kv-pooling.md',
+    '量化推理与算子执行.md': 'quantization.md',
+    '微批次流水与DBO.md': 'dbo.md',
 }
 
 
@@ -55,8 +57,8 @@ def sync_content(manuscript=DEFAULT_MANUSCRIPT):
         bundle_chapters[name] = bundle_markdown
     bundle_readme = '''# LLM 推理调度与执行：图文源文件
 
-依次阅读 `LLM推理调度与执行.md`、`从一轮调度到一次前向.md`、`投机解码与流式指标.md`、`负载均衡与专家并行.md`、`EP通信与通算融合.md`、`上下文并行与Attention归并.md`、`PD分离系统与KV生命周期.md`、`KV缓存布局与递归状态.md`、`稀疏KV卸载与HiSparse.md`、`KV池化与跨机PD.md`。
-第五章承接第四章的分布式专家执行。第六章从 TP 的 KV 切分走到 PCP、DCP 和 Attention 结果归并。第七章追踪 PD 请求交接与 KV 生命周期。第八章沿块表与写槽追踪分页读取，再按后端对照缓存形状，第九章沿稀疏 KV 追踪卸载、搬运与设备侧复用。第十章用图对照单机混部与跨机 PD 下的 KV 池化和数据流。
+依次阅读 `LLM推理调度与执行.md`、`从一轮调度到一次前向.md`、`投机解码与流式指标.md`、`负载均衡与专家并行.md`、`EP通信与通算融合.md`、`上下文并行与Attention归并.md`、`PD分离系统与KV生命周期.md`、`KV缓存布局与递归状态.md`、`稀疏KV卸载与HiSparse.md`、`KV池化与跨机PD.md`、`量化推理与算子执行.md`、`微批次流水与DBO.md`。
+第五章承接第四章的分布式专家执行。第六章从 TP 的 KV 切分走到 PCP、DCP 和 Attention 结果归并。第七章追踪 PD 请求交接与 KV 生命周期。第八章沿块表与写槽追踪分页读取，再按后端对照缓存形状，第九章沿稀疏 KV 追踪卸载、搬运与设备侧复用。第十章用图对照单机混部与跨机 PD 下的 KV 池化和数据流。第十一章从量化点积追到线性层的算子调用。第十二章对照两个微批次的专家计算与通信依赖。
 解压时保留 `figures/` 目录。
 `figures/*.svg` 是自包含的矢量图源，中文采用系统字体。
 `figures/*.png` 是随正文收录的原图；图源、上下文与解释范围见对应正文。

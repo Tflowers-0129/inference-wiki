@@ -33,3 +33,5 @@ node_modules/
 /dist/pd-disaggregation.md
 /dist/kv-cache-layouts.md
 /dist/kv-pooling.md
+/dist/quantization.md
+/dist/dbo.md

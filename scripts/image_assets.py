@@ -19,6 +19,8 @@ PAGE_MANUSCRIPTS = {
     'sparse-offload.html': '稀疏KV卸载与HiSparse.md',
     'kv-cache-layouts.html': 'KV缓存布局与递归状态.md',
     'kv-pooling.html': 'KV池化与跨机PD.md',
+    'quantization.html': '量化推理与算子执行.md',
+    'dbo.html': '微批次流水与DBO.md',
 }
 SOURCE_MANIFEST = 'profile-sources.json'
 
