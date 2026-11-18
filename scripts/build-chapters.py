@@ -22,6 +22,7 @@ CHAPTERS = [
     ('pd-disaggregation', 'PD分离系统与KV生命周期.md', 'PD 分离系统：请求交接与 KV 生命周期', 'PD 分离系统<br><span>请求交接与 KV 生命周期</span>'),
     ('kv-cache-layouts', 'KV缓存布局与递归状态.md', 'KV 缓存布局与递归状态', 'KV 缓存布局<br><span>与递归状态</span>'),
     ('sparse-offload', '稀疏KV卸载与HiSparse.md', '稀疏 KV：Decode Offload 与 HiSparse', '稀疏 KV 卸载<br><span>走向 HiSparse</span>'),
+    ('kv-pooling', 'KV池化与跨机PD.md', 'KV 池化：单机混部与跨机 PD', 'KV 池化<br><span>单机混部与跨机 PD</span>'),
 ]
 LINKS = {name: key + '.html' for key, name, *_ in CHAPTERS}
 LINKS['LLM推理调度与执行.md'] = 'index.html'
@@ -211,7 +212,7 @@ def build_chapters():
         elif key == 'sparse-offload':
             player_links = '<a href="#offload-lab">TopK 缓存与地址实验室</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("offload.css")}"><script defer src="{asset_url("offload-model.js")}"></script><script defer src="{asset_url("offload-app.js")}"></script>'
-            next_link = '<a href="kv-cache-layouts.html">← 回看 KV 缓存布局与递归状态</a>'
+            next_link = '<a href="kv-pooling.html">继续：KV 池化与跨机 PD →</a>'
             action = '<a class="primary-button" href="#offload-lab">解析一次 TopK →</a><a class="text-button" href="#sparse-offload-8">看 HiSparse 依赖泳道 ↓</a>'
         elif key == 'ep-communication':
             player_links = '<a href="#ep-lab">专家任务与激活副本实验室</a><a href="#ep-timeline">MC2 / Fused-MC2 模拟 profiling</a>'
@@ -233,6 +234,11 @@ def build_chapters():
             extra = f'<link rel="stylesheet" href="{asset_url("kv-decode.css")}"><script defer src="{asset_url("kv-decode-model.js")}"></script><script defer src="{asset_url("kv-decode-app.js")}"></script>'
             next_link = '<a href="sparse-offload.html">继续：稀疏 KV 卸载与 HiSparse →</a>'
             action = '<a class="primary-button" href="#kv-decode-player">播放一次 Decode 的 KV 寻址 →</a><a class="text-button" href="#kv-cache-layouts-7">按后端查缓存形状 ↓</a>'
+        elif key == 'kv-pooling':
+            player_links = ''
+            extra = ''
+            next_link = '<a href="pd-disaggregation.html">回看：PD 交接与 KV 生命周期 →</a>'
+            action = '<a class="primary-button" href="#kv-pooling-1">看单机混部的数据流 →</a><a class="text-button" href="#kv-pooling-2">看跨机 PD 的池化 ↓</a>'
         else:
             raise ValueError(f'Unknown chapter: {key}')
         chapter_nav = chapter_navigation(key, player_links + local_nav)

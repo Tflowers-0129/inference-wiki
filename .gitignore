@@ -32,3 +32,4 @@ node_modules/
 /dist/context-parallel.md
 /dist/pd-disaggregation.md
 /dist/kv-cache-layouts.md
+/dist/kv-pooling.md

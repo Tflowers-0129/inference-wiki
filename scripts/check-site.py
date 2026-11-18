@@ -23,6 +23,7 @@ DOWNLOADS = {
     'PD分离系统与KV生命周期.md': 'pd-disaggregation.md',
     'KV缓存布局与递归状态.md': 'kv-cache-layouts.md',
     '稀疏KV卸载与HiSparse.md': 'sparse-offload.md',
+    'KV池化与跨机PD.md': 'kv-pooling.md',
 }
 
 
@@ -75,7 +76,7 @@ def main():
     for path, page in pages.items():
         if LEGACY_RUNNER.search(path.read_text(encoding="utf-8")):
             errors.append(f"{path.name} 教学调用链应使用 ModelRunnerV2")
-        expected_order = ['index', 'execution', 'speculation', 'load-balancing', 'ep-communication', 'context-parallel', 'pd-disaggregation', 'kv-cache-layouts', 'sparse-offload']
+        expected_order = ['index', 'execution', 'speculation', 'load-balancing', 'ep-communication', 'context-parallel', 'pd-disaggregation', 'kv-cache-layouts', 'sparse-offload', 'kv-pooling']
         if page.chapter_order != expected_order:
             errors.append(f'{path.name} 学习篇章顺序不一致，预期为 {", ".join(expected_order)}')
         if page.expanded_chapters != [path.stem]:

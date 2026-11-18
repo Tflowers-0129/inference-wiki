@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1030" viewBox="0 0 1080 1030" role="img" aria-labelledby="title desc">
+<title id="title">单机混部：计算在 NPU，前缀副本留在池里</title><desc id="desc">同机部署示例。一个引擎同时做 Prefill 和 Decode；本地命中直接复用，额外的池命中载入本地 HBM，符合条件的前缀块保存到同机 Store DRAM。虚线是请求或查询，实线是 KV 数据。</desc>
+<defs><style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}</style><marker id="blue" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M1 1L8 5L1 9" fill="none" stroke="#1d4ed8" stroke-width="1.7"/></marker><marker id="green" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M1 1L8 5L1 9" fill="none" stroke="#0f766e" stroke-width="1.7"/></marker><marker id="orange" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M1 1L8 5L1 9" fill="none" stroke="#b45309" stroke-width="1.7"/></marker></defs>
+<rect width="1080" height="1030" rx="20" fill="#f8fafc"/>
+<text x="32" y="48" font-size="28" fill="#172b4d" font-weight="700" text-anchor="start">单机混部：计算在 NPU，前缀副本留在池里</text>
+<path d="M34 86H90" fill="none" stroke="#1d4ed8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#blue)" stroke-dasharray="7 5"/>
+<text x="104" y="92" font-size="18" fill="#1d4ed8" font-weight="400" text-anchor="start">请求 / 查询 / 元数据</text>
+<path d="M354 86H410" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)"/>
+<text x="424" y="92" font-size="18" fill="#0f766e" font-weight="400" text-anchor="start">池化 KV 数据</text>
+<rect x="678" y="72" width="28" height="22" rx="12" fill="#fff7ed" stroke="#b45309" stroke-width="1.6"/>
+<text x="720" y="92" font-size="18" fill="#b45309" font-weight="400" text-anchor="start">NPU 计算</text>
+<rect x="64" y="122" width="212" height="64" rx="12" fill="#eff6ff" stroke="#648bc9" stroke-width="1.6"/>
+<text x="170" y="162" font-size="22" fill="#1d4ed8" font-weight="600" text-anchor="middle">客户端</text>
+<rect x="32" y="210" width="1016" height="658" rx="12" fill="#fff" stroke="#64748b" stroke-width="1.6"/>
+<text x="1016" y="244" font-size="20" fill="#475569" font-weight="600" text-anchor="end">一台机器 · 推理与 Store 同机部署示例</text>
+<path d="M170 186V268" fill="none" stroke="#1d4ed8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#blue)" stroke-dasharray="7 5"/>
+<text x="190" y="234" font-size="18" fill="#1d4ed8" font-weight="400" text-anchor="start">prompt / 参数</text>
+<path d="M420 270V154H276" fill="none" stroke="#1d4ed8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#blue)" stroke-dasharray="7 5"/>
+<text x="440" y="160" font-size="18" fill="#1d4ed8" font-weight="400" text-anchor="start">生成内容返回客户端</text>
+<rect x="64" y="270" width="470" height="126" rx="12" fill="#eff6ff" stroke="#648bc9" stroke-width="1.6"/>
+<text x="88" y="307" font-size="23" fill="#1d4ed8" font-weight="700" text-anchor="start">同一个 vLLM 引擎</text>
+<text x="88" y="343" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">HTTP / Scheduler / Worker</text>
+<text x="88" y="377" font-size="18" fill="#172b4d" font-weight="400" text-anchor="start">AscendStoreConnector：查命中、安排读写</text>
+<rect x="700" y="270" width="316" height="126" rx="12" fill="#eff6ff" stroke="#648bc9" stroke-width="1.6"/>
+<text x="724" y="307" font-size="22" fill="#1d4ed8" font-weight="700" text-anchor="start">Store 查询与元数据</text>
+<text x="724" y="343" font-size="19" fill="#172b4d" font-weight="400" text-anchor="start">前缀键 → 命中情况 / 位置</text>
+<text x="724" y="377" font-size="17" fill="#475569" font-weight="400" text-anchor="start">Mooncake Master 管理元数据</text>
+<path d="M534 335H700" fill="none" stroke="#1d4ed8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#blue)" marker-start="url(#blue)" stroke-dasharray="7 5"/>
+<text x="617" y="315" font-size="17" fill="#1d4ed8" font-weight="400" text-anchor="middle">查键 / 返回命中</text>
+<rect x="64" y="436" width="470" height="376" rx="12" fill="#f8fafc" stroke="#64748b" stroke-width="1.6"/>
+<text x="88" y="470" font-size="22" fill="#172b4d" font-weight="700" text-anchor="start">NPU：Prefill 与 Decode 混部</text>
+<rect x="88" y="492" width="422" height="80" rx="12" fill="#fff7ed" stroke="#b77637" stroke-width="1.6"/>
+<text x="299" y="523" font-size="20" fill="#b45309" font-weight="600" text-anchor="middle">补算未命中输入 → 逐 Token 生成</text>
+<text x="299" y="552" font-size="18" fill="#172b4d" font-weight="400" text-anchor="middle">Attention 使用本地 HBM 中的 KV</text>
+<path d="M190 572V656" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)"/>
+<text x="174" y="608" font-size="18" fill="#0f766e" font-weight="400" text-anchor="end">写入</text>
+<text x="174" y="634" font-size="18" fill="#0f766e" font-weight="400" text-anchor="end">新 KV</text>
+<path d="M402 656V572" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)"/>
+<text x="418" y="608" font-size="18" fill="#0f766e" font-weight="400" text-anchor="start">读取</text>
+<text x="418" y="634" font-size="18" fill="#0f766e" font-weight="400" text-anchor="start">历史</text>
+<rect x="88" y="658" width="422" height="126" rx="12" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
+<text x="110" y="690" font-size="21" fill="#0f766e" font-weight="700" text-anchor="start">本地 HBM / 请求使用的 KV 页</text>
+<rect x="104" y="709" width="122" height="44" rx="12" fill="#fff" stroke="#438d81" stroke-width="1.6"/>
+<text x="165" y="737" font-size="18" fill="#0f766e" font-weight="500" text-anchor="middle">本地命中</text>
+<rect x="238" y="709" width="122" height="44" rx="12" fill="#fff" stroke="#438d81" stroke-width="1.6"/>
+<text x="299" y="737" font-size="18" fill="#0f766e" font-weight="500" text-anchor="middle">池中载入</text>
+<rect x="372" y="709" width="122" height="44" rx="12" fill="#fff" stroke="#438d81" stroke-width="1.6"/>
+<text x="433" y="737" font-size="18" fill="#0f766e" font-weight="500" text-anchor="middle">新算 KV</text>
+<text x="110" y="775" font-size="17" fill="#475569" font-weight="400" text-anchor="start">页号和地址由本实例管理</text>
+<rect x="700" y="436" width="316" height="376" rx="12" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
+<text x="724" y="470" font-size="23" fill="#0f766e" font-weight="700" text-anchor="start">Host DRAM</text>
+<text x="724" y="505" font-size="20" fill="#172b4d" font-weight="600" text-anchor="start">Mooncake Store 数据区</text>
+<text x="724" y="551" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">保存前缀 KV 的副本</text>
+<text x="724" y="583" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">供后续请求复用</text>
+<rect x="724" y="625" width="268" height="159" rx="12" fill="#fff" stroke="#438d81" stroke-width="1.6"/>
+<text x="748" y="661" font-size="19" fill="#0f766e" font-weight="600" text-anchor="start">兼容的前缀键 → KV 块</text>
+<text x="748" y="700" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">键 A      [ KV ][ KV ]</text>
+<text x="748" y="739" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">键 B      [ KV ][ KV ]</text>
+<path d="M724 694H510" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)"/>
+<text x="615" y="675" font-size="17" fill="#0f766e" font-weight="500" text-anchor="middle">GET：额外命中</text>
+<path d="M510 750H724" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)"/>
+<text x="615" y="783" font-size="17" fill="#0f766e" font-weight="500" text-anchor="middle">PUT：可保存块</text>
+<text x="64" y="847" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">查到命中 ≠ 数据已到；载入完成后，NPU 才能读取相应 KV。</text>
+<text x="32" y="913" font-size="21" fill="#172b4d" font-weight="600" text-anchor="start">首次都未命中：计算输入，并把符合保存条件的完整前缀块写入池。</text>
+<text x="32" y="950" font-size="21" fill="#172b4d" font-weight="600" text-anchor="start">再次请求：先复用本地命中，再从池补齐；未命中部分仍需计算。</text>
+<text x="32" y="996" font-size="18" fill="#475569" font-weight="400" text-anchor="start">示意：Mooncake 非逐层路径；默认不把每个 Decode 新 Token 的 KV 写回池。</text>
+</svg>

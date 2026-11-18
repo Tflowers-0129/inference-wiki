@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1120" viewBox="0 0 1080 1120" role="img" aria-labelledby="title desc">
+<title id="title">跨机 PD：P 复用前缀池，D 接收本次请求的 KV</title><desc id="desc">官方基础组合：MultiConnector 同时使用 AscendStoreConnector 与 MooncakeConnectorV1。P 与共享 Store 读写前缀副本；D 分配本地页并从 P 读取 KV。HTTP 请求和交接信息经过 proxy，KV 数据不经过 proxy。D 默认关闭池读写。共享 Store 是逻辑服务边界，不表示固定第三台机器。</desc>
+<defs><style>text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}</style><marker id="blue" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M1 1L8 5L1 9" fill="none" stroke="#1d4ed8" stroke-width="1.7"/></marker><marker id="green" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M1 1L8 5L1 9" fill="none" stroke="#0f766e" stroke-width="1.7"/></marker><marker id="orange" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M1 1L8 5L1 9" fill="none" stroke="#b45309" stroke-width="1.7"/></marker></defs>
+<rect width="1080" height="1120" rx="20" fill="#f8fafc"/>
+<text x="32" y="48" font-size="28" fill="#172b4d" font-weight="700" text-anchor="start">跨机 PD：P 复用前缀池，D 接收本次请求的 KV</text>
+<path d="M34 86H90" fill="none" stroke="#1d4ed8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#blue)" stroke-dasharray="7 5"/>
+<text x="104" y="92" font-size="18" fill="#1d4ed8" font-weight="400" text-anchor="start">请求 / 查询 / 元数据</text>
+<path d="M354 86H410" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)"/>
+<text x="424" y="92" font-size="18" fill="#0f766e" font-weight="400" text-anchor="start">池化 KV 数据</text>
+<path d="M660 86H716" fill="none" stroke="#b45309" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#orange)"/>
+<text x="730" y="92" font-size="18" fill="#b45309" font-weight="400" text-anchor="start">P → D 的 KV 数据</text>
+<rect x="32" y="124" width="200" height="82" rx="12" fill="#eff6ff" stroke="#648bc9" stroke-width="1.6"/>
+<text x="132" y="173" font-size="22" fill="#1d4ed8" font-weight="600" text-anchor="middle">客户端</text>
+<rect x="360" y="124" width="370" height="82" rx="12" fill="#eff6ff" stroke="#648bc9" stroke-width="1.6"/>
+<text x="545" y="156" font-size="23" fill="#1d4ed8" font-weight="700" text-anchor="middle">Proxy / 请求路由</text>
+<text x="545" y="186" font-size="19" fill="#172b4d" font-weight="400" text-anchor="middle">先 P，再把交接信息带给 D</text>
+<path d="M232 165H360" fill="none" stroke="#1d4ed8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#blue)" marker-start="url(#blue)" stroke-dasharray="7 5"/>
+<text x="296" y="146" font-size="17" fill="#1d4ed8" font-weight="400" text-anchor="middle">请求 / 输出</text>
+<path d="M420 206V260H260V350" fill="none" stroke="#1d4ed8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#blue)" marker-start="url(#blue)" stroke-dasharray="7 5"/>
+<text x="56" y="244" font-size="18" fill="#1d4ed8" font-weight="400" text-anchor="start">prompt ↓ · 源 KV 位置 ↑</text>
+<path d="M665 206V260H820V350" fill="none" stroke="#1d4ed8" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#blue)" marker-start="url(#blue)" stroke-dasharray="7 5"/>
+<text x="756" y="244" font-size="18" fill="#1d4ed8" font-weight="400" text-anchor="start">交接信息 ↓ · 输出 ↑</text>
+<text x="760" y="144" font-size="18" fill="#475569" font-weight="400" text-anchor="start">HTTP：请求、交接信息</text>
+<text x="760" y="174" font-size="18" fill="#475569" font-weight="400" text-anchor="start">与生成内容。</text>
+<text x="760" y="204" font-size="18" fill="#475569" font-weight="400" text-anchor="start">KV 走下方连接器。</text>
+<rect x="32" y="350" width="460" height="374" rx="12" fill="#fff" stroke="#64748b" stroke-width="1.6"/>
+<rect x="588" y="350" width="460" height="374" rx="12" fill="#fff" stroke="#64748b" stroke-width="1.6"/>
+<text x="56" y="388" font-size="24" fill="#1d4ed8" font-weight="700" text-anchor="start">机器 P · Prefill 实例</text>
+<text x="612" y="388" font-size="24" fill="#1d4ed8" font-weight="700" text-anchor="start">机器 D · Decode 实例</text>
+<rect x="64" y="414" width="396" height="102" rx="12" fill="#fff7ed" stroke="#b77637" stroke-width="1.6"/>
+<text x="88" y="447" font-size="21" fill="#b45309" font-weight="600" text-anchor="start">复用命中前缀，补算剩余输入</text>
+<text x="88" y="478" font-size="18" fill="#172b4d" font-weight="400" text-anchor="start">各自持有 Scheduler 与 NPU Worker</text>
+<text x="88" y="503" font-size="18" fill="#475569" font-weight="400" text-anchor="start">池化连接器 + P2P 连接器</text>
+<rect x="620" y="414" width="396" height="102" rx="12" fill="#fff7ed" stroke="#b77637" stroke-width="1.6"/>
+<text x="644" y="447" font-size="21" fill="#b45309" font-weight="600" text-anchor="start">KV 就绪后，继续 Decode</text>
+<text x="644" y="478" font-size="19" fill="#172b4d" font-weight="400" text-anchor="start">先分配目标页，再发起 READ</text>
+<text x="644" y="503" font-size="18" fill="#475569" font-weight="400" text-anchor="start">各自持有 Scheduler 与 NPU Worker</text>
+<path d="M262 516V568" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)" marker-start="url(#green)"/>
+<text x="280" y="548" font-size="17" fill="#0f766e" font-weight="400" text-anchor="start">计算读写 KV</text>
+<path d="M818 568V516" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)" marker-start="url(#green)"/>
+<text x="836" y="548" font-size="17" fill="#0f766e" font-weight="400" text-anchor="start">计算读写 KV</text>
+<rect x="64" y="568" width="396" height="102" rx="12" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
+<text x="88" y="605" font-size="23" fill="#0f766e" font-weight="700" text-anchor="start">P 的 NPU HBM</text>
+<text x="88" y="640" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">本地页：命中载入 + 新算 KV</text>
+<rect x="620" y="568" width="396" height="102" rx="12" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
+<text x="644" y="605" font-size="23" fill="#0f766e" font-weight="700" text-anchor="start">D 的 NPU HBM</text>
+<text x="644" y="640" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">目标页：接收 KV + 后续追加</text>
+<path d="M460 615H620" fill="none" stroke="#b45309" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#orange)"/>
+<text x="540" y="595" font-size="20" fill="#b45309" font-weight="700" text-anchor="middle">P → D</text>
+<text x="540" y="646" font-size="18" fill="#b45309" font-weight="500" text-anchor="middle">KV 数据</text>
+<text x="620" y="703" font-size="18" fill="#475569" font-weight="400" text-anchor="start">页号属于 D；与 P 页号无须相同</text>
+<path d="M156 832V670" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)"/>
+<text x="62" y="769" font-size="20" fill="#0f766e" font-weight="600" text-anchor="start">GET</text>
+<text x="62" y="798" font-size="18" fill="#0f766e" font-weight="400" text-anchor="start">命中前缀</text>
+<path d="M360 670V832" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green)"/>
+<text x="378" y="769" font-size="20" fill="#0f766e" font-weight="600" text-anchor="start">PUT</text>
+<text x="378" y="798" font-size="18" fill="#0f766e" font-weight="400" text-anchor="start">可保存块</text>
+<rect x="588" y="750" width="460" height="68" rx="12" fill="#fff7ed" stroke="#b77637" stroke-width="1.6"/>
+<text x="610" y="777" font-size="18" fill="#b45309" font-weight="600" text-anchor="start">MooncakeConnectorV1：D 发起 READ</text>
+<text x="610" y="804" font-size="18" fill="#172b4d" font-weight="400" text-anchor="start">KV 从 P 直达 D，本次交接不经过 Store</text>
+<rect x="32" y="832" width="1016" height="185" rx="12" fill="#e6f4f1" stroke="#438d81" stroke-width="1.6"/>
+<text x="56" y="871" font-size="24" fill="#0f766e" font-weight="700" text-anchor="start">共享 KV 前缀池 · Mooncake Store</text>
+<text x="56" y="910" font-size="21" fill="#172b4d" font-weight="400" text-anchor="start">DRAM 数据段保存 KV 副本；Master 管理键与位置。</text>
+<text x="56" y="947" font-size="20" fill="#172b4d" font-weight="400" text-anchor="start">其他 P 实例也可复用兼容前缀；物理存储可与推理节点同机或独立部署。</text>
+<text x="56" y="985" font-size="18" fill="#475569" font-weight="400" text-anchor="start">这是逻辑服务边界；不表示固定的第三台机器。</text>
+<text x="32" y="1063" font-size="21" fill="#172b4d" font-weight="600" text-anchor="start">基础配置：P 读写 Store；D 的池读写关闭；两端各有自己的 NPU KV 页池。</text>
+<text x="32" y="1098" font-size="18" fill="#475569" font-weight="400" text-anchor="start">示意采用非逐层路径。箭头表达数据方向，不表达耗时、传输重叠或性能收益。</text>
+</svg>

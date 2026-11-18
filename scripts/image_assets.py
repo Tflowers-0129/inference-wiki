@@ -18,6 +18,7 @@ PAGE_MANUSCRIPTS = {
     'context-parallel.html': '上下文并行与Attention归并.md',
     'sparse-offload.html': '稀疏KV卸载与HiSparse.md',
     'kv-cache-layouts.html': 'KV缓存布局与递归状态.md',
+    'kv-pooling.html': 'KV池化与跨机PD.md',
 }
 SOURCE_MANIFEST = 'profile-sources.json'
 
