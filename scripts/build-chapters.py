@@ -202,13 +202,13 @@ def build_chapters():
         if key == 'speculation':
             player_links = '<a href="#spec-player">投机验证播放器</a><a href="#spec-stream">流式指标实验室</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("spec.css")}"><link rel="stylesheet" href="{asset_url("spec-scene.css")}"><script defer src="{asset_url("spec-model.js")}"></script><script defer src="{asset_url("spec-scene.js")}"></script><script defer src="{asset_url("spec-app.js")}"></script>'
-            next_link = '<a href="load-balancing.html">继续：DPLB 与 EPLB →</a>'
+            next_link = '<a href="kv-cache-layouts.html#kv-cache-layouts-3">继续：新 Token 的 KV 写到哪一页 →</a>'
             action = '<a class="primary-button" href="#spec-player">逐步看接受与回退 →</a><a class="text-button" href="#spec-stream">对照 ITL 与 TPOT ↓</a>'
         elif key == 'execution':
             player_links = ''
             extra = ''
             next_link = '<a href="speculation.html">继续：投机解码与流式指标 →</a>'
-            action = '<a class="primary-button" href="#execution-1">看 V2 怎样执行一轮前向 →</a><a class="text-button" href="#execution-5">理解 tiling 下沉 ↓</a>'
+            action = '<a class="primary-button" href="#execution-1">跟三条请求走一轮 →</a><a class="text-button" href="#execution-5">看一份 tiling 计划怎么来 ↓</a>'
         elif key == 'load-balancing':
             player_links = '<a href="#dplb-lab">DPLB 请求分发</a><a href="#eplb-lab">EPLB rank 泳道</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("lb.css")}"><script defer src="{asset_url("lb-model.js")}"></script><script defer src="{asset_url("lb-app.js")}"></script>'
@@ -228,17 +228,17 @@ def build_chapters():
             player_links = ''
             extra = ''
             next_link = '<a href="pd-disaggregation.html">继续：PD 分离系统与 KV 生命周期 →</a>'
-            action = '<a class="primary-button" href="#context-parallel-1">从 TP 的 KV 切分开始 →</a>'
+            action = '<a class="primary-button" href="#context-parallel-1">看四张卡怎样分两组 KV →</a><a class="text-button" href="#context-parallel-7">手算两份 Attention 怎样合并 ↓</a>'
         elif key == 'pd-disaggregation':
             player_links = ''
             extra = ''
             next_link = '<a href="kv-cache-layouts.html">继续：KV 缓存布局与递归状态 →</a>'
-            action = '<a class="primary-button" href="#pd-disaggregation-1">从请求交接开始 →</a>'
+            action = '<a class="primary-button" href="#pd-disaggregation-1">跟一条请求找到两端的页 →</a><a class="text-button" href="#pd-disaggregation-3">看拉取式交接 ↓</a>'
         elif key == 'kv-cache-layouts':
             player_links = '<a href="#kv-decode-player">KV 寻址播放器</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("kv-decode.css")}"><script defer src="{asset_url("kv-decode-model.js")}"></script><script defer src="{asset_url("kv-decode-app.js")}"></script>'
             next_link = '<a href="sparse-offload.html">继续：稀疏 KV 卸载与 HiSparse →</a>'
-            action = '<a class="primary-button" href="#kv-decode-player">播放一次 Decode 的 KV 寻址 →</a><a class="text-button" href="#kv-cache-layouts-7">按后端查缓存形状 ↓</a>'
+            action = '<a class="primary-button" href="#kv-cache-layouts-3">跟一个 Token 找到它的 KV 页 →</a><a class="text-button" href="#kv-cache-layouts-7">按后端查缓存形状 ↓</a>'
         elif key == 'kv-pooling':
             player_links = '<a href="#pool-walk">两次 SQL 补全怎样复用前缀 KV</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("pool-walk.css")}"><script defer src="{asset_url("pool-walk.js")}"></script>'
@@ -260,9 +260,9 @@ def build_chapters():
         page = f'''<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="{html.escape(title)}：结合源码、图解和算例，说明推理时的数据流与执行顺序。"><title>{html.escape(title)} · Inference Wiki</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="reading.css"><link rel="stylesheet" href="{asset_url("chapters.css")}"><script defer src="{asset_url("chapter.js")}"></script>{extra}</head>
 <body><div class="reading-progress" id="readingProgress"></div>
-<aside class="sidebar" id="sidebar"><a class="brand" href="index.html"><span class="brand-mark"><i></i><i></i><i></i></span><span>Inference<span class="brand-sub">图解推理系统</span></span><b>WIKI</b></a><button class="search-trigger" data-search>搜索本章 <kbd>⌘ K</kbd></button><div class="nav-group-label">学习篇章</div>{chapter_nav}<div class="sidebar-bottom">字段、调用链与 Trace 排查</div></aside>
+<aside class="sidebar" id="sidebar"><a class="brand" href="index.html"><span class="brand-mark"><i></i><i></i><i></i></span><span>Inference<span class="brand-sub">图解推理系统</span></span><b>WIKI</b></a><button class="search-trigger" data-search>搜索本章 <kbd>⌘ K</kbd></button><div class="nav-group-label">学习篇章</div>{chapter_nav}</aside>
 <div class="page-shell"><header class="topbar"><button class="mobile-menu" id="menuToggle" aria-label="展开目录" aria-expanded="false">☰</button><div class="breadcrumb"><a href="index.html">推理系统</a><span>/</span><strong>{html.escape(title)}</strong></div><a class="source-link" href="{key}.md" download>下载本章 Markdown ↗</a></header>
-<main><header class="chapter-hero"><div class="eyebrow">INFERENCE SYSTEMS / 源码与排查</div><h1>{display_title}</h1><div class="hero-actions">{action}</div></header><div class="article-layout"><article class="chapter-article">{body}<nav class="chapter-next" aria-label="继续阅读"><a href="index.html">← 调度与 PD 总览</a>{next_link}</nav><a class="download-source" href="technical-wiki-source.zip" download>下载全部 Markdown 与图源（SVG / PNG） ↓</a></article><aside class="page-toc"><span>本章导读</span>{player_links}{local_nav}</aside></div></main></div>
+<main><header class="chapter-hero"><h1>{display_title}</h1><div class="hero-actions">{action}</div></header><div class="article-layout"><article class="chapter-article">{body}<nav class="chapter-next" aria-label="继续阅读"><a href="index.html#downloads">← 按问题选章节</a>{next_link}</nav><a class="download-source" href="technical-wiki-source.zip" download>下载全部 Markdown 与图源（SVG / PNG） ↓</a></article><aside class="page-toc"><span>本章目录</span>{player_links}{local_nav}</aside></div></main></div>
 <dialog id="searchDialog"><div class="search-dialog-input"><input id="searchInput" type="search" aria-label="搜索本章知识点" placeholder="搜索本章内容"><button id="closeSearch" aria-label="关闭搜索">Esc</button></div><div id="searchResults" class="search-results"></div></dialog></body></html>'''
         (DIST / (key + '.html')).write_text(page, encoding='utf-8')
     print(f'已从 Markdown 生成 {len(CHAPTERS)} 篇图解网页。')

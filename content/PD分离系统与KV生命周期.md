@@ -1,16 +1,14 @@
 # PD 分离系统：请求交接与 KV 生命周期
 
-PD 分离把输入处理和后续生成交给两套引擎：P 负责 Prefill，D 负责 Decode。P 算好的 KV 要交给 D，D 才能接着生成。两边各有自己的调度器、Worker 和 KV 缓存池，因此交接时既要复制数据，也要告诉 D 这些数据属于哪条请求、放在了哪里。
+一篇长输入由 P 读完，回答却交给 D 写。D 怎样接上 P 刚做完的计算？P 要把这条请求的 KV 交过去，D 先腾出地方接收，再用自己的页号找到这些历史。把输入处理（Prefill）和后续生成（Decode）交给不同实例，就叫 PD 分离。
 
-本章先看两种顺序：拉取式先让 P 算完，再由 D 申请空间并读取；逐层推送先让 D 申请空间，P 每算好一层就可以发送。后面用 A5 实验核对实际传输了多少字节，以及最后一次写入返回与源端调用页释放函数的先后顺序。
+拉取式先让 P 算完，再由 D 申请空间并读取。逐层推送先让 D 申请空间，P 每算好一层就可以发送。下面从一条 129-Token 请求看起，先找它在两端各用了哪两页，再从 A5 实验里查传输了多少字节、源端何时调用页释放函数。
 
 > 拉取式采用 `kv_p2p/mooncake_connector.py` 中的 `MooncakeConnectorV1`，逐层推送采用 `MooncakeLayerwiseConnector`。下文结合实验中实际运行的 vLLM Scheduler 和 ModelRunnerV2 解释这两种实现。另一个目录中的 `MooncakePullConnector` 是不同的连接器。固定源码、Mooncake 二进制来源、脚本和结果见实验材料。机制图只说明流程，实测图在后半章单独标出。 [实验材料](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/pd-disaggregation)
 
 ## P/D 两端的页表与请求状态
 
-KV 缓存按物理页分配，源码中也称 block；`block_size` 就是每页能容纳的 Token 数。页表（`block_table`）按请求中的顺序保存物理页号。
-
-同一段 prompt 在 P 和 D 上占用两份本地缓存。传输复制的是 KV 内容；P 的页号只在 P 的缓存池中有意义，D 需要使用自己的页号。
+把 KV 缓存看成一排可以按需分配的页。每页能存多少个 Token 的 KV，用 `block_size` 表示。页表（`block_table`）按请求顺序记录实际分到了哪些物理页，源码也把页叫作 block。P、D 各有自己的调度器、Worker 和页池，同一段输入在两边可以分到不同页号。
 
 <!-- DETAILS: 本节实测请求的模型与并行配置 -->
 
@@ -26,6 +24,14 @@ KV 缓存按物理页分配，源码中也称 block；`block_size` 就是每页�
 | 128 | 1 | 2 | 4 |
 
 D 从 P 的页 `[1,2]` 读取数据，分别写入自己的页 `[5,4]`。交接后，D 的 Attention 按自己的页表和请求长度读取历史。即使两边碰巧分到相同页号，地址也要从各自 Worker 的缓存起点计算。
+
+**试一试。** 请求位置 128 的 KV 从 P 的哪一页出发，写到 D 的哪一页、哪个页内位置？
+
+<!-- DETAILS: 核对答案 -->
+
+每页 128 个位置，位置 128 正好是第二页的开头，偏移为 0。因此从 P 的 2 号页读出，写到 D 的 4 号页，页内偏移仍为 0。请求内的位置没变，变的是两端各自分配的物理页号。
+
+<!-- /DETAILS -->
 
 如果两端 TP、CP 或页大小不同，还要确认连接器能把同一层、同一个 KV head、同一段历史放到 D 所需的位置。 [拉取式的 head 和页映射](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_connector.py#L3930-L4054)
 
@@ -351,7 +357,7 @@ DCP2 每 128 个位置轮换一个 rank。513 个位置需要五段，所以 ran
 
 ![逐层推送首次预热的真实 Host 记录：P 释放调用返回早于最后写返回](../dist/assets/profile-pd-push-host-lifecycle.png)
 
-逐层连接器没有采用拉取式 `finished_sending` 的额外保留规则，但分配器仍可能延后归还页。本次没有记录实际 `block_pool.free_blocks` 或下一请求覆盖地址。因此，释放调用先返回不能证明物理页已被覆盖，也不能直接判定输出错误。
+读图时先找三个时点。第一个是释放调用返回，第二个是分配器实际把页归还给页池，第三个是另一个请求用这页写入新数据。逐层连接器没有采用拉取式 `finished_sending` 的额外保留规则，分配器仍可能延后归还。这里记录了第一个时点及 WRITE 返回。要判断是否提前覆写，还需要实际的 `block_pool.free_blocks` 和下一次写入记录。
 
 预热输出与本地参考仍一致。随后四次测量的顺序与首次预热不同，每次都是四个 WRITE 全部返回后，P 才调用释放函数。
 

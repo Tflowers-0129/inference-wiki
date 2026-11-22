@@ -1,6 +1,8 @@
 # 微批次流水：两批 MoE 工作怎样重叠
 
-上一章的 A5 算例中，Dispatch 把激活送给专家，专家算完，Combine 再把结果送回。假设一次 Decode 有四行激活。把四行一起发出，本批专家计算依赖这次 Dispatch 的结果。如果先为前两行发起 Dispatch，后两行可以同时做 Attention 和路由。后两行的专家计算仍要等自己所需的输入到达。Dual Batch Overlap（DBO）把一次前向拆成两个微批，让一批的通信有机会与另一批的计算同时进行。[MoE 的 Dispatch 与 Combine](EP通信与通算融合.md) · [vLLM 的 DBO 设计](https://github.com/vllm-project/vllm/blob/5df63a72/docs/design/dbo.md#L3-L27)
+四条请求在同一轮 Decode。每条都要把一行激活送给选中的专家。如果四行一起发，专家要等这一次分发把输入送来。要是先发前两行，后两行能不能利用这段时间先做 Attention 和路由？Dual Batch Overlap（DBO）把一次前向分成两个小批，让一批的通信有机会和另一批的计算同时进行。
+
+跟着这四行看两个时点。发起分发（Dispatch）后，另一批可以做已经准备好的计算。这一批的专家仍要等自己的输入到达，算好后再把结果送回原位（Combine）。[MoE 的 Dispatch 与 Combine](EP通信与通算融合.md) · [vLLM 的 DBO 设计](https://github.com/vllm-project/vllm/blob/5df63a72/docs/design/dbo.md#L3-L27)
 
 ## 四个 Decode 请求怎样拆成两批？
 
@@ -18,7 +20,13 @@ Attention 还要知道去哪里读写历史。块表按请求取行，因此微�
 
 ## 一批在通信时，另一批能做什么？
 
-以低延迟 Dispatch 为例。微批 0 已算出本层的路由，向选中的专家发送 R0、R1 的激活。DeepEP 返回接收回调和本次分发的句柄。MoE 内核把回调登记到另一个微批的上下文，然后调用 `dbo_yield()`。这个调用唤醒另一条 Host 线程，当前线程暂停提交工作。微批 1 于是可以为 R2、R3 提交自己的计算。代码把“发起分发”和“取得可供专家使用的输入”放在两个位置，中间这段才有安排其他工作的余地。[DeepEP 发起 Dispatch](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/model_executor/layers/fused_moe/prepare_finalize/deepep_ll.py#L286-L322) · [登记回调并让出线程](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/model_executor/layers/fused_moe/modular_kernel.py#L1210-L1247) · [Host 线程交接](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/ubatching.py#L92-L103)
+以低延迟 Dispatch 为例。微批 0 已经知道 R0、R1 各找哪些专家，先把它们的激活发出去。从发出数据到专家收到可用的输入，中间有一段等待。微批 0 暂停提交工作时，负责 R2、R3 的微批 1 可以接着提交自己的计算。
+
+<!-- DETAILS: DeepEP 在哪里交出提交机会 -->
+
+DeepEP 发起分发后，返回接收回调和本次分发的句柄。MoE 内核把回调登记到另一微批的上下文，再调用 `dbo_yield()`。当前 Host 线程让出提交机会，另一条 Host 线程被唤醒。[DeepEP 发起 Dispatch](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/model_executor/layers/fused_moe/prepare_finalize/deepep_ll.py#L286-L322) · [登记回调并让出线程](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/model_executor/layers/fused_moe/modular_kernel.py#L1210-L1247) · [Host 线程交接](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/ubatching.py#L92-L103)
+
+<!-- /DETAILS -->
 
 ![同一个参与 rank 的两个交接区间。微批 0 分发时，已收到输入的微批 1 可以做专家计算。微批 1 的结果开始回传后，微批 0 可以消费已收到的输入。](../dist/assets/dbo-overlap.svg)
 
@@ -27,6 +35,14 @@ Attention 还要知道去哪里读写历史。块表按请求取行，因此微�
 接收回调在约定的交接处运行。微批 0 恢复后取到本批的专家输入，才能计算专家 MLP。随后 Combine 把专家输出送回原 token 所在的 rank，按路由权重归并。两批同时有通信在途时，DeepEP 按微批编号保存 Dispatch 句柄，Combine 取回本批的句柄。因此即使两批选择了同一个专家，R0 的专家结果仍会回到 R0。Combine 也提供接收回调，给另一批的专家计算留下可重叠的区间。[回调归属](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/ubatching.py#L184-L188) · [Combine 的句柄、路由与权重](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/model_executor/layers/fused_moe/prepare_finalize/deepep_ll.py#L382-L406) · [Combine 交接点](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/model_executor/layers/fused_moe/modular_kernel.py#L1390-L1422)
 
 Combine 解决的是**一层之内**专家结果回到哪一行。到整个模型前向结束，Runner 还有一次按行拼接。它按微批编号保存输出，等两条线程结束，先取微批 0 的两行，再取微批 1 的两行。这样得到的 hidden states 仍按 R0、R1、R2、R3 排列。采样沿用全批的 `logits_indices`，每个原请求取回本轮应采样的行。[按微批编号合并](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/ubatch_utils.py#L498-L527) · [按行拼接](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/ubatch_utils.py#L263-L279) · [合并后的采样输入](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/ubatch_utils.py#L89-L101)
+
+**试一试。** R2 在微批 1 的第 0 行。即使微批 1 先算完，拼回全批后，R2 应该在第几行？如果按完成先后拼，会错在哪里？
+
+<!-- DETAILS: 核对答案 -->
+
+从 0 开始计数，R2 应该回到第 2 行。若把先算完的微批 1 放在最前面，第 0 行就成了 R2，采样时原本属于 R0 的位置会读到 R2 的结果。Runner 按微批编号拼回，保住了原来的请求顺序。
+
+<!-- /DETAILS -->
 
 ## 怎样判断重叠带来了收益？
 

@@ -1,12 +1,21 @@
 # LLM 推理调度与执行 Wiki
 
-[在线演示](https://tflowers-0129.github.io/inference-wiki/) · [混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler) · [PD 播放器](https://tflowers-0129.github.io/inference-wiki/#pdPlayer) · [一次前向](https://tflowers-0129.github.io/inference-wiki/execution.html) · [Tiling 下沉](https://tflowers-0129.github.io/inference-wiki/execution.html#execution-5) · [投机解码实验室](https://tflowers-0129.github.io/inference-wiki/speculation.html#spec-player) · [DPLB 与 EPLB](https://tflowers-0129.github.io/inference-wiki/load-balancing.html) · [EP 通信与计算重叠](https://tflowers-0129.github.io/inference-wiki/ep-communication.html) · [上下文并行与 Attention 归并](https://tflowers-0129.github.io/inference-wiki/context-parallel.html) · [PD 分离系统与 KV 生命周期](https://tflowers-0129.github.io/inference-wiki/pd-disaggregation.html) · [KV 缓存布局与递归状态](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html) · [Decode Offload 与 HiSparse](https://tflowers-0129.github.io/inference-wiki/sparse-offload.html) · [KV 池化与跨机 PD](https://tflowers-0129.github.io/inference-wiki/kv-pooling.html) · [量化推理与算子执行](https://tflowers-0129.github.io/inference-wiki/quantization.html) · [微批次流水与 DBO](https://tflowers-0129.github.io/inference-wiki/dbo.html)
+[打开 Wiki](https://tflowers-0129.github.io/inference-wiki/) · [按问题选章节](https://tflowers-0129.github.io/inference-wiki/#downloads) · [查看部署](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml)
 
-[![Pages deployment](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml/badge.svg)](https://github.com/Tflowers-0129/inference-wiki/actions/workflows/pages.yml)
+## 从哪儿开始
 
-中文教学网页，沿着“混部调度 → 逐轮选图 → 输出长短与稳态测试 → PD 分离与池化 → 抢占与 KV Cache”的顺序展开。混部播放器之后，用第二轮的 `SchedulerOutput` 说明 Runner 如何接到请求进度和块号，再复算一次本地前缀命中。首页也包含三种 PD 交接场景和可编辑 SVG 图解。[图执行说明](https://tflowers-0129.github.io/inference-wiki/#graph-execution) 区分 Decode 比例、本轮形状和捕获档位，并说明显式教学配置与实际后端的适用边界。
+如果你用过聊天模型，想知道它收到请求后做了什么，可以先从[混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler)算两轮。看看两条请求继续生成时，另一条长输入能处理多少。再跟着[一次前向](https://tflowers-0129.github.io/inference-wiki/execution.html)看模型怎样执行这一轮，最后用[投机解码播放器](https://tflowers-0129.github.io/inference-wiki/speculation.html#spec-player)验证一轮可以确认几个输出。正文里的「试一试」可以先自己算，再展开答案。
+
+- 想知道历史数据放在哪，先看 [KV 寻址](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html#kv-decode-player)。之后可以追 [P 与 D 的交接](https://tflowers-0129.github.io/inference-wiki/pd-disaggregation.html)、[两次 SQL 补全怎样复用前缀](https://tflowers-0129.github.io/inference-wiki/kv-pooling.html#pool-walk)，或 [稀疏 Attention 怎样补回缺少的历史](https://tflowers-0129.github.io/inference-wiki/sparse-offload.html#offload-lab)。
+- 想知道多张卡怎样分工，可以看 [请求与专家放置](https://tflowers-0129.github.io/inference-wiki/load-balancing.html)、[专家输入的往返](https://tflowers-0129.github.io/inference-wiki/ep-communication.html)和 [上下文怎样分片与归并](https://tflowers-0129.github.io/inference-wiki/context-parallel.html)。
+- 想估算算子成本，可以先[手算一次量化点积](https://tflowers-0129.github.io/inference-wiki/quantization.html)，再看[两批 MoE 工作怎样重叠](https://tflowers-0129.github.io/inference-wiki/dbo.html)。
 
 网页不依赖前端框架、外部字体或脚本。克隆仓库后即可在本地预览；运行时只需要 Python 3。模型测试另需 Node.js 18 或更新版本。
+
+<details>
+<summary>章节内容、交互和实测范围</summary>
+
+中文教学网页的首页从混部调度走到选图、稳态测试、PD 交接与抢占。混部播放器之后，用第二轮的 `SchedulerOutput` 说明 Runner 如何接到请求进度和块号，再复算一次本地前缀命中。[图执行说明](https://tflowers-0129.github.io/inference-wiki/#graph-execution)区分 Decode 比例、本轮形状和捕获档位，并注明教学配置的适用条件。
 
 《从一轮调度到一次前向》从输入组织、算子与访存追到 metadata 同步和跨轮异步调度。《投机解码与流式指标》继续追踪候选验证、KV 有效范围和客户端收到的内容事件。投机章开头的播放器沿八个步骤展示起点、逐个提议、四行验证、提交回退与下一轮输入；默认状态面板随网页宽度排版，可切换完整 SVG 泳道，并配合静态完整流程图和工作坊 profiling 原图阅读。正文用同一位置的 Draft 和 Target 分布算首次拒绝与校正采样，再追到有效计数和下一 Token。实验室另比较逐 Token、成组与代理缓冲三种发送场景。网页不展示具体引擎发行编号。
 
@@ -39,6 +48,8 @@
 工作坊素材在格式转换、KV 启动容量和投机章真实设备时间线的对应讲解处采用三张原图。PD 播放器之后用一条实测请求对照 P/D 块表、缓存步幅和传输字节数。正文区分 P/D 实例池、本地 KV 块池和共享 KV 缓存池，以 QPS 推导配比，并分别计算 KDA 和 Lightning Indexer + DSA 的状态、缓存与交接带宽。抢占按分配失败、解除引用、重排队与重算恢复解释；播放器区分本轮执行量与轮末四类请求状态。
 
 [素材来源清单](dist/assets/profile-sources.json) 保存源文件名、上传提交、Git blob 校验值、采用位置及重绘依据；源仓库为私有，站内图片已本地保存，阅读站点不需要源仓库权限。公开仓库和下载包只含挑选的图片与新写分析。
+
+</details>
 
 ## 实操验证
 
