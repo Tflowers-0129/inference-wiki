@@ -343,6 +343,14 @@ PCP 是 worker 布局中的一维，这里共四个 worker。DCP=2 复用这四�
 
 负载均衡的 EP 算例限定无 PCP，因此专家组按 DP×TP 计算。所查 MoE 实现的 EP 组还包含 PCP 维。启用 PCP 时，评估 Attention 收益也要重算专家通信的参与者和成本。[负载均衡的 EP 算例](负载均衡与专家并行.md)
 
+### 生产案例 · C8 写错了哪一组缓存槽位？
+
+GLM-5.2 的一次 P/D 分离部署中，P 节点输出正常，D 节点启用稀疏 C8、SFA Prolog V3 和 DCP 后生成乱码。这个 SFA 路径有两套写入位置。各 DCP rank 复制 LightningIndexer 的缓存，要用能覆盖全序列的映射来做 TopK。主 Attention KV 分片保存，要用本 rank 的映射。融合 Prolog 给主 KV 用了 Indexer 的映射，后续 Decode 按主 KV 页表读到了错误的槽位。主线已改为将分片映射作为 Prolog 的 `cache_index`。[DCP 写入错位与已合入修复](https://github.com/vllm-project/vllm-ascend/pull/14536)
+
+PCP 收集各 rank 的新 KV 后，写入映射的行数也要随之变化。另一条尚在审查的 PR 记录了 GLM-5.2 W4A8C8 的 P/D 测试。合并后的 KV 有 4096 行，DCP 上下文也有 4096 个槽位，延迟执行的 C8 写入却沿用了本地切片，只拿到 2048 个槽位。该 PR 还指出一个独立的类型问题：PCP 可以给出 INT64 的 Indexer 映射，而设备算子按 INT32 读取。提议分别保留收集后的完整映射，以及只在调用算子时转换参数。遇到这一类错答，先逐 rank 核对主 KV 与 Indexer 各自的行数、槽位数和索引类型，再比对 P/D 两侧的生成结果。[PCP/DCP 的 C8 槽位修复及作者验证](https://github.com/vllm-project/vllm-ascend/pull/16664)
+
+量化格式不同，支持范围也要单独查。GLM-5.2／5.3 部署指南已把 `turboquant_4bit_nc` 与 PCP、DCP 标为不兼容。核查时 packed SFA 的启动校验仍会放行该组合，补上拒绝逻辑的 PR 尚在审查。部署时应按具体模型、缓存格式和 Attention 后端确认支持范围。[已合入的部署指南](https://github.com/vllm-project/vllm-ascend/pull/18935) · [packed SFA 的配置校验](https://github.com/vllm-project/vllm-ascend/blob/c12397a0/vllm_ascend/quantization/methods/kv_cache/turboquant/config.py#L24-L60) · [待合入的校验修复](https://github.com/vllm-project/vllm-ascend/pull/19035)
+
 ## A5 上的布局、算子与 Runner 校验
 
 实验分别检查 PCP 的位置分配、DCP 的 Attention 算子和 ModelRunnerV2 的输出。位置分配在 CPU 上验证。设备实验都独占同一组两张 A5 NPU，依次完成预热、运行和采集。完整命令与固定环境见[实操 README](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/context-parallel/README.md)。

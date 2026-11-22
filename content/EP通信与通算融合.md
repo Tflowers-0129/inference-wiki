@@ -310,7 +310,15 @@ DBO 在一轮前向内把 batch 拆为两个 microbatch，用一份的计算覆�
 
 因此可以分别记录三种粒度：算子内部的数据块、同一前向的独立分支、两份 microbatch。把时间线上的通信和计算放在不同的行，只说明它们被分开记录；要声称发生重叠，还应看到输入已就绪、执行区间实际交叠，并核对后续算子开始使用结果时，还需要等多久。
 
-支持范围也要一起核对。本章所查 Ascend 配置在启用融合 MC2 路线时会关闭共享专家多流选项，不能把二者分别报告的收益直接相加。拆 microbatch 还可能改变每专家的 GEMM 行数和 padding，前后对照需要记录这些变化。[融合与共享专家多流配置](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/ascend_config.py)
+拆 microbatch 还可能改变每专家的 GEMM 行数和 padding，前后对照需要记录这些变化。
+
+### 生产案例 · 共享专家多流遇到 Fused-MC2 死锁
+
+共享专家沿 TP 切分权重时，算完后还要走 TP 通信。上游修复记录了这样一种卡住的配置：打开 Fused-MC2 和共享专家多流，同时关闭 `enable_shared_expert_dp`。融合 MoE 算子和共享专家的 AIV 模式 TP 通信分属两条流。若一张卡先进入融合算子，另一张卡先进入 TP 通信，两边都可能等对方进入自己所在的通信，服务就挂住了。[死锁触发条件](https://github.com/vllm-project/vllm-ascend/pull/12237)
+
+当前主线在解析融合模式后自动关闭 `multistream_overlap_shared_expert` 并打印告警。排查时先看生效配置。若继续看 Trace，要在同一轮检查相关 rank 的融合算子和共享专家 TP 通信提交次序。单 rank 的一段长通信不足以定位这个死锁。[已合入的配置规避](https://github.com/vllm-project/vllm-ascend/pull/12237) · [主线配置解析与告警](https://github.com/vllm-project/vllm-ascend/blob/c12397a0/vllm_ascend/ascend_config.py#L800-L823) · [关闭多流的校验](https://github.com/vllm-project/vllm-ascend/blob/c12397a0/vllm_ascend/ascend_config.py#L943-L958)
+
+A5 还有一条已合入主线的路径。满足设备、权重布局和激活函数等条件时，`enable_fused_mc2=3` 把共享专家也放进 CANN MegaMoE，算子内完成共享与路由专家输出的合并。设为 `2` 时，共享专家仍单独执行。比如共享专家的激活没有限幅，但路由专家使用了带限幅的 SwiGLU，融合就会保留独立的共享专家前向，以维持各自的数值行为。A3 的 W8A8 支持有单独的待合入 PR。[A5 MegaMoE 共享专家融合](https://github.com/vllm-project/vllm-ascend/pull/18053) · [A3 W8A8 扩展](https://github.com/vllm-project/vllm-ascend/pull/22207)
 
 ## 融合算子的布局与容量约束
 

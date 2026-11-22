@@ -51,6 +51,14 @@
 
 </details>
 
+## 生产案例
+
+- [KV 量化与上下文并行](https://tflowers-0129.github.io/inference-wiki/context-parallel.html#context-parallel-9) — 从 D 节点乱码追到 C8 写入槽位，另列 TurboQuant 的部署限制。
+- [Target 与 Draft 的图补齐](https://tflowers-0129.github.io/inference-wiki/speculation.html#speculation-5) — 从 Attention 形状报错和草稿接受率下降，分别追到请求元数据和补齐掩码。
+- [共享专家多流与 Fused-MC2](https://tflowers-0129.github.io/inference-wiki/ep-communication.html#ep-communication-9) — 用两条流的通信次序解释死锁，再核对配置规避与 MegaMoE 的共享专家融合路径。
+- [模型结构与流水线并行](https://tflowers-0129.github.io/inference-wiki/execution.html#execution-3) — 用 DeepSeek V4.1 的跨段 KV 和 Kimi DSpark 的共享 embedding 说明切层时要交接哪些状态。
+- [KV 页布局](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html#kv-cache-layouts-6)、[混合页池](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html#kv-cache-layouts-10)与[递归状态复用](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html#kv-cache-layouts-11) — 对照高块号传输失败、长历史挤占页池以及重复请求命中归零的来源记录。
+
 ## 实操验证
 
 [实验脚本、结果与待验证清单](experiments/README.md) 保留历史 padded 输入与跨轮进度辅助函数微实验（不作为 V2 主线的执行证据），并覆盖真实 SSE 缓冲、A5 双卡 MC2／CANN MegaMoE，以及上下文并行、[PD 分离系统](experiments/pd-disaggregation/README.md)。上下文并行实验验证 PCP 布局、生产 DCP 归并与三种双卡 ModelRunnerV2 拓扑。PD 分离实验用实际 HTTP 服务、官方 proxy 和 Mooncake 完成两条交接路径。两组实验均保留原生设备截图与 Host／Device 观察边界。[DP 协调与 SP 实验](experiments/parallel-graph/README.md)保留服务器 CPU/Gloo 的数值检查，另以 A5 HCCL/NPUGraph 验证受控档位、空 rank 和回退；标量专家 payload 与完整模型的边界分别说明。教学模拟继续保留原有标识，预训练完整模型、调度、负载均衡和稀疏 KV 的未测项目逐项列出。

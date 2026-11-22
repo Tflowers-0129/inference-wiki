@@ -177,6 +177,12 @@ BLHNC  (b×L+l)×16+12 = (1×2+1)×16+12 = 60
 
 <!-- /DETAILS -->
 
+### 生产案例 · 物理页存在，Mooncake 仍查不到地址
+
+DeepSeek V4 的一次 A3 P/D 部署里，低块号传输正常，拉取到高编号的 Indexer 页时却报远端缓冲区查找失败。这个张量每块有 4096 B 有效数据，两个相邻块起点相隔 4160 B，中间有 64 B 对齐填充。连接器按 4160 B 寻址，原注册逻辑却累加 4096 B 来确定范围。块号越大，实际地址就越靠后，最终会落到注册范围外，尽管它仍在设备的原始分配内。[A3 错误记录与注册跨度修复](https://github.com/vllm-project/vllm-ascend/pull/16129)
+
+围绕同一套 hybrid KV 描述符，主线已合入按物理布局重建共享关系、校验地址和步幅的改动。上述按完整块步幅注册的补丁是另一条 PR，作者报告原出错块在补丁上已传输成功，该补丁仍在审查。定位此类故障时，要同时拿到连接器注册的基址与长度、实际块步幅、出错块号和本次传输长度。只对着张量形状算字节，漏掉的正是块与块之间那段空间。[描述符与地址重建](https://github.com/vllm-project/vllm-ascend/pull/16086) · [物理分配与逻辑视图的注册问题](https://github.com/vllm-project/vllm-ascend/issues/16632) · [跨度补丁验证](https://github.com/vllm-project/vllm-ascend/pull/16129)
+
 ## GQA 的 K/V 投影、缓存视图与写入
 
 执行一次分页 Attention 时，QKV 投影先生成当前 token 的 Q、K、V。写入算子用 `slot_mapping` 把 K/V 写入本层的目标页。Attention 拿当前 Q、块表和有效长度，从同一份缓存读历史。MHA 每个 Q head 对应一个 KV head，GQA 一组 Q heads 共用一个 KV head，MQA 全部 Q heads 共用一个 KV head。因此每层、每位置、每 rank 的有效载荷是 `H×(D_k×K元素字节+D_v×V元素字节)`，其中 `H` 取本地 KV heads。[FlashAttention 写入入口](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/v1/attention/backends/flash_attn.py#L1438-L1470) · [每 rank KV heads](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/config/model.py#L1530-L1550)
@@ -366,6 +372,12 @@ Ascend 为同一来源层的全局 KV、Indexer 和 folded Indexer，在物理�
 
 <!-- /DETAILS -->
 
+### 生产案例 · 长上下文把多少页空间用在了填充上？
+
+DeepSeek V4.1 Flash 的历史 KV 和稀疏索引会随上下文增长，SWA 只保留最近 128 个 Token，压缩器中间状态的大小也有上限。社区 RFC 记录的一套共享页布局，为历史、SWA 和压缩器复用块号。有一处物理槽必须按较大的 128 KiB 状态页设置步幅，分给历史时却只用 72.125 KiB，余下 55.875 KiB 是填充。作者按四处物理槽合计，算出一组用于历史的页占 528.25 KiB，其中 167.625 KiB 是填充，约占 31.73%。这个比例的分母是该组历史页的实际占用。[共享页的容量口径与算例](https://github.com/vllm-project/vllm-ascend/issues/21324)
+
+RFC 提议按用途分别预留池容量：先按最大活跃请求数给 SWA 和压缩状态留位置，再用剩余预算分配历史页。这样长输入和高并发分别消耗不同的池，任意一个池耗尽都可能限制调度。这仍是 RFC 及原型方案。[分池提案与实现原型](https://github.com/vllm-project/vllm-ascend/issues/21324)
+
 ## Mamba、GDN 和 KDA 的续算状态
 
 递归层不必像普通 Attention 那样，为继续计算而读取全部历史 K/V。它读取此前保存的两份状态：卷积状态 `conv_state` 保存最近 `w−1` 个位置的投影输入；递归状态 `ssm_state` 保存累计到当前位置的矩阵。处理新输入后，把更新后的状态写回，供下一轮继续。
@@ -405,6 +417,12 @@ V2 同样用 `KVCacheConfig` 规划和分配递归状态。这里的一页保存
 GDN 也有直接把状态池与下标交给 recurrent kernel 的分支。因此，不能把所有递归后端都画成先显式 gather、再计算、再 scatter。metadata 还要说明是否存在初始状态，并区分 Prefill、Decode 和投机状态。 [V2 状态组能力](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/model_runner.py#L629-L650) · [KDA Prefill 状态读写](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/ops/kimi_kda.py#L600-L639) · [KDA Decode 与 Prefill 路径](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/ops/kimi_kda.py#L680-L834) · [GDN recurrent 路径](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/ops/gdn.py#L720-L877)
 
 请求命中前缀时，递归层必须能提供处理完相同前缀后保存的状态；释放或抢占时，状态块也受同一引用与安全回收规则管理。上表的 Mamba1/Mamba2 是对应实现的形状说明，不能据此推断每种 Ascend 设备都支持所有 Mamba backend。GDN、KDA 的算子链按这里所引的 Ascend 实现核对，实际投机和 prefix-cache 支持仍由所选模型、状态模式及 builder 决定。
+
+### 生产案例 · 重复请求只多一个 Token，前缀命中却归零
+
+在一条 Qwen3.5 的 A3 复现中，开启投机和 Mamba 对齐模式，把前缀匹配粒度设为 16 Token。重复发送 512 Token 的请求，能命中 496 Token。改为重复发送 513 Token，Prefill 按 512 切开，某个 Mamba 组却按投机检查点丢弃规则把边界退到 496。查询端沿单机角色的策略去找 512 处的状态，找不到共同可续算的前缀，最终命中 0。已经保存的全量 Attention 页也要等到同一位置有 Mamba 状态才能一起复用。[复现、边界解释与回归用例](https://github.com/vllm-project/vllm-ascend/pull/21063)
+
+已合入的改动让 Mamba 组设置检查点丢弃标志时，沿用前缀查询已经采用的角色策略。作者在同样条件下用 513 Token 重试，恢复了 512 Token 的命中。Decode 消费端和双角色的丢弃规则保持原有行为。排查混合缓存的命中率时，可以在匹配粒度两侧各取一个长度，比较冷、热请求中每组实际保存的检查点、共同命中长度和输出。[对齐规则及作者的冷、热请求验证](https://github.com/vllm-project/vllm-ascend/pull/21063)
 
 ## Paged Attention 读取请求 A 的三页 KV
 
