@@ -29,7 +29,7 @@
 
 《上下文并行：KV 分片与 Attention 归并》先按 TP 与总 KV head 数的关系说明切分与复制，再以 ReduceScatter、逐行 Norm 和 AllGather 解释 SP 的激活分片，随后追踪 PCP 的 query 划分、DCP 的本地块表和有效长度。用 A5 算例对齐 Q AllGather、output/LSE 打包和归并的张量形状与通信 count。A5 实操用 DCP1／DCP2 双 rank 同尺度事件图、真实截图、同轮通信配对和逐卡任务记录对照，区分本地调用链、跨 rank 等待线索与尚未确认的原因。
 
-《PD 分离系统：请求交接与 KV 生命周期》沿 vLLM-Ascend 与 Mooncake 源码追踪目标块分配、传输、就绪与源引用释放。用 A5 上的 129-token GQA 拉取请求复算每个接收 rank 的 READ 地址范围和整页字节量，再用 TP4→TP2 的源码算例说明页内重排。逐层推送用 MQA+DCP2 对照分片、写入事件和完成通知。两条路径保留原生 HIXL 任务与 Host 观察。逐层推送首次预热中，释放调用早于后台写返回，正文保留这次观察的边界。
+《PD 分离系统：请求交接与 KV 生命周期》沿 vLLM-Ascend 与 Mooncake 源码追踪目标块分配、传输、就绪与源引用释放。用 A5 上的 129-token GQA 拉取请求复算 READ 地址和字节量，再用 TP4→TP2 的源码算例说明页内重排。逐层推送从 Proxy 先找谁讲到 D 为什么要等齐，用 V2 单测复算两轮 WRITE，并用教学算例比较等待时间和 D 的提前占页。A5 的 MQA+DCP2 记录展示逐 rank 的 HIXL 任务和 Host 完成顺序，首次预热记录了释放调用先于后台写返回。
 
 《KV 缓存布局与递归状态》从 V2 启动时的缓存规格、内存预算和 backend 选择开始，追踪前缀命中、追加页、写时复制、抢占与安全释放，再进入一次 Decode 的 KV 写入位置、分页读取及 BLHNC／LBHNC 步幅。两张总图串起请求生命周期，以及 Dense、MLA、SFA、压缩 DSA 和递归状态各自的读写链。沿 PD 拉取实测的 A5 请求核对每 rank 的 GQA 张量形状、K/V 页大小、块步幅和续算写入位置。正文对照 Kimi K3、GLM-5.3 系列和 DeepSeek 系列中的 MLA、稀疏与压缩 Attention、递归状态，并用 C4 算例复算压缩记录的写入位置、TopK 读取和页内尺度偏移。播放器演示分配物理页、写入 slot_mapping=36 对应的位置，以及从三个物理页读取九个有效位置。[KV 寻址播放器](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html#kv-decode-player)
 

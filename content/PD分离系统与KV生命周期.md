@@ -4,7 +4,7 @@
 
 拉取式先让 P 算完，再由 D 申请空间并读取。逐层推送先让 D 申请空间，P 每算好一层就可以发送。下面从一条 129-Token 请求看起，先找它在两端各用了哪两页，再从 A5 实验里查传输了多少字节、源端何时调用页释放函数。
 
-> 拉取式采用 `kv_p2p/mooncake_connector.py` 中的 `MooncakeConnectorV1`，逐层推送采用 `MooncakeLayerwiseConnector`。下文结合实验中实际运行的 vLLM Scheduler 和 ModelRunnerV2 解释这两种实现。另一个目录中的 `MooncakePullConnector` 是不同的连接器。固定源码、Mooncake 二进制来源、脚本和结果见实验材料。机制图只说明流程，实测图在后半章单独标出。 [实验材料](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/pd-disaggregation)
+> A5 实验用 `MooncakeConnectorV1` 拉取，用 `MooncakeLayerwiseConnector` 逐层推送，两者均运行在 ModelRunnerV2 上。逐层推送一节还走读 `MooncakeConnectorV2` 选中的 `MooncakePushConnector`。固定源码、Mooncake 二进制来源、脚本和结果见实验材料。 [实验材料](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/pd-disaggregation)
 
 ## P/D 两端的页表与请求状态
 
@@ -167,11 +167,11 @@ Mamba 或压缩状态不一定能靠重写最后一个 KV 位置恢复，还有 
 
 ## 逐层推送式交接
 
-推送前必须先知道写到哪里。因此逐层推送先选 D，让 D 分配目标页；proxy 通过自己的 MetaServer 接口收到目标信息后，再选择 P 并派发 Prefill。P 每算好一层，就可以向已知的 D 地址发送。 [逐层 proxy](https://github.com/vllm-project/vllm-ascend/blob/main/examples/disaggregated_prefill_v1/load_balance_proxy_layerwise_server_example.py)
+同一条请求，为什么 Pull 的 Proxy 先找 P，Push 却先找 D？Pull 由 D 发起读取，先要拿到 P 的源页号。Push 由 P 发起写入，先要拿到 D 的目标页号。逐层 Push 的 Proxy 先让 D 分配目标页，收到 D 回传的信息后，再把原始 prompt 和目标信息一起发给 P。某层的 KV 一就绪，P 就可以安排把它从自己的 NPU 缓存写入 D 的 NPU 缓存，这就是这里的 D2D。 [Proxy 选择 D](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/examples/disaggregated_prefill_v1/load_balance_proxy_layerwise_server_example.py#L491-L509) · [Proxy 转发给 P](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/examples/disaggregated_prefill_v1/load_balance_proxy_layerwise_server_example.py#L672-L704)
 
 ![逐层推送先让 D 分配目标页，再派发 P，按层写入后收齐 DONE](../dist/assets/pd-layerwise-handoff.svg)
 
-### MetaServer 回传 D 的目标页
+### P 拿到 D 的页号，怎样找到写入地址？
 
 D 申请好页后，把目标页号、页大小、并行配置和已命中的前缀长度送回 proxy。P 根据命中前缀确定从哪里开始发送。如果一个 API 请求展开为多个子请求，proxy 要收齐各自的目标信息后才派发 Prefill。
 
@@ -191,7 +191,7 @@ proxy 中 `release_prefiller_kv` 等函数只是调整入口评分计数，不�
 
 分块 Prefill 还要考虑尾页是否写完。非最终 chunk 只发送已覆盖的完整页，最后一个 chunk 才能包含未满尾页。Scheduler 用 `local_computed_tokens` 和 `local_transferred_tokens` 确定本次要发送的范围。后一个字段记录计划传输的进度，远端是否写完还要看完成回报。
 
-### D 收齐 DONE 后恢复调度
+### 第一层 KV 已写入，D 在等什么？
 
 D 要等自己需要的各来源都发完，才能报告接收完成。它不会因为第一层已到就开始 Decode。
 
@@ -201,7 +201,43 @@ D 要等自己需要的各来源都发完，才能报告接收完成。它不会
 
 <!-- /DETAILS -->
 
-所查实现的 `wait_for_layer_load` 为空，D 仍要等整条请求的远端 KV 完成，再重算 prompt 末 Token 并继续生成。“逐层”首先改变的是 P 何时能发送，不能据此推断 D 能边收边执行同一请求。 [按来源跟踪与 `get_finished`](https://github.com/vllm-project/vllm-ascend/blob/main/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py)
+D 的 Scheduler 在 `WAITING_FOR_REMOTE_KVS` 等待请求级的接收完成记录。两套逐层 Push 的 `wait_for_layer_load()` 都是空实现。收到所需的 KV 后，D 才按前一节的普通 FullAttention 路径，重算 prompt 末 Token 并采样首个输出。 [Scheduler 放行条件](https://github.com/vllm-project/vllm/blob/c410543d9/vllm/v1/core/sched/scheduler.py#L3599-L3630) · [实验用连接器的逐层等待接口](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py#L2634-L2635) · [V2 接口](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake/connector.py#L215-L221)
+
+如果想让 D 边收边算，先把模型缩到两层。D 从请求里就知道末 Token。第一层要等它所需的前缀 KV 到齐，然后用末 Token 算出第一层输出。第二层要等两样东西：第一层的输出，以及第二层所需的前缀 KV。等第二层也算完，D 才能用输出头和采样器选出首个新 Token。
+
+这个方案需要 Scheduler 允许请求在整单收齐前进入前向，还需要 D 按请求、层和来源跟踪写入完成，在各层 Attention 读取前满足对应的依赖。否则 D 即使拿到了第一层的数据，也没有可用的调度入口。 [普通前向的逐层计算与末层采样](从一轮调度到一次前向.md)
+
+### 同样叫逐层 Push，启动配置指向哪套代码？
+
+先查 P、D 的 `kv_connector`。`MooncakeConnectorV2` 读取 `kv_connector_extra_config.use_layerwise`，为 `true` 时创建 `MooncakePushConnector`，省略或为 `false` 时创建 `MooncakePullConnector`。也可以直接写 `MooncakePushConnector`。A5 记录中的 `MooncakeLayerwiseConnector` 有独立的实现，选择逐层 Push 时两端应使用同一套。 [连接器注册表](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/__init__.py#L85-L108) · [V2 的配置分派](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake/connector.py#L260-L310) · [官方配置说明](https://docs.vllm.ai/projects/ascend/en/latest/developer_guide/Design_Documents/disaggregated_prefill.html#mooncake-v2-layerwise-push-connector)
+
+两套 Push 都调用 Mooncake 的 `batch_transfer_sync_write()`。同样是「目标页分好了，请求还在等」，查地址、查发送队列和查 DONE 要去不同的线程。
+
+| 要查什么 | `MooncakeLayerwiseConnector` | `MooncakePushConnector` |
+| --- | --- | --- |
+| P 从哪里取得 D 的内存布局？ | D Worker 的接收线程也回答布局查询 | D Scheduler 的元数据服务答复，DONE 则发给 D Worker |
+| 谁执行 WRITE？ | P Worker 的专用发送线程从队列取任务 | P Worker 的发送线程池执行分层任务，`wait_for_save()` 在轮末补发并等待 |
+| D Worker 怎样认定收齐？ | 按发送方地址去重，数满 `trans_count` | 核对预期的 P rank 集合及状态。没有数据要写的 P rank 也参加完成通知 |
+
+[实验用连接器的发送队列](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py#L325-L337) · [接收线程](https://github.com/vllm-project/vllm-ascend/blob/f9c8e0bd/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_layerwise_connector.py#L896-L944) · [V2 查询与通知地址](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake/push_worker.py#L331-L370) · [V2 轮末等待](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake/push_worker.py#L850-L895) · [V2 核对来源](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake/push_worker.py#L941-L956)
+
+<!-- DETAILS: 源码走读：8 个 Token 如何变成两次 WRITE -->
+
+取 V2 单元测试的单 rank 用例。一个 prompt 有 8 个 Token，每轮算 4 个，恰好一轮填一页。D 的目标页 `[10,11]` 从 `remote_block_ids` 进入 P，P 的本地页 `[1,2]` 从 `build_connector_meta()` 进入 P Worker。`start_load_kv()` 装好本轮状态并启动或复用布局查询，`save_kv_layer()` 记录 NPU event 和该层的可用范围。发送线程等 event 完成再调用 Mooncake WRITE。以 MLA 为例，Attention 通过 `maybe_save_kv_layer_to_connector()` 进入这条发送路径。 [页号与本轮进度](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake/push_scheduler.py#L94-L172) · [准备发送状态](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake/push_worker.py#L266-L329) · [MLA 调用点](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/attention/mla_v1.py#L3405-L3415) · [记录事件](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake/push_worker.py#L822-L848)
+
+测试只放一个缓存视图。P、D 的基址分别是 `1000`、`10000`，每页的步幅和复制长度都是 `32 B`。`_build_layer_transfer_request()` 先配对页号，再由 `_execute_layer_transfer()` 用 `基址 + 页号 × 页步幅` 算地址。第一轮 `1 → 10`，因此是 `1032 → 10320`。第二轮只推进下一页 `2 → 11`，因此是 `1064 → 10352`。测试替换了 NPU event 和 Mooncake 写函数，断言的是调用的地址和长度。 [测试布局与模拟对象](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/tests/ut/kv_offload/mooncake_v2/test_push_sending.py#L46-L98) · [两轮 WRITE 断言](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/tests/ut/kv_offload/mooncake_v2/test_push_sending.py#L198-L261) · [页号与传输范围](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake/push_worker.py#L507-L555) · [生成地址并等待 event](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake/push_worker.py#L648-L676)
+
+第一轮 WRITE 完成时，只覆盖了一半 prompt。P 对每个目的地检查所需各层的发送进度，覆盖到目标位置后才提交 DONE 任务。该任务等相关 WRITE 返回后发通知，D 再按来源确认。因此有三个可分别记录的时点：这一页写完、这一来源发完、D 的请求恢复调度。 [范围检查和 DONE 依赖](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake/push_worker.py#L781-L819)
+
+<!-- /DETAILS -->
+
+### D 都要等齐，Push 省下的是哪段时间？
+
+只算 P 的前向和 KV 搬运，假设前向用 100 ms、搬运用 40 ms，目标页立即分配，其他开销相同。Pull 要在 100 ms 后才开始搬运，D 在 140 ms 时收齐。Push 如果能让 30 ms 的搬运与 P 计算重叠，P 算完时只剩 10 ms 要搬，D 在 110 ms 时收齐。这个算例中的 30 ms 是首 Token 之前少等的传输时间。客户端 TTFT 还包括排队、D 的前向、采样和返回。
+
+D 提前留页也有代价。按同一算例，Pull 的目标页在开算前占用 `140 − 100 = 40 ms`，Push 则占用 `110 − 0 = 110 ms`。当 D 的页池紧张时，其他请求可能因为这段额外占用而排队。P 侧也可能有写入积压。V2 的层回调遇到同一 D 实例有未完成的 WRITE 时可以先攒下已就绪的层，再在后续回调或轮末提交。要看省了多少，需测实际重叠和开算前仍在等待的尾部。 [轮中提交条件](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake/push_worker.py#L714-L746)
+
+后半章的 A5 记录可以查每层 WRITE、跨 rank 字节量和完成顺序。要比较 TTFT，需要在同一模型、并行拓扑、输入和并发下重跑 Pull 与 Push，单独采集无 profiler 的重复 TTFT，再用同条件 Trace 对齐目标页分配、P 前向、最后一次传输和 D 开算。现有两组 A5 的 KV head 数与 DCP 配置不同，30 ms 只来自上面的教学假设。 [实测配置和原始记录](https://github.com/Tflowers-0129/inference-wiki/tree/main/experiments/pd-disaggregation)
 
 ## 源页保留与目标页回收
 
@@ -211,11 +247,11 @@ D 要等自己需要的各来源都发完，才能报告接收完成。它不会
 
 D 的目标页先分配，再接收数据，加载完成后才参与计算。请求取消时，输出可以停止，但后台写入未必已结束。因此 Scheduler 会保留尚在等待远端 KV 的已终止请求的目标页，等完成回报后才释放，避免新请求占用仍被写入的地址。 [取消与延迟释放](https://github.com/vllm-project/vllm/blob/main/vllm/v1/core/sched/scheduler.py)
 
-P 端不能照搬同一套释放规则。拉取式明确保留源页、等待读取通知；本章核查的逐层推送连接器没有增加这项延迟。
+P 端的释放条件取决于连接器。拉取式保留源页、等待读取通知。A5 实测用的 `MooncakeLayerwiseConnector` 在请求结束时不增加这项延迟。上节走读的 `MooncakePushConnector` 则在 `wait_for_save()` 等待本轮 WRITE 和终止通知收尾，正常结束时源页可走常规回收。已交给 Worker 的请求若提前取消，连接器会继续保留源页，直到 Worker 报告 `finished_sending`。 [V2 等待条件](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake/push_worker.py#L873-L895) · [V2 正常结束与取消](https://github.com/vllm-project/vllm-ascend/blob/913f9d79f/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake/push_scheduler.py#L200-L246)
 
 <!-- DETAILS: 源码对照：拉取和逐层推送的释放接口 -->
 
-| 检查点 | 拉取式 | 本章核查的逐层推送式 |
+| 检查点 | A5 拉取式 | A5 逐层推送式 |
 | --- | --- | --- |
 | P `request_finished` | 有待交接源页时返回延迟释放 | 返回不延迟释放 |
 | P 发送完成回报 | D 通知后，经 Worker 聚合报告 `finished_sending` | `get_finished` 的发送完成集合为空 |
