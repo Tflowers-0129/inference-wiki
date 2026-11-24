@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="382" viewBox="0 0 960 382" role="img" aria-labelledby="title desc">
+  <title id="title">两条流怎样交接 Attention 的执行计划</title>
+  <desc id="desc">计算流写入长度并记录输入就绪事件。侧流等待输入事件，生成执行计划，再记录计划就绪事件。计算流可以先做与计划无关的工作，到 Attention 前才等待计划。横向间距表示顺序和依赖。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#536982"/></marker>
+    <style>
+      text{font-family:"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#203550}
+      .title{font-size:26px;font-weight:700}
+      .label{font-size:20px;font-weight:650}
+      .detail{font-size:16px;fill:#425a72}
+      .mono{font-family:ui-monospace,"SFMono-Regular",Consolas,monospace;font-size:14px;fill:#344f6b}
+      .arrow{fill:none;stroke:#536982;stroke-width:2;marker-end:url(#arrow)}
+      .compute{fill:#edf4ff;stroke:#809dbe}
+      .plan{fill:#eaf6f0;stroke:#7fa99a}
+      .wait{fill:#fff4e2;stroke:#ad956c}
+    </style>
+  </defs>
+  <rect width="960" height="382" fill="#fff"/>
+  <text x="32" y="45" class="title">两条流怎样交接 Attention 的执行计划</text>
+  <text x="32" y="139" class="label">计算流</text>
+  <text x="32" y="283" class="label">计划流</text>
+  <path d="M122 132H928 M122 276H928" stroke="#d5e0eb" fill="none"/>
+
+  <g>
+    <rect x="137" y="94" width="190" height="76" rx="8" class="compute"/>
+    <text x="153" y="125" class="label">写本轮长度</text>
+    <text x="153" y="151" class="mono">record(inputs_ready)</text>
+    <rect x="356" y="94" width="166" height="76" rx="8" class="compute"/>
+    <text x="372" y="125" class="label">独立计算</text>
+    <text x="372" y="151" class="detail">可以先提交</text>
+    <rect x="551" y="94" width="178" height="76" rx="8" class="wait"/>
+    <text x="567" y="125" class="label">等计划</text>
+    <text x="567" y="151" class="mono">wait(plan_ready)</text>
+    <rect x="758" y="94" width="170" height="76" rx="8" class="compute"/>
+    <text x="774" y="125" class="label">Attention</text>
+    <text x="774" y="151" class="detail">读本轮计划</text>
+    <path d="M327 132H353" class="arrow"/>
+    <path d="M522 132H548" class="arrow"/>
+    <path d="M729 132H755" class="arrow"/>
+  </g>
+
+  <g>
+    <rect x="137" y="238" width="190" height="76" rx="8" class="wait"/>
+    <text x="153" y="269" class="label">等长度</text>
+    <text x="153" y="295" class="mono">wait(inputs_ready)</text>
+    <rect x="356" y="238" width="166" height="76" rx="8" class="plan"/>
+    <text x="372" y="269" class="label">生成计划</text>
+    <text x="372" y="295" class="detail">读取本轮长度</text>
+    <rect x="551" y="238" width="178" height="76" rx="8" class="plan"/>
+    <text x="567" y="269" class="label">计划就绪</text>
+    <text x="567" y="295" class="mono">record(plan_ready)</text>
+    <path d="M327 276H353" class="arrow"/>
+    <path d="M522 276H548" class="arrow"/>
+    <path d="M232 170V235" class="arrow"/>
+    <path d="M640 238V173" class="arrow"/>
+    <text x="246" y="210" class="detail">长度可读</text>
+    <text x="654" y="210" class="detail">计划可读</text>
+  </g>
+  <text x="32" y="353" class="detail">教学示意。箭头表示执行依赖，间距不表示耗时。</text>
+</svg>

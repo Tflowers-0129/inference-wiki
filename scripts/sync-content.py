@@ -16,6 +16,7 @@ CHAPTER_DOWNLOADS = {
     '从一轮调度到一次前向.md': 'execution.md',
     '模型层中的Attention与MoE.md': 'model-layers.md',
     '投机解码与流式指标.md': 'speculation.md',
+    '图模式与异步执行.md': 'graph-mode.md',
     '负载均衡与专家并行.md': 'load-balancing.md',
     'EP通信与通算融合.md': 'ep-communication.md',
     '上下文并行与Attention归并.md': 'context-parallel.md',
@@ -61,6 +62,7 @@ def sync_content(manuscript=DEFAULT_MANUSCRIPT):
 第一次读，可以先在[调度篇](LLM推理调度与执行.md)算两轮预算，再跟着[一次前向](从一轮调度到一次前向.md)和[模型的一层](模型层中的Attention与MoE.md)走完模型计算，最后看[投机解码](投机解码与流式指标.md)怎样把一组输出发到客户端。
 
 - 想追 KV 的去向，从[缓存页的读写](KV缓存布局与递归状态.md)开始，再看 [P/D 交接](PD分离系统与KV生命周期.md)、[前缀复用](KV池化与跨机PD.md)或[稀疏 KV 的取回](稀疏KV卸载与HiSparse.md)。
+- 想知道引擎怎样重复提交前向，读[图模式与异步执行](图模式与异步执行.md)，对照 Target、Draft、采样与跨流等待。
 - 想弄懂多卡分工，可以看[请求与专家放置](负载均衡与专家并行.md)、[专家输入怎样往返](EP通信与通算融合.md)和[上下文怎样分片与归并](上下文并行与Attention归并.md)。
 - 想估算算子成本，可以先[手算量化点积](量化推理与算子执行.md)，再看[两批工作怎样重叠](微批次流水与DBO.md)。
 

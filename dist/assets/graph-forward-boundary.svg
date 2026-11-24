@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="350" viewBox="0 0 960 350" role="img" aria-labelledby="title desc">
+  <title id="title">上游 ModelRunnerV2 的 Target FULL 图返回隐藏状态</title>
+  <desc id="desc">准备输入、页表与 metadata 后，Target FULL 图回放模型前向，产生隐藏状态。后续采样入口选行、运行 LM Head 并采样。采样结果同时供设备请求状态更新和 Host 输出回收使用。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#536982"/></marker>
+    <style>
+      text{font-family:"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#203550}
+      .title{font-size:25px;font-weight:700}
+      .label{font-size:21px;font-weight:650}
+      .detail{font-size:17px;fill:#425a72}
+      .arrow{fill:none;stroke:#536982;stroke-width:2;marker-end:url(#arrow)}
+      .surface{fill:#f5f8fc;stroke:#849ab3}
+      .graph{fill:#eaf2ff;stroke:#4875be;stroke-width:2}
+      .sample{fill:#eaf6f0;stroke:#7fa99a}
+    </style>
+  </defs>
+  <rect width="960" height="350" fill="#fff"/>
+  <text x="32" y="45" class="title">上游 ModelRunnerV2 的 Target FULL 图返回隐藏状态</text>
+  <rect x="32" y="82" width="244" height="101" rx="8" class="surface"/>
+  <text x="52" y="119" class="label">准备本轮输入</text>
+  <text x="52" y="145" class="detail">Token、位置、页表</text>
+  <text x="52" y="167" class="detail">Attention metadata</text>
+  <rect x="320" y="82" width="258" height="101" rx="8" class="graph"/>
+  <text x="340" y="119" class="label">Target FULL 图</text>
+  <text x="340" y="151" class="detail">回放模型前向，写出隐藏状态</text>
+  <rect x="622" y="82" width="306" height="101" rx="8" class="sample"/>
+  <text x="642" y="119" class="label">选行、LM Head、采样</text>
+  <text x="642" y="151" class="detail">输出 Token ID 和有效个数</text>
+  <path d="M276 132H317" class="arrow"/>
+  <path d="M578 132H619" class="arrow"/>
+
+  <rect x="350" y="246" width="260" height="74" rx="8" class="surface"/>
+  <text x="370" y="277" class="label">更新设备请求状态</text>
+  <text x="370" y="303" class="detail">供 Draft 和下一轮输入使用</text>
+  <rect x="668" y="246" width="260" height="74" rx="8" class="surface"/>
+  <text x="688" y="277" class="label">侧流复制输出</text>
+  <text x="688" y="303" class="detail">供 Host 回收</text>
+  <path d="M764 183V213H480V243" class="arrow"/>
+  <path d="M798 183V243" class="arrow"/>
+</svg>

@@ -26,6 +26,7 @@ node_modules/
 /dist/execution.md
 /dist/model-layers.md
 /dist/speculation.md
+/dist/graph-mode.md
 /dist/load-balancing.md
 /dist/technical-wiki-source.zip
 /dist/sparse-offload.md

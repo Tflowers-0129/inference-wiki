@@ -17,6 +17,7 @@ CHAPTERS = [
     ('execution', '从一轮调度到一次前向.md', '从一轮调度到一次前向', '从一轮调度<br><span>到一次前向</span>'),
     ('model-layers', '模型层中的Attention与MoE.md', '模型的一层：Attention、FFN 与 MoE', '一条 Token 怎样走过模型的一层<br><span>Attention、FFN 与 MoE</span>'),
     ('speculation', '投机解码与流式指标.md', '投机解码：调度、元数据与流式时延', '投机解码<br><span>与流式指标</span>'),
+    ('graph-mode', '图模式与异步执行.md', '图模式：捕获、回放与异步执行', '图模式<br><span>捕获、回放与异步执行</span>'),
     ('load-balancing', '负载均衡与专家并行.md', '负载均衡：DPLB 与 EPLB', '负载均衡<br><span>DPLB 与 EPLB</span>'),
     ('ep-communication', 'EP通信与通算融合.md', 'EP 通信与计算重叠：算子选择与融合执行', 'EP 通信与计算重叠<br><span>算子选择与融合执行</span>'),
     ('context-parallel', '上下文并行与Attention归并.md', '上下文并行：KV 分片与 Attention 归并', '上下文并行<br><span>KV 分片与 Attention 归并</span>'),
@@ -205,8 +206,13 @@ def build_chapters():
         if key == 'speculation':
             player_links = '<a href="#spec-player">投机验证播放器</a><a href="#spec-stream">流式指标实验室</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("spec.css")}"><link rel="stylesheet" href="{asset_url("spec-scene.css")}"><script defer src="{asset_url("spec-model.js")}"></script><script defer src="{asset_url("spec-scene.js")}"></script><script defer src="{asset_url("spec-app.js")}"></script>'
-            next_link = '<a href="kv-cache-layouts.html#kv-cache-layouts-3">继续：新 Token 的 KV 写到哪一页 →</a>'
+            next_link = '<a href="graph-mode.html#target-draft-graphs">继续：Target 与 Draft 怎样各自选图 →</a>'
             action = '<a class="primary-button" href="#spec-player">逐步看接受与回退 →</a><a class="text-button" href="#spec-stream">对照 ITL 与 TPOT ↓</a>'
+        elif key == 'graph-mode':
+            player_links = ''
+            extra = ''
+            next_link = '<a href="ep-communication.html#ep-communication-6">继续：跨 DP 怎样统一图档位 →</a>'
+            action = '<a class="primary-button" href="#graph-mode-1">从一次图回放开始 →</a><a class="text-button" href="#target-draft-graphs">对照 Target 与 Draft ↓</a>'
         elif key == 'execution':
             player_links = ''
             extra = ''
