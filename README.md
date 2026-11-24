@@ -23,7 +23,7 @@
 
 《从一轮调度到一次前向》沿 ModelRunnerV2 的输入准备、千级 Prefill 分块、KV 分页寻址、Attention、采样和下一轮输入展开。图解分别说明输入与 KV 写入位置、层内数据流、拒绝后的状态更新、Attention 计算分块、CPU／设备生成 tiling 计划的区别，以及图回放中的任务等待。正文从 tiling 如何划分计算工作讲起，再说明设备长度、计划生成与多模型迁移的关系；历史输入准备微实验保留在实验档案中，不作为 V2 调用链的证据。
 
-《一条 Token 怎样走过模型的一层》从 Qwen3 的单行投影追到 DeepSeek-V3.2 的两次 TopK，再对照七个检查点的 Attention 与 FFN。源码入口表把模型层型、Ascend 后端文件和要核对的 KV 或递归状态连起来。
+《一条 Token 怎样走过模型的一层》沿同一行对照稠密 FFN 与 MoE、DeepSeek 两次 TopK 与跨层 KV 复用、Qwen 与 GLM 的混合层、Kimi 的 Latent MoE。用 [4099 个位置](https://tflowers-0129.github.io/inference-wiki/model-layers.html#keypool-vs-lightning)算 Lightning Indexer 与 KeyPool 的工作量，再用 [Ascend 算子对照](https://tflowers-0129.github.io/inference-wiki/model-layers.html#ascend-attention-operators)排查 Prefill、Decode 和量化 KV 各落入哪个分支。Hy4-Flash 的滑窗和 IndexPool 另沿公开适配代码走读。
 
 《负载均衡：DPLB 与 EPLB》从请求入口的 DPLB 走到单层 MoE 的 EPLB，用五张 SVG 展开 DP/EP 维度、等请求数与不同工作量、同容量专家副本放置、rank × stream 泳道和权重/映射安全切换。两个交互分别演示固定遥测下的新请求评分与等待请求估计，以及同十二个专家权重存储位置、八十次专家任务下的布局和热度变化。正文追到 DPLB 快照替换、EPLB 逻辑到物理查表与 STAIR 计数汇总。泳道是明确标注的教学构造，不使用工作坊原图推断负载均衡收益，也不把专家计数均衡度写成实际加速比。
 
@@ -43,7 +43,7 @@
 
 《微批次流水：两批 MoE 工作怎样重叠》用两个微批次跟踪 MoE 输入的切分与专家计算，沿泳道看一批在何处交出执行机会、另一批如何接续。[DBO 篇正文](content/微批次流水与DBO.md)
 
-在[前向篇的 tiling 算例](https://tflowers-0129.github.io/inference-wiki/execution.html#execution-5)中，普通 FIA 的 Host 长度列表和可选 FA3 的设备计划分别追到 Attention 调用。[投机篇的 MTP 与 DSpark 算例](https://tflowers-0129.github.io/inference-wiki/speculation.html#speculation-5)沿同一次候选拒绝，对照逐步提议、整块提议和下一轮验证各自读取的行。
+前向篇沿[普通 FIA 的 Host 长度](https://tflowers-0129.github.io/inference-wiki/execution.html#fia-host-length)与 [FA3 的设备计划和图回放](https://tflowers-0129.github.io/inference-wiki/execution.html#fa3-plan-replay)分别追到 Attention 调用。[投机篇的 MTP 与 DSpark 算例](https://tflowers-0129.github.io/inference-wiki/speculation.html#speculation-5)沿同一次候选拒绝，对照逐步提议、整块提议和下一轮验证各自读取的行。
 
 前向篇与投机篇统一使用 V2 的 `idx_mapping`、`num_sampled`、`num_rejected` 和 `post_update` 追踪持久状态。K=3、a=2 的算例区分有效 KV、输出与下一轮 anchor；正文说明谁需要 Host 长度回读、谁生成并使用 Device tiling 计划。Trace 排查要求关联依赖和整轮区间，不把机制图或 kernel 数量写成性能收益。
 

@@ -12,6 +12,7 @@ PNG_SIGNATURE = b'\x89PNG\r\n\x1a\n'
 PAGE_MANUSCRIPTS = {
     'index.html': 'LLM推理调度与执行.md',
     'execution.html': '从一轮调度到一次前向.md',
+    'model-layers.html': '模型层中的Attention与MoE.md',
     'speculation.html': '投机解码与流式指标.md',
     'load-balancing.html': '负载均衡与专家并行.md',
     'ep-communication.html': 'EP通信与通算融合.md',

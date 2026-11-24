@@ -139,6 +139,8 @@ def render_markdown(source, key):
             flush(); parts.append('</details>'); i += 1; continue
         if match := re.fullmatch(r'<!-- COLLAPSIBLE_FIGURE: (.+) -->', line):
             flush(); figure_summary = match.group(1); i += 1; continue
+        if re.fullmatch(r'<a id="[a-z][a-z0-9-]*"></a>', line):
+            flush(); parts.append(line); i += 1; continue
         if line.startswith('```'):
             flush(); code = []; i += 1
             while i < len(lines) and not lines[i].strip().startswith('```'):
@@ -214,7 +216,7 @@ def build_chapters():
             player_links = ''
             extra = ''
             next_link = '<a href="speculation.html">继续：投机解码与流式指标 →</a>'
-            action = '<a class="primary-button" href="#model-layers-1">跟一条输入行走过一层 →</a><a class="text-button" href="#model-layers-4">对照七种模型的层结构 ↓</a>'
+            action = '<a class="primary-button" href="#model-layers-1">跟一条输入行走过一层 →</a><a class="text-button" href="#ascend-attention-operators">查 Ascend Attention 算子 ↓</a>'
         elif key == 'load-balancing':
             player_links = '<a href="#dplb-lab">DPLB 请求分发</a><a href="#eplb-lab">EPLB rank 泳道</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("lb.css")}"><script defer src="{asset_url("lb-model.js")}"></script><script defer src="{asset_url("lb-app.js")}"></script>'

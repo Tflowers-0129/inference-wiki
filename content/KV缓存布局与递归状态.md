@@ -299,6 +299,8 @@ TopK 复用还要分清两种情况：保留运行时 Indexer 的 `skip_topk` �
 
 ### GLM-5.3-Flash 从 KeyPool 展开主 KV 位置
 
+如果想先看为什么合并索引 Key 后仍按 Token 读取主 KV，可以对照[Lightning Indexer 与 KeyPool 的 4099 位置算例](../dist/model-layers.html#keypool-vs-lightning)。下面沿 GLM 的缓存布局计算各部分字节数。
+
 `zai-org/GLM-5.3-Flash` 的文本主干有 11 层稀疏 MLA 和 34 层 KDA。稀疏层的 `qk_rope_head_dim=0`，每位置只写一条 512 维 latent。CUDA BF16 主 KV 绑定成 `[B,N,512]`，每位置 1024 B。Ascend NoPE C8 的主 KV 是 `[B,N,1,528]`，一条由 512 B latent 和 16 B scale 组成。[模型配置](https://huggingface.co/zai-org/GLM-5.3-Flash/blob/46a050be/config.json) · [CUDA NoPE 投影](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/models/glm5next/nvidia/attention.py#L425-L460) · [Ascend NoPE C8](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/attention/sfa_v1.py#L1722-L1757)
 
 索引 Q 每位置仍为 `[32,128]`。KeyPool 把四个连续位置的 Indexer K 汇成一条 128 维记录，最多选出 `2048/4=512` 个完整的四位置分组，再把它们展开为主 Attention 读取的原始位置。末尾不足一组时，最多还有三个位置满足因果可见条件。比如当前 query 到位置 10，两个完整分组入选后分别展开为 0–3 和 4–7，加上尾部 8–10 后，主 Attention 读这 11 条 latent。[KeyPool 规格](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/models/glm5next/nvidia/attention.py#L78-L156) · [位置展开](https://github.com/vllm-project/vllm/blob/ced6857a/vllm/model_executor/layers/sparse_attn_indexer_kpool.py#L534-L590) · [Ascend 尾部位置](https://github.com/vllm-project/vllm-ascend/blob/1af7c5fc/vllm_ascend/models/glm5next/sparse_attn_indexer_kpool.py#L26-L50)
