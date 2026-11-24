@@ -14,6 +14,7 @@ DEFAULT_MANUSCRIPT = ROOT / 'content' / 'LLM推理调度与执行.md'
 CHAPTER_DOWNLOADS = {
     'LLM推理调度与执行.md': 'source.md',
     '从一轮调度到一次前向.md': 'execution.md',
+    '模型层中的Attention与MoE.md': 'model-layers.md',
     '投机解码与流式指标.md': 'speculation.md',
     '负载均衡与专家并行.md': 'load-balancing.md',
     'EP通信与通算融合.md': 'ep-communication.md',
@@ -57,7 +58,7 @@ def sync_content(manuscript=DEFAULT_MANUSCRIPT):
         bundle_chapters[name] = bundle_markdown
     bundle_readme = '''# LLM 推理调度与执行：图文源文件
 
-第一次读，可以先在[调度篇](LLM推理调度与执行.md)算两轮预算。再跟着[一次前向](从一轮调度到一次前向.md)走完模型计算，最后看[投机解码](投机解码与流式指标.md)怎样把一组输出发到客户端。
+第一次读，可以先在[调度篇](LLM推理调度与执行.md)算两轮预算，再跟着[一次前向](从一轮调度到一次前向.md)和[模型的一层](模型层中的Attention与MoE.md)走完模型计算，最后看[投机解码](投机解码与流式指标.md)怎样把一组输出发到客户端。
 
 - 想追 KV 的去向，从[缓存页的读写](KV缓存布局与递归状态.md)开始，再看 [P/D 交接](PD分离系统与KV生命周期.md)、[前缀复用](KV池化与跨机PD.md)或[稀疏 KV 的取回](稀疏KV卸载与HiSparse.md)。
 - 想弄懂多卡分工，可以看[请求与专家放置](负载均衡与专家并行.md)、[专家输入怎样往返](EP通信与通算融合.md)和[上下文怎样分片与归并](上下文并行与Attention归并.md)。

@@ -245,6 +245,14 @@ AISBench 将 TTFT 描述为首 Token 返回延迟，将 TPOT 描述为排除首 
 
 因此 Chunked Prefill 调优是在分配单轮工作量：较小的 mbt 可以限制单轮混入的 P，倾向于保护 ITL，但 P 需要更多轮推进，可能增加 TTFT 与调度/启动开销；较大的 mbt 能一次推进更多输入、减少切块次数，也可能让混合轮次更重。具体吞吐和时延曲线取决于模型、设备、实现与负载，不能由 8192 这个数直接推断最优点。[vLLM 调优文档](https://docs.vllm.ai/en/latest/configuration/optimization/)
 
+### R1 的第 63 和第 64 个输出之间，哪一轮需要查？
+
+切到播放器的 64 输出模式。从第 1 轮数起，R1 在第 1 轮 Prefill 完成时产生首 Token，第 2 轮产生第 2 个，第 63、64 轮分别产生第 63、64 个。第 63 轮全批有 8069 行 P、123 行 D。第 64 轮有 8067 行 P、125 行 D，其中 P 是 R126 的 3845 行、R127 的 4096 行和 R128 的 126 行。R1 自己在这两轮各推进一行。两轮都用满 8192 行，仍需设备时间才能判断哪一轮更慢。[播放器预算模型](https://github.com/Tflowers-0129/inference-wiki/blob/main/dist/model.js)
+
+如果线上 R1 在第 63、64 个输出之间停顿，先用 `request_id + output_token_index` 把两次采样结果与客户端内容事件对上；若多个输出一起发送，记录事件覆盖的 Token 范围。再用同一个 `step_id` 对齐 Scheduler、Worker 和本轮 `P/D` 组成。分别在各自时间域计算相邻两轮的 Worker 完成间隔、两次服务端发送间隔和客户端接收间隔。若先看到第 64 轮设备完成变晚，再找它的 Prefill 形状和关键路径。若前向较均匀而发送或接收成团，就从结果回收与缓冲查起。跨机器定位单向延迟还需要时钟对齐。
+
+归档的回环 HTTP/SSE 实验里，常规发送的一个客户端间隔是 `29.997 ms`，代理缓冲组出现过 `89.967 ms`。它说明没有增加模型工作也可以在客户端看到长间隔。这份实验没有模型或调度轮号，播放器也没有时延。现有两份记录不能配成同一条 R1 Trace。[真实 SSE 记录](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/results/sse-buffering.json)
+
 ## 并发相同，200/200 和 200/800 各测到了什么？
 
 这里的写法是“**客户端最大并发 / 总请求数**”。比较时假设请求结束就补发，且没有额外 QPS 限速；如果使用固定速率发送，负载模型已经改变，仅凭这两个数字无法推断请求会在什么时候到达。AISBench 的 `batch_size` 用来配置发送最大并发，总请求量和发送速率则是另外的设置。[AISBench README](https://github.com/AISBench/benchmark/blob/master/README_en.md)、[性能测试说明](https://github.com/AISBench/benchmark/blob/master/docs/source_en/base_tutorials/scenes_intro/performance_benchmark.md)
@@ -497,6 +505,8 @@ mbt 记录本轮要新计算的 Token；KV 保存已经计算过的上下文状�
 前缀缓存复用的是相同前缀的计算结果，主要减少重复 Prefill，不会省掉新输出 Token 的自回归生成；仅仅语义相似也不足以命中。PD 发送端的 KV 还可能因尚未完成传输而延迟归还，不能在“P 计算结束”时无条件立即复用这些块。[vLLM 自动前缀缓存](https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/)、[Ascend PD 生命周期](https://docs.vllm.ai/projects/ascend/en/main/developer_guide/Design_Documents/disaggregated_prefill.html)
 
 ## 继续阅读
+
+- [模型的一层怎样处理一条 Token](模型层中的Attention与MoE.md)
 
 - 想跟完一次生成，先看 [Runner 怎么执行一轮](从一轮调度到一次前向.md)，再看 [一次验证为什么能返回多个 Token](投机解码与流式指标.md)。
 - 想追踪读写的 KV，先看 [缓存页上的读写位置](KV缓存布局与递归状态.md)。再按问题读 [P 和 D 怎样交接](PD分离系统与KV生命周期.md)、[两次请求怎样复用前缀](KV池化与跨机PD.md) 或 [设备上缺少的历史怎样搬回](稀疏KV卸载与HiSparse.md)。

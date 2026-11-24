@@ -24,6 +24,7 @@ node_modules/
 # Generated downloads; recreate with scripts/sync-content.py
 /dist/source.md
 /dist/execution.md
+/dist/model-layers.md
 /dist/speculation.md
 /dist/load-balancing.md
 /dist/technical-wiki-source.zip

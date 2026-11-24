@@ -56,6 +56,8 @@
 | SP、PCP/DCP | 各 rank 的计算、AllGather/ReduceScatter/AllToAll、拷贝与同步 | 激活/KV 归属、正确性、容量、归并开销与端到端指标 |
 | PD 分离 | P/D 两侧计算、传输、接收就绪和页释放；同配置下比较交接方式 | 传输字节、生命周期、TTFT、Decode 间隔、稳态吞吐 |
 | KV 布局、稀疏卸载 | 地址/布局转换、索引、Host↔Device 拷贝、Attention、预取流及使用前的等待 | 命中率、搬运字节、有效容量与地址正确性、整轮时间 |
+| KV 池化 | 同一前缀分别放在 P1 本机或远端，配对 GET、接收完成、P1 首次使用、P→D 与输出 | 命中位置、GET 与交接逻辑字节、R2 的 TTFT，分开记录 R1 PUT |
+| 量化投影、DBO | 分别对照 `o_proj` 的 M=1/32 和同一路由下整批/微批的通信与专家 GEMM | 投影输入、权重和输出格式，实际 GEMM 形状，双批就绪和整轮时延 |
 
 现有 [MC2/MegaMoE 双 rank 图](../dist/assets/a5-mc2-megamoe-measured.svg)和 [DCP1/DCP2 双 rank 图](../dist/assets/cp-dcp-ranks-measured.svg)按保存的设备事件生成，使用同一时间比例、各 rank 独立起点。它们改善已有单次采集的可读性，没有补出跨设备时钟校准或新的服务性能结果。重建命令为 `python3 scripts/render-measured-moe.py` 和 `python3 scripts/render-measured-cp.py`（在仓库根目录运行）。
 
@@ -94,25 +96,29 @@ MoE 的正确性先比较相同量化权重的两条实现，并用独立路由�
 
 历史 [padded 正确性结果](results/padded-inputs.json) 与 [任务归属摘要](results/padded-profile.json)、[进度修正结果](results/batch-change.json) 与 [SSE 实际打点](results/sse-buffering.json) 分别保留各自口径。SSE 的单块七项 TPOT=0 是接收边界的退化结果；O=1 时记录为未定义。
 
-第五章另用四张真实 Perfetto 截图配对 tokens32、iteration2 的 MC2／CANN MegaMoE 两个 rank。[逐卡任务与路由结果](results/a5-moe-rank-comparison.json)保留精确 flow、Host／Device 窗口及 71+57=128 次专家任务；[截图来源](results/a5-moe-profiling-screenshots.json)记录源 SHA 和实际显示范围。Level0 没有独立的 HCCL peer 收发轨道，因此不套用第六章的集体通信序号配对，也不从单卡区间判定慢 rank。
+EP 通信章另用四张真实 Perfetto 截图配对 tokens32、iteration2 的 MC2／CANN MegaMoE 两个 rank。[逐卡任务与路由结果](results/a5-moe-rank-comparison.json)保留精确 flow、Host／Device 窗口及 71+57=128 次专家任务；[截图来源](results/a5-moe-profiling-screenshots.json)记录源 SHA 和实际显示范围。Level0 没有独立的 HCCL peer 收发轨道，因此不套用上下文并行章的集体通信序号配对，也不从单卡区间判定慢 rank。
 
-Linux 上解析与浏览器查看的完整步骤见 [第五章实操](https://tflowers-0129.github.io/inference-wiki/ep-communication.html#ep-communication-12)。MindStudio Insight 应保留完整 `*_ascend_pt` 目录；本仓库不自动公开原始 trace。
+Linux 上解析与浏览器查看的完整步骤见 [EP 通信实操](https://tflowers-0129.github.io/inference-wiki/ep-communication.html#ep-communication-12)。MindStudio Insight 应保留完整 `*_ascend_pt` 目录；本仓库不自动公开原始 trace。
 
-第七章的[环境与本地文件身份](pd-disaggregation/results/environment.json)、[拉取结果](pd-disaggregation/results/pull.json)和[逐层推送结果](pd-disaggregation/results/push.json)分别记录各自配置。拉取设备图查看 D rank0／rank1 的 `HixlBatchGet`，推送设备图查看 P rank0／rank1 的 `HixlBatchPut`；[拉取归属](pd-disaggregation/results/profiling-events-pull.json)与[推送归属](pd-disaggregation/results/profiling-events-push.json)保留连接字段、缺失 flow 端点和未校准时钟等限制。Host 生命周期图另由真实 JSONL 导出到 Perfetto，不混入 NPU kernel。两种实验的 KV head 和 DCP 条件不同，不计算路径间加速比。
+PD 分离实验的[环境与本地文件身份](pd-disaggregation/results/environment.json)、[拉取结果](pd-disaggregation/results/pull.json)和[逐层推送结果](pd-disaggregation/results/push.json)分别记录各自配置。拉取设备图查看 D rank0／rank1 的 `HixlBatchGet`，推送设备图查看 P rank0／rank1 的 `HixlBatchPut`；[拉取归属](pd-disaggregation/results/profiling-events-pull.json)与[推送归属](pd-disaggregation/results/profiling-events-push.json)保留连接字段、缺失 flow 端点和未校准时钟等限制。Host 生命周期图另由真实 JSONL 导出到 Perfetto，不混入 NPU kernel。两种实验的 KV head 和 DCP 条件不同，不计算路径间加速比。
 
 ## 仍需独立验证的项目
 
 | 章节 | 尚未覆盖的实操 | 必需条件 |
 | --- | --- | --- |
-| 1 调度与执行 | 实际 Scheduler 连续轮次、图模式与真实捕获形状 | 目标测试夹具；完整模型与匹配 Attention 后端 |
-| 2 一次前向 | V2 slot_mapping、Host 精确长度等待、Device tiling plan 的生成、更新与复用 | 对应 Runner／块表 ABI 与逐元素地址 oracle |
-| 3 投机解码 | 完整 Draft→Target→提交回退→下一轮的模型执行 | 模型与 proposer 配对；接受结果及 KV 边界取证 |
-| 4 负载均衡 | 实际 DPLB 选择回放、EPLB 整数副本映射及同容量关键路径 | 固定入口和遥测；多卡同权重、路由与布局对照 |
-| 5 EP 通信 | 完整选择函数、AllGather/AllToAll 容量边界、graph 与服务级指标 | 支持的模型／量化／拓扑和同条件负载 |
-| 6 上下文并行 | SP 层间布局与去 padding、预训练长上下文精度、PCP+DCP 叠加、MLA/SFA 与投机侧流、graph 和服务吞吐 | 对应权重、合法拓扑、Attention 后端与同条件负载 |
-| 7 PD 分离 | 多主机网络、同配置 pull/push 对比、取消／失败注入、并发块覆盖复用与稳态服务指标 | 匹配缓存布局与 transport、完整生命周期取证、受控多实例负载 |
-| 8 KV 布局 | 多 KV heads 的 TP 切分与复制、DCP 所有权、实际 view/stride 与页尾地址 | 同一模型改变 TP/DCP；抓取实际缓存 shape、stride 与地址，核对逻辑字节和分配容量 |
-| 9 稀疏 KV | LI+Manage、Copy+SFA 阈值和 HiSparse 页生命周期 | 对应编译产物、合法 backing、Core/Ascend ABI 配对 |
+| 调度与执行 | 将短输出的相邻输出序号与 Scheduler 轮号、P/D 组成、Worker 完成和客户端接收关联；图模式与捕获形状 | 完整模型、匹配后端与携带请求／轮次标识的服务记录 |
+| 一次前向 | V2 slot_mapping；FA3 的 Host 精确长度等待、设备计划生成与写回、回放中的首个消费者 | 对应 Runner／块表 ABI、逐元素地址检查，以及同条件 Trace |
+| 模型的一层 | 各检查点的单行运行时后端和 KV／递归状态；同层 A、FFN 和 EP 的工作量 | 对应权重、合法的 TP/EP 拓扑和实际层号、后端与路由记录 |
+| 投机解码 | 完整 Draft→Target→提交回退→下一轮；单行 MTP MLA/FIA 在 Host 长度为 12 或 13 时是否读取第 13 槽 | 模型与 proposer 配对，匹配 FIA/CANN；同页、同掩码改变第 13 槽并读取算子原始输出 |
+| 负载均衡 | 实际 DPLB 选择回放、EPLB 整数副本映射及同容量关键路径 | 固定入口和遥测；多卡同权重、路由与布局对照 |
+| EP 通信 | 完整选择函数、AllGather/AllToAll 容量边界、graph 与服务级指标 | 支持的模型／量化／拓扑和同条件负载 |
+| 上下文并行 | SP 层间布局与去 padding、预训练长上下文精度、PCP+DCP 叠加、MLA/SFA 与投机侧流、graph 和服务吞吐 | 对应权重、合法拓扑、Attention 后端与同条件负载 |
+| PD 分离 | 多主机网络、同配置 pull/push 对比、取消／失败注入、并发块覆盖复用与稳态服务指标 | 匹配缓存布局与 transport、完整生命周期取证、受控多实例负载 |
+| KV 布局 | 多 KV heads 的 TP 切分与复制、DCP 所有权、实际 view/stride 与页尾地址 | 同一模型改变 TP/DCP；抓取实际缓存 shape、stride 与地址，核对逻辑字节和分配容量 |
+| 稀疏 KV | LI+Manage、Copy+SFA 阈值和 HiSparse 页生命周期 | 对应编译产物、合法 backing、Core/Ascend ABI 配对 |
+| KV 池化 | 同一 R2 命中从本机与跨机 Store 段 GET 后的关键路径 | 同路由、同预热、同 P→D；核对对象唯一来源和跨机时钟 |
+| 量化推理 | 静态 W8A8 的 `o_proj` 在 1/32 行的实际访存、量化与 GEMM 耗时 | 同权重、同 TP 与实际量化调用，保留 shape 和设备计数 |
+| 微批次流水 | 单轮四行拆两批后，按微批配对各 rank 的 Dispatch、专家计算、Combine 和回放 | 允许 DBO 的上游 GPU Runner、DeepEP 后端、固定路由和图配置 |
 
 正文明确声明的教学时长、四十 token 路由、缩比缓存和捕获档位不属于设备复现目标。实测采用目标实现合法参数；上述表格不会因为播放器运行正确就改为通过。
 

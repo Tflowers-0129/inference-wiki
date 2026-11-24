@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
 CHAPTERS = [
     ('execution', '从一轮调度到一次前向.md', '从一轮调度到一次前向', '从一轮调度<br><span>到一次前向</span>'),
+    ('model-layers', '模型层中的Attention与MoE.md', '模型的一层：Attention、FFN 与 MoE', '一条 Token 怎样走过模型的一层<br><span>Attention、FFN 与 MoE</span>'),
     ('speculation', '投机解码与流式指标.md', '投机解码：调度、元数据与流式时延', '投机解码<br><span>与流式指标</span>'),
     ('load-balancing', '负载均衡与专家并行.md', '负载均衡：DPLB 与 EPLB', '负载均衡<br><span>DPLB 与 EPLB</span>'),
     ('ep-communication', 'EP通信与通算融合.md', 'EP 通信与计算重叠：算子选择与融合执行', 'EP 通信与计算重叠<br><span>算子选择与融合执行</span>'),
@@ -207,8 +208,13 @@ def build_chapters():
         elif key == 'execution':
             player_links = ''
             extra = ''
-            next_link = '<a href="speculation.html">继续：投机解码与流式指标 →</a>'
+            next_link = '<a href="model-layers.html">继续：看一条 Token 怎样走过模型的一层 →</a>'
             action = '<a class="primary-button" href="#execution-1">跟三条请求走一轮 →</a><a class="text-button" href="#execution-5">看一份 tiling 计划怎么来 ↓</a>'
+        elif key == 'model-layers':
+            player_links = ''
+            extra = ''
+            next_link = '<a href="speculation.html">继续：投机解码与流式指标 →</a>'
+            action = '<a class="primary-button" href="#model-layers-1">跟一条输入行走过一层 →</a><a class="text-button" href="#model-layers-4">对照七种模型的层结构 ↓</a>'
         elif key == 'load-balancing':
             player_links = '<a href="#dplb-lab">DPLB 请求分发</a><a href="#eplb-lab">EPLB rank 泳道</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("lb.css")}"><script defer src="{asset_url("lb-model.js")}"></script><script defer src="{asset_url("lb-app.js")}"></script>'

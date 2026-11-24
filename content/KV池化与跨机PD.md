@@ -140,3 +140,9 @@ P1 用**对象键**查找副本，无需知道这页 KV 在 P0 的显存里曾�
 **主机内存和传输带宽。** 本例的单层前缀在池中占 32 KiB 的 KV 数据，A、B 为 Store 注册的 DRAM 容量还要单独计算。P1 仍需分配显存页供 Attention 读取。播放器里的一次 PUT 和一次 GET 各传 32 KiB，把副本放在 A 段时只有 GET 跨机，放在 B 段时只有 PUT 跨机。两种放置下，两个 D 各自的 64 KiB 交接都还在。这些是按 KV 内容计算的字节数，链路上的实际流量还包含传输协议开销。当前缀很少复用或副本在下次命中前已被淘汰，保存这些块仍会占用主机内存和写入带宽。[Store 的内存配置](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/docs/source/user_guide/feature_guide/kv_cache_pool_ascend_store.md#L145-L155) · [Store 的 PUT 和 GET](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/backend/mooncake_backend.py#L715-L767)
 
 做服务对照时，两组使用同一模型、硬件、P/D 配比和路由，重放相同的输入、到达时刻和输出长度。模型预热后，让两组从相同的本地缓存状态开始。开启共享池的一组分别统计首次写入和随后命中的请求，以免一批很快的命中掩盖了未命中请求的等待。先关闭 profiler，重复测量客户端 TTFT 和从发出请求到收到最后一个输出的端到端时延，报告中位数和 P95、P99，同时统计吞吐。再按相同负载采集 Trace，核对查找、读回或交接是否让后续计算等待。这两条 SQL 请求能算出少算的位置和传输的字节数，实际时延和吞吐变化仍需上述对照测量。[实验对照流程](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/README.md#特性前后对照的固定流程)
+
+### R2 同样命中 128 个位置，换副本位置后少等了哪一段？
+
+再做一个两组都开共享池的对照。R2 固定到机器 B 的 P1，P1 显存都从该前缀未命中开始。负载开始前确认对象可读，且它在两组分别只由 A 或 B 的 Store 段提供。这样两组的 R2 都 GET 32 KiB、只新算 1 个输入位置，也都还有 P1→D1 的 64 KiB 交接。变量是 GET 来源：A 的 DRAM 要跨机到 B 的目标显存，B 的 DRAM 则在本机送入目标显存。若还要把 R1 的 PUT 算进整套流程，单独标出写入开始和对象变可读的时点。对象摆在 B 时，跨机工作可能从 R2 的 GET 换到了 R1 的 PUT。
+
+以非逐层异步读为例，在 R2 的 P1 上用请求 ID、对象键与目标页配对 `batch_get_into_multi_buffers` 进入和返回、`get_finished()` 报回接收完成、请求继续调度以及第一个消费这些页的 Attention。GET 返回变早但 P1 准入没变，优先查队列和调度边界。P1 首次前向变早但客户端首输出没变，再量 D1 的交接就绪和可运行时点。客户端 TTFT 与 P1 各阶段间隔分别在各自时钟上算，跨机绝对时间比较需要校准。两组放置的字节账可按本例复算，哪段等待实际缩短仍需取同条件记录。[GET 与返回码](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/backend/mooncake_backend.py#L749-L778) · [异步非逐层的接收完成集合](https://github.com/vllm-project/vllm-ascend/blob/0c99d3fc/vllm_ascend/distributed/kv_transfer/kv_pool/ascend_store/pool_worker.py#L917-L929)

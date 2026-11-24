@@ -48,6 +48,17 @@ Combine 解决的是**一层之内**专家结果回到哪一行。到整个模�
 
 拆成微批后，这四行仍由各自选中的专家处理，但一次专家矩阵乘能一起处理的行数可能减少，每层还要分别为两个微批发起通信。另一批的计算如果在接收完成前就已做完，剩下的通信仍在本轮的关键路径上。比较两种配置时，可以先问两个问题。开 DBO 后，每次专家矩阵乘处理多少行？从第一批开始前向到两批输出都可采样，整个区间缩短了多少？[每微批的专家通信](https://github.com/vllm-project/vllm/blob/5df63a72/vllm/v1/worker/gpu/ubatch_utils.py#L395-L425)
 
+### 同样四行，重叠 7 格，整轮为什么只少 5 格？
+
+先算一层的教学例子。固定 R0–R3 的路由。设只有一条计算轨道和一条通信轨道，同一轨道上串行，两条轨道独立可并行。只数专家段，假设四行整批走 Dispatch 8 格、专家 GEMM 12 格、Combine 6 格。拆批后，每批的 Dispatch 4 格、Combine 3 格，但小 GEMM 每批要 7 格。表里的区间从 0 数，给出一种满足依赖的排法。
+
+| 排法 | 通信轨道（Dispatch；Combine） | 计算轨道 | 两批全就绪 |
+| --- | --- | --- | --- |
+| 整批 | `[0,8)`；`[20,26)` | 四行 `[8,20)` | 第 26 格 |
+| 拆批 | 微批 0 `[0,4)`、微批 1 `[4,8)`；微批 0 `[11,14)`、微批 1 `[18,21)` | 微批 0 `[4,11)`、微批 1 `[11,18)` | 第 21 格 |
+
+拆批后，`[4,8)` 的分发和 `[11,14)` 的回传各有一段被计算覆盖，合计 7 格。GEMM 加起来却多花 `7+7−12=2` 格，所以专家段缩短 5 格。头上的 4 格和尾部的 3 格依然暴露在关键路径上。如果小 GEMM 要 10 格，两批计算改为 `[4,14)` 和 `[14,24)`，最后一批到第 27 格才就绪。此时同样有重叠，整个专家段反而长 1 格。这个例子只验证依赖与算术。完整 DeepEP 执行顺序及整轮是否更快，需要把 Attention、共享专家、Host 交接和通信资源争用一并放回实际 Trace。
+
 设备验证要让关闭和开启 DBO 的两组使用同一权重、后端、请求序列、并发和图配置。先核对输出及逐请求归属，在关闭 profiler 时重复测量吞吐、TTFT 和逐 token 间隔。再对同条件下的一轮采集所有相关 rank 的 Host、计算、通信和同步事件，按微批配对 Dispatch、专家计算与 Combine，核对通信和计算重叠后整轮还有多少等待。跨 rank 对齐需要校准时钟。若只有独立起点，只能比较各 rank 本地的事件与依赖。[项目实操流程](https://github.com/Tflowers-0129/inference-wiki/blob/main/experiments/README.md#特性前后对照的固定流程)
 
 以上调用链取自上游 GPU ModelRunnerV2。2026-11-18 核查的 vLLM-Ascend 快照会提示忽略 `enable_dbo` 并把它重置为 False，默认 V2 模型状态也要求 `ubatch_idx == 0`。图中的四行用于复算切分与归并，本章尚无这组 GPU 配置的前后 Trace 和服务指标。[Ascend 平台配置](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/platform.py#L1083-L1087) · [Ascend 的 V2 模型状态](https://github.com/vllm-project/vllm-ascend/blob/92b6354a/vllm_ascend/worker/v2/model_states/default.py#L432-L441)

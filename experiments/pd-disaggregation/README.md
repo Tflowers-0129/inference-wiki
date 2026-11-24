@@ -1,6 +1,6 @@
 # PD 请求交接与 KV 生命周期实验
 
-本目录对应第七章《PD 分离系统：请求交接与 KV 生命周期》。实验使用实际 vLLM-Ascend HTTP 服务、官方 proxy、Mooncake 原生传输与 NPU 模型执行；教学机制图与真实采集分别标注。
+本目录对应《PD 分离系统：请求交接与 KV 生命周期》。实验使用实际 vLLM-Ascend HTTP 服务、官方 proxy、Mooncake 原生传输与 NPU 模型执行；教学机制图与真实采集分别标注。
 
 ## 固定源码与二进制身份
 

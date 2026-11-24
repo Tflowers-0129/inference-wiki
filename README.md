@@ -4,7 +4,7 @@
 
 ## 从哪儿开始
 
-如果你用过聊天模型，想知道它收到请求后做了什么，可以先从[混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler)算两轮。看看两条请求继续生成时，另一条长输入能处理多少。再跟着[一次前向](https://tflowers-0129.github.io/inference-wiki/execution.html)看模型怎样执行这一轮，最后用[投机解码播放器](https://tflowers-0129.github.io/inference-wiki/speculation.html#spec-player)验证一轮可以确认几个输出。正文里的「试一试」可以先自己算，再展开答案。
+如果你用过聊天模型，想知道它收到请求后做了什么，可以先从[混部播放器](https://tflowers-0129.github.io/inference-wiki/#scheduler)算两轮。看看两条请求继续生成时，另一条长输入能处理多少。再跟着[一次前向](https://tflowers-0129.github.io/inference-wiki/execution.html)看模型怎样执行这一轮，走进[模型的一层](https://tflowers-0129.github.io/inference-wiki/model-layers.html)看 Attention 读历史与 FFN 选权重，最后用[投机解码播放器](https://tflowers-0129.github.io/inference-wiki/speculation.html#spec-player)验证一轮可以确认几个输出。正文里的「试一试」可以先自己算，再展开答案。
 
 - 想知道历史数据放在哪，先看 [KV 寻址](https://tflowers-0129.github.io/inference-wiki/kv-cache-layouts.html#kv-decode-player)。之后可以追 [P 与 D 的交接](https://tflowers-0129.github.io/inference-wiki/pd-disaggregation.html)、[两次 SQL 补全怎样复用前缀](https://tflowers-0129.github.io/inference-wiki/kv-pooling.html#pool-walk)，或 [稀疏 Attention 怎样补回缺少的历史](https://tflowers-0129.github.io/inference-wiki/sparse-offload.html#offload-lab)。
 - 想知道多张卡怎样分工，可以看 [请求与专家放置](https://tflowers-0129.github.io/inference-wiki/load-balancing.html)、[专家输入的往返](https://tflowers-0129.github.io/inference-wiki/ep-communication.html)和 [上下文怎样分片与归并](https://tflowers-0129.github.io/inference-wiki/context-parallel.html)。
@@ -19,9 +19,11 @@
 
 《从一轮调度到一次前向》从输入组织、算子与访存追到 metadata 同步和跨轮异步调度。《投机解码与流式指标》继续追踪候选验证、KV 有效范围和客户端收到的内容事件。投机章开头的播放器沿八个步骤展示起点、逐个提议、四行验证、提交回退与下一轮输入；默认状态面板随网页宽度排版，可切换完整 SVG 泳道，并配合静态完整流程图和工作坊 profiling 原图阅读。正文用同一位置的 Draft 和 Target 分布算首次拒绝与校正采样，再追到有效计数和下一 Token。实验室另比较逐 Token、成组与代理缓冲三种发送场景。网页不展示具体引擎发行编号。
 
-十二章共用左侧篇章导航，进入后默认展开当前章的目录，点击章标题可折叠；手机通过顶栏菜单打开相同导航。
+十三章共用左侧篇章导航，进入后默认展开当前章的目录，点击章标题可折叠；手机通过顶栏菜单打开相同导航。
 
 《从一轮调度到一次前向》沿 ModelRunnerV2 的输入准备、千级 Prefill 分块、KV 分页寻址、Attention、采样和下一轮输入展开。图解分别说明输入与 KV 写入位置、层内数据流、拒绝后的状态更新、Attention 计算分块、CPU／设备生成 tiling 计划的区别，以及图回放中的任务等待。正文从 tiling 如何划分计算工作讲起，再说明设备长度、计划生成与多模型迁移的关系；历史输入准备微实验保留在实验档案中，不作为 V2 调用链的证据。
+
+《一条 Token 怎样走过模型的一层》从 Qwen3 的单行投影追到 DeepSeek-V3.2 的两次 TopK，再对照七个检查点的 Attention 与 FFN。源码入口表把模型层型、Ascend 后端文件和要核对的 KV 或递归状态连起来。
 
 《负载均衡：DPLB 与 EPLB》从请求入口的 DPLB 走到单层 MoE 的 EPLB，用五张 SVG 展开 DP/EP 维度、等请求数与不同工作量、同容量专家副本放置、rank × stream 泳道和权重/映射安全切换。两个交互分别演示固定遥测下的新请求评分与等待请求估计，以及同十二个专家权重存储位置、八十次专家任务下的布局和热度变化。正文追到 DPLB 快照替换、EPLB 逻辑到物理查表与 STAIR 计数汇总。泳道是明确标注的教学构造，不使用工作坊原图推断负载均衡收益，也不把专家计数均衡度写成实际加速比。
 
@@ -102,7 +104,7 @@ python3 scripts/serve.py --port 4174
 ## 修改正文、图和网页
 
 - `content/LLM推理调度与执行.md`：完整正文，图源路径为 `../dist/assets/`。
-- `content/从一轮调度到一次前向.md`、`content/投机解码与流式指标.md`：新增正文。
+- `content/从一轮调度到一次前向.md`、`content/模型层中的Attention与MoE.md`、`content/投机解码与流式指标.md` 从输入准备走到层内计算、草稿验证与客户端指标。
 - `content/负载均衡与专家并行.md`：DPLB、EPLB、rank 泳道与真实 Trace 采集口径。
 - `content/EP通信与通算融合.md`：EP 通信路径、算子选择与融合执行。
 - `content/上下文并行与Attention归并.md`：TP 的 KV 切分、PCP／DCP 与 Attention 结果归并。
@@ -138,9 +140,9 @@ python3 scripts/sync-content.py
 
 EP 静态泳道与交互模拟共用模型。修改 `dist/ep-timeline-model.js` 后，先运行 `node scripts/render-ep-profile.cjs` 重建 `dist/assets/ep-overlap-swimlanes.svg`，再同步正文；普通正文编辑不需要这一步。
 
-脚本默认读取本仓库的 `content/`，生成 `dist/source.md`、`dist/execution.md`、`dist/speculation.md`、`dist/load-balancing.md`、`dist/ep-communication.md`、`dist/context-parallel.md`、`dist/pd-disaggregation.md`、`dist/kv-cache-layouts.md`、`dist/sparse-offload.md`、`dist/kv-pooling.md`、`dist/quantization.md`、`dist/dbo.md` 和 `dist/technical-wiki-source.zip`，供页面上的下载链接使用。这些下载生成文件由 `.gitignore` 排除，部署前会重新生成。压缩包正文引用 `figures/`，解压后可直接连图阅读。也可使用 `--manuscript /绝对路径/文稿.md`，图源仍需保存在本仓库 `dist/assets/`。
+脚本默认读取本仓库的 `content/`，生成 `dist/source.md`、`dist/execution.md`、`dist/model-layers.md`、`dist/speculation.md`、`dist/load-balancing.md`、`dist/ep-communication.md`、`dist/context-parallel.md`、`dist/pd-disaggregation.md`、`dist/kv-cache-layouts.md`、`dist/sparse-offload.md`、`dist/kv-pooling.md`、`dist/quantization.md`、`dist/dbo.md` 和 `dist/technical-wiki-source.zip`，供页面上的下载链接使用。这些下载生成文件由 `.gitignore` 排除，部署前会重新生成。压缩包正文引用 `figures/`，解压后可直接连图阅读。也可使用 `--manuscript /绝对路径/文稿.md`，图源仍需保存在本仓库 `dist/assets/`。
 
-同步脚本会用对应的 Markdown 重建 `execution.html`、`speculation.html`、`load-balancing.html`、`ep-communication.html`、`context-parallel.html`、`pd-disaggregation.html`、`kv-cache-layouts.html`、`sparse-offload.html`、`kv-pooling.html`、`quantization.html` 与 `dbo.html`。这些生成网页随仓库提交便于直接浏览，应修改 Markdown 和模板后重建；原有 `index.html` 仍按手工图文维护。渲染支持本文使用的段落、标题、平面列表、表格、代码块和 SVG / PNG 图片，不是任意 Markdown 的通用转换器。涉及模型假设时也需检查播放器。
+同步脚本会用对应的 Markdown 重建 `execution.html`、`model-layers.html`、`speculation.html`、`load-balancing.html`、`ep-communication.html`、`context-parallel.html`、`pd-disaggregation.html`、`kv-cache-layouts.html`、`sparse-offload.html`、`kv-pooling.html`、`quantization.html` 与 `dbo.html`。这些生成网页随仓库提交便于直接浏览，应修改 Markdown 和模板后重建；原有 `index.html` 仍按手工图文维护。渲染支持本文使用的段落、标题、平面列表、表格、代码块和 SVG / PNG 图片，不是任意 Markdown 的通用转换器。涉及模型假设时也需检查播放器。
 
 ## 检查与测试
 

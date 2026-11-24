@@ -16,6 +16,7 @@ DIST = ROOT / 'dist'
 DOWNLOADS = {
     'LLM推理调度与执行.md': 'source.md',
     '从一轮调度到一次前向.md': 'execution.md',
+    '模型层中的Attention与MoE.md': 'model-layers.md',
     '投机解码与流式指标.md': 'speculation.md',
     '负载均衡与专家并行.md': 'load-balancing.md',
     'EP通信与通算融合.md': 'ep-communication.md',
@@ -78,7 +79,7 @@ def main():
     for path, page in pages.items():
         if LEGACY_RUNNER.search(path.read_text(encoding="utf-8")):
             errors.append(f"{path.name} 教学调用链应使用 ModelRunnerV2")
-        expected_order = ['index', 'execution', 'speculation', 'load-balancing', 'ep-communication', 'context-parallel', 'pd-disaggregation', 'kv-cache-layouts', 'sparse-offload', 'kv-pooling', 'quantization', 'dbo']
+        expected_order = ['index', 'execution', 'model-layers', 'speculation', 'load-balancing', 'ep-communication', 'context-parallel', 'pd-disaggregation', 'kv-cache-layouts', 'sparse-offload', 'kv-pooling', 'quantization', 'dbo']
         if page.chapter_order != expected_order:
             errors.append(f'{path.name} 学习篇章顺序不一致，预期为 {", ".join(expected_order)}')
         if page.expanded_chapters != [path.stem]:

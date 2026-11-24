@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="506" viewBox="0 0 720 506" role="img" aria-labelledby="title desc">
+  <title id="title">同一行经过两次选择</title>
+  <desc id="desc">DeepSeek-V3.2 的稀疏 Attention 从 4132 个可见位置选至多 2048 个位置，再查 MLA KV。MoE 从 256 个专家中为本行选 8 个，加上共享专家，合成一行输出。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1L9 5L1 9Z" fill="#496078"/>
+    </marker>
+    <style>
+      text {font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#152c46;text-anchor:middle}
+      .title {font-size:25px;font-weight:700}
+      .stage {font-size:22px;font-weight:700;text-anchor:start}
+      .label {font-size:22px;font-weight:650}
+      .detail {font-size:20px;fill:#3c5269}
+      .flow {fill:none;stroke:#496078;stroke-width:2;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect x="1" y="1" width="718" height="504" rx="19" fill="#f8fbff" stroke="#cbd8e5" stroke-width="2"/>
+  <text class="title" x="360" y="37">同一行经过两次选择</text>
+  <rect x="260" y="51" width="200" height="38" rx="19" fill="#fff" stroke="#b6c9dc"/>
+  <text class="detail" x="360" y="78">A 的当前行</text>
+  <rect x="24" y="121" width="672" height="110" rx="13" fill="#eaf3ff" stroke="#b2caea"/>
+  <text class="stage" x="44" y="167">Attention</text>
+  <text class="stage" x="44" y="199">选历史位置</text>
+  <rect x="219" y="142" width="250" height="73" rx="10" fill="#fff" stroke="#b2caea"/>
+  <text class="label" x="344" y="172">Lightning Indexer</text>
+  <text class="detail" x="344" y="199">4132 个位置，至多选 2048</text>
+  <rect x="509" y="142" width="167" height="73" rx="10" fill="#fff" stroke="#b2caea"/>
+  <text class="label" x="592" y="172">稀疏 Attention</text>
+  <text class="detail" x="592" y="199">读取所选的 KV</text>
+  <path class="flow" d="M344 89v49"/>
+  <path class="flow" d="M344 103h248v35"/>
+  <path class="flow" d="M473 178h30"/>
+  <rect x="24" y="269" width="672" height="173" rx="13" fill="#e9f6f1" stroke="#acd2c6"/>
+  <text class="stage" x="44" y="305">MoE FFN</text>
+  <text class="stage" x="44" y="337">选专家权重</text>
+  <rect x="219" y="283" width="250" height="70" rx="10" fill="#fff" stroke="#acd2c6"/>
+  <text class="label" x="344" y="311">Router</text>
+  <text class="detail" x="344" y="339">256 个路由专家，选 8 个</text>
+  <rect x="219" y="374" width="250" height="52" rx="10" fill="#fff" stroke="#acd2c6"/>
+  <text class="label" x="344" y="408">1 个共享专家</text>
+  <rect x="509" y="283" width="167" height="70" rx="10" fill="#fff" stroke="#acd2c6"/>
+  <text class="label" x="592" y="326">路由专家计算</text>
+  <rect x="509" y="374" width="167" height="52" rx="10" fill="#fff" stroke="#acd2c6"/>
+  <text class="label" x="592" y="408">加权与归并</text>
+  <path class="flow" d="M592 215v26H344v38"/>
+  <path class="flow" d="M344 241H195v159h19"/>
+  <path class="flow" d="M592 241h91v77h-4"/>
+  <path class="flow" d="M473 318h30"/>
+  <path class="flow" d="M592 353v16"/>
+  <path class="flow" d="M473 400h30"/>
+  <rect x="487" y="457" width="210" height="36" rx="18" fill="#fff" stroke="#b6c9dc"/>
+  <text class="detail" x="592" y="482">A 的一行输出</text>
+  <path class="flow" d="M592 426v26"/>
+</svg>
