@@ -9,6 +9,8 @@
   let events = model.frames(accepted);
   let timer = null;
   const scene = globalThis.WikiSpecScene;
+  const sceneHost = byId('spec-scene');
+  const sceneToggle = byId('spec-toggle-view');
   let fullScene = false;
 
   function node(tag, className, text) {
@@ -60,28 +62,33 @@
   }
   function renderScene() {
     if (!scene) return;
-    const host = byId('spec-scene');
-    const useFull = fullScene;
-    const draw = !useFull && scene.renderCompact ? scene.renderCompact : scene.render;
-    host.innerHTML = draw(events[index], Number(byId('spec-next-k').value));
-    host.dataset.layout = useFull ? 'full' : 'compact';
-    byId('spec-toggle-view').textContent = fullScene ? '返回自适应图示' : '展开完整泳道';
-    byId('spec-toggle-view').setAttribute('aria-pressed', String(fullScene));
+    const draw = fullScene ? scene.render : scene.renderCompact;
+    sceneHost.innerHTML = draw(events[index], Number(byId('spec-next-k').value));
+    sceneHost.dataset.layout = fullScene ? 'full' : 'compact';
+    sceneHost.tabIndex = fullScene ? 0 : -1;
+    sceneHost.setAttribute('aria-label', fullScene
+      ? '完整角色泳道，可横向滚动' : '当前步骤的候选、验证与输出');
   }
+  const stages = events.map((event, i) => {
+    const item = node('li');
+    const jump = node('button', '', event.shortTitle);
+    jump.type = 'button';
+    jump.setAttribute('aria-label', `跳到第 ${i + 1} 步：${event.shortTitle}`);
+    jump.addEventListener('click', () => {stop(); index = i; render();});
+    item.append(jump);
+    return item;
+  });
+  byId('spec-stages').append(...stages);
+
   function render() {
     const frame = events[index];
     const result = frame.result;
-    const stages = byId('spec-stages');
-    stages.replaceChildren(...events.map((event, i) => {
-      const item = node('li', i === index ? 'is-current' : i < index ? 'is-complete' : '');
-      const jump = node('button', '', `${i + 1} ${event.shortTitle}`);
-      jump.type = 'button';
-      jump.setAttribute('aria-label', `跳到第 ${i + 1} 步：${event.shortTitle}`);
-      if (i === index) jump.setAttribute('aria-current', 'step');
-      jump.addEventListener('click', () => {stop(); index = i; render();});
-      item.append(jump);
-      return item;
-    }));
+    stages.forEach((item, i) => {
+      item.classList.toggle('is-current', i === index);
+      item.classList.toggle('is-complete', i < index);
+      if (i === index) item.firstElementChild.setAttribute('aria-current', 'step');
+      else item.firstElementChild.removeAttribute('aria-current');
+    });
     byId('spec-progress').max = events.length - 1;
     byId('spec-progress').value = index;
     byId('spec-progress').setAttribute('aria-valuetext', events[index].shortTitle);
@@ -133,8 +140,11 @@
       ? `提交后下一位置是 ${result.extraToken.position}：这里的 x 已确认输出，但没有 Target KV。${result.invalidTailLength ? '它将替换同一逻辑位置上被拒绝的候选，后续无效位置也不能作为历史读取。' : '它在最后一个已接受候选之后，留待下一轮计算。'}`
       : '本例始终区分三件事：候选已提出、Target 已计算 KV、输出已确认提交。';
   }
-  byId('spec-toggle-view').addEventListener('click', () => {fullScene = !fullScene; renderScene();});
-  window.addEventListener('resize', renderScene);
+  sceneToggle.addEventListener('click', () => {
+    fullScene = !fullScene;
+    sceneToggle.setAttribute('aria-pressed', String(fullScene));
+    renderScene();
+  });
   byId('spec-prev').addEventListener('click', () => {stop(); index = Math.max(0, index - 1); render();});
   byId('spec-next').addEventListener('click', () => {stop(); index = Math.min(events.length - 1, index + 1); render();});
   byId('spec-reset').addEventListener('click', () => {stop(); index = 0; render();});

@@ -80,7 +80,7 @@
       ['commit', '提交与回退', '⑦ 提交输出，标出可以继续读取的 Target KV',
         `本轮新输出 [${result.emittedTokens.join(',')}]，共 ${result.emittedCount} 个。有效 Target KV 长度为 ${result.validKvLength}，${result.invalidTailLength ? `位置 ${result.invalidPositions.join('、')} 的候选 KV 不再有效。` : '没有无效候选尾部。'}x@${result.validKvLength} 已确认输出，但尚无自己的 Target KV；t0 不重复发送。`],
       ['next', '接下一轮', '⑧ 把 x 作为下一轮输入，继续生成',
-        `下一轮从 x@${result.validKvLength} 开始。可以把下方的下一轮候选数 K 设为 0、1、3，观察位置和 query 边界。x 的 KV 要等下一次 Target 前向计算后才产生；图中列出的是下一轮已准备好的输入。`]
+        `下一轮从 x@${result.validKvLength} 开始。可以把上方的下轮候选数 K 设为 0、1、3，再展开 metadata 核对 query 边界。x 的 KV 要等下一次 Target 前向计算后才产生。`]
     ];
     return definitions.map(([key, shortTitle, title, note], i) => ({
       key, shortTitle, title, note, result,

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="投机解码：调度、元数据与流式时延：结合源码、图解和算例，说明推理时的数据流与执行顺序。"><title>投机解码：调度、元数据与流式时延 · Inference Wiki</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="reading.css"><link rel="stylesheet" href="chapters.css?rev=ec8c867f"><script defer src="chapter.js?rev=c47f333a"></script><link rel="stylesheet" href="spec.css?rev=504ddcd0"><link rel="stylesheet" href="spec-scene.css?rev=018cc612"><script defer src="spec-model.js?rev=f1a6fc3b"></script><script defer src="spec-scene.js?rev=e5e1fafb"></script><script defer src="spec-app.js?rev=6e1a2cc6"></script></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="投机解码：调度、元数据与流式时延：结合源码、图解和算例，说明推理时的数据流与执行顺序。"><title>投机解码：调度、元数据与流式时延 · Inference Wiki</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="reading.css"><link rel="stylesheet" href="chapters.css?rev=ec8c867f"><script defer src="chapter.js?rev=c47f333a"></script><link rel="stylesheet" href="spec.css?rev=4d133e01"><link rel="stylesheet" href="spec-scene.css?rev=94cd4eab"><script defer src="spec-model.js?rev=0b43bdb9"></script><script defer src="spec-scene.js?rev=27ce8d7e"></script><script defer src="spec-app.js?rev=82792b41"></script></head>
 <body><div class="reading-progress" id="readingProgress"></div>
 <aside class="sidebar" id="sidebar"><a class="brand" href="index.html"><span class="brand-mark"><i></i><i></i><i></i></span><span>Inference<span class="brand-sub">图解推理系统</span></span><b>WIKI</b></a><button class="search-trigger" data-search>搜索本章 <kbd>⌘ K</kbd></button><div class="nav-group-label">学习篇章</div><nav class="main-nav wiki-chapters" aria-label="学习篇章"><a class="wiki-chapter-link" data-nav-chapter="index" href="index.html"><span>调度、PD 与 KV</span></a><a class="wiki-chapter-link" data-nav-chapter="execution" href="execution.html"><span>从一轮调度到一次前向</span></a><a class="wiki-chapter-link" data-nav-chapter="model-layers" href="model-layers.html"><span>模型的一层：Attention、FFN 与 MoE</span></a><details class="wiki-chapter-current" data-nav-chapter="speculation" open><summary aria-current="page"><span>投机解码：调度、元数据与流式时延</span></summary><nav class="main-nav chapter-nav" aria-label="本章目录"><a href="#spec-player">投机验证播放器</a><a href="#spec-stream">流式指标实验室</a><a href="#speculation-1">验证前的 Target KV 与 Draft 候选</a><a href="#speculation-2">Target 算了四行，第三个候选由哪一行判定？</a><a href="#speculation-3">提交三个输出后，下一轮不能从长度 12 接着算</a><a href="#speculation-4">采样结果与有效计数怎样决定下一轮输入？</a><a href="#speculation-5">拒绝候选后，Target、MTP 和 DSpark 各自读哪几行？</a><a href="#speculation-6">成组返回后，ITL 和 TPOT 各按什么计数？</a><a href="#speculation-7">逐 Token、成组返回与代理缓冲</a><a href="#speculation-8">沿同一个输出定位客户端停顿</a><a href="#speculation-9">怎样核对设备进度与客户端接收？</a></nav></details><a class="wiki-chapter-link" data-nav-chapter="load-balancing" href="load-balancing.html"><span>负载均衡：DPLB 与 EPLB</span></a><a class="wiki-chapter-link" data-nav-chapter="ep-communication" href="ep-communication.html"><span>EP 通信与计算重叠：算子选择与融合执行</span></a><a class="wiki-chapter-link" data-nav-chapter="context-parallel" href="context-parallel.html"><span>上下文并行：KV 分片与 Attention 归并</span></a><a class="wiki-chapter-link" data-nav-chapter="pd-disaggregation" href="pd-disaggregation.html"><span>PD 分离系统：请求交接与 KV 生命周期</span></a><a class="wiki-chapter-link" data-nav-chapter="kv-cache-layouts" href="kv-cache-layouts.html"><span>KV 缓存布局与递归状态</span></a><a class="wiki-chapter-link" data-nav-chapter="sparse-offload" href="sparse-offload.html"><span>稀疏 KV：Decode Offload 与 HiSparse</span></a><a class="wiki-chapter-link" data-nav-chapter="kv-pooling" href="kv-pooling.html"><span>KV 池化：单机混部与跨机 PD</span></a><a class="wiki-chapter-link" data-nav-chapter="quantization" href="quantization.html"><span>量化推理：位宽、尺度与算子执行</span></a><a class="wiki-chapter-link" data-nav-chapter="dbo" href="dbo.html"><span>微批次流水：两批 MoE 工作怎样重叠</span></a></nav></aside>
 <div class="page-shell"><header class="topbar"><button class="mobile-menu" id="menuToggle" aria-label="展开目录" aria-expanded="false">☰</button><div class="breadcrumb"><a href="index.html">推理系统</a><span>/</span><strong>投机解码：调度、元数据与流式时延</strong></div><a class="source-link" href="speculation.md" download>下载本章 Markdown ↗</a></header>
@@ -14,14 +14,22 @@
 <p>以请求 R 为例。Target 的 KV 已覆盖位置 0～7，上次采样得到的位置 8 的 Token 记为 <code>t0@8</code>。t0 已确认，但还没有自己的 Target KV。Draft 从 t0 开始，依次提出 d1、d2、d3。位置编号只用来展示候选关系，不代表实际 Prompt 通常只有八个 Token。</p>
 <section class="spec-lab" id="spec-player" aria-labelledby="spec-player-title">
   <div class="spec-lab-heading">
-    <span class="spec-eyebrow">单条候选链 · 贪心采样示例</span>
-    <h3 id="spec-player-title">一轮验证后，哪些 Token 成为输出？</h3>
-    <p>固定本轮 K＝3，从 t0 开始逐个提出候选，观察 Target 怎样一次验证这批候选，以及下一轮从哪个 Token 开始。可拖动进度或点击步骤。</p>
+    <div>
+      <h3 id="spec-player-title">投机验证怎样确认输出？</h3>
+      <p>单条候选链 · 贪心采样 · 本轮 K = 3</p>
+    </div>
+    <button type="button" id="spec-toggle-view" aria-controls="spec-scene" aria-pressed="false">完整泳道</button>
   </div>
   <div class="spec-controls">
-    <label for="spec-accepted">连续接受候选数 a
-      <select id="spec-accepted"><option value="0">0：第一个就不匹配</option><option value="1">1：接受 d1</option><option value="2" selected>2：接受 d1、d2</option><option value="3">3：全部接受</option></select>
-    </label>
+    <div class="spec-counts">
+      <label for="spec-accepted">连续接受数 a
+        <select id="spec-accepted"><option value="0">0</option><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select>
+      </label>
+      <label for="spec-next-k">下轮候选数 K
+        <select id="spec-next-k"><option value="0">0</option><option value="1" selected>1</option><option value="3">3</option></select>
+      </label>
+    </div>
+    <div class="spec-progress"><label for="spec-progress">进度</label><input id="spec-progress" type="range" min="0" max="7" step="1" value="0" aria-label="投机解码播放进度"><output id="spec-progress-label" for="spec-progress">1 / 8</output></div>
     <div class="spec-buttons" role="group" aria-label="投机事件播放">
       <button type="button" id="spec-prev">上一步</button>
       <button type="button" id="spec-play" aria-pressed="false">播放</button>
@@ -30,36 +38,32 @@
     </div>
   </div>
   <ol class="spec-stage-list" id="spec-stages" aria-label="八个投机事件"></ol>
-  <div class="spec-progress"><label for="spec-progress">播放进度</label><input id="spec-progress" type="range" min="0" max="7" step="1" value="0" aria-label="投机解码播放进度"><output id="spec-progress-label" for="spec-progress">1 / 8</output></div>
   <div class="spec-live" aria-live="polite" aria-atomic="true">
     <h4 id="spec-event-title">① 先分清已输出的 t0 与已有 Target KV</h4>
     <p id="spec-event-note"></p>
   </div>
-  <div class="spec-scene-options"><span>默认按网页宽度排版；完整泳道可横向滚动。</span><button type="button" id="spec-toggle-view" aria-pressed="false">展开完整泳道</button></div>
-  <div id="spec-scene" class="spec-scene-wrap" tabindex="0" role="region" aria-label="投机解码步骤状态与角色依赖；完整泳道可横向滚动"></div>
-  <details class="spec-field-details"><summary>展开本轮 Token、KV 与 metadata 字段</summary>
-  <div class="spec-board" aria-label="Target KV 和本轮输入">
-    <div class="spec-board-row"><p class="spec-row-label">已有 Target KV<span>位置 0–7</span></p><div class="spec-token-row" id="spec-prefix"></div></div>
-    <div class="spec-board-row"><p class="spec-row-label">本轮输入位置<span>t0 已确认；d 是候选</span></p><div class="spec-token-row" id="spec-query"></div></div>
-    <div class="spec-board-row"><p class="spec-row-label">新提交的输出<span>不重复发送已输出的 t0</span></p><div class="spec-token-row" id="spec-output"></div></div>
-  </div>
-  <div class="spec-metadata" id="spec-metadata" aria-label="本轮 Metadata"></div>
-  <div class="spec-stat-grid" id="spec-stats"></div>
-  <p class="spec-boundary" id="spec-kv-boundary"></p>
-  </details>
-  <p class="spec-footnote">泳道只有相对先后，色块宽度不表示实测耗时。不同角色可运行在同一设备，具体 stream 和 rank 由部署决定。这里手动选择接受的候选数 a，用来比较不同结果。步骤之间没有固定时长，无法据此估计接受概率或运行速度。x 刚被采样出来，尚未作为 Target 输入，不能算入已有 Target KV。</p>
-  <div class="spec-continuation" aria-labelledby="spec-continuation-title">
-    <h4 id="spec-continuation-title">下一轮 metadata 预览（按所选接受长度推算）</h4>
-    <p>上一轮固定 K＝3，用接受长度 a 纠正下一轮的起点；新的 K 决定这次有多少行 Query。预览使用上方选定的 a，不随播放步骤变化。</p>
-    <div class="spec-controls"><label for="spec-next-k">下一轮候选数 K
-      <select id="spec-next-k"><option value="0">0：只输入 x</option><option value="1" selected>1：x + e1</option><option value="3">3：x + e1、e2、e3</option></select>
-    </label></div>
-    <div class="spec-continuation-result" aria-live="polite" aria-atomic="true">
-      <p class="spec-boundary" id="spec-continuation-correction"></p>
-      <div id="spec-continuation-metadata"></div>
-      <details><summary>查看页表与 slot_mapping</summary><p class="spec-continuation-address" id="spec-continuation-address"></p></details>
-    </div>
-    <p class="spec-footnote">本例每页可存 4 个 Token 的 KV，页表为 [7, 2, 9, 10]。可以据此核对输入位置与写入地址。选择投机策略或评估后端性能还需要实际运行数据。</p>
+  <div id="spec-scene" class="spec-scene-wrap" role="region" aria-label="当前步骤的候选、验证与输出"></div>
+  <div class="spec-details">
+    <details class="spec-field-details"><summary>本轮 Token、KV 与 metadata</summary>
+      <div class="spec-board" aria-label="Target KV 和本轮输入">
+        <div class="spec-board-row"><p class="spec-row-label">已有 Target KV<span>位置 0–7</span></p><div class="spec-token-row" id="spec-prefix"></div></div>
+        <div class="spec-board-row"><p class="spec-row-label">本轮输入位置<span>t0 已确认；d 是候选</span></p><div class="spec-token-row" id="spec-query"></div></div>
+        <div class="spec-board-row"><p class="spec-row-label">新提交的输出<span>不重复发送已输出的 t0</span></p><div class="spec-token-row" id="spec-output"></div></div>
+      </div>
+      <div class="spec-metadata" id="spec-metadata" aria-label="本轮 Metadata"></div>
+      <div class="spec-stat-grid" id="spec-stats"></div>
+      <p class="spec-boundary" id="spec-kv-boundary"></p>
+    </details>
+    <details class="spec-field-details spec-continuation">
+      <summary>下一轮 metadata 与写入地址</summary>
+      <p>预览按所选接受数 a 和下轮候选数 K 推算。</p>
+      <div class="spec-continuation-result" aria-live="polite" aria-atomic="true">
+        <p class="spec-boundary" id="spec-continuation-correction"></p>
+        <div id="spec-continuation-metadata"></div>
+        <details><summary>查看页表与 slot_mapping</summary><p class="spec-continuation-address" id="spec-continuation-address"></p></details>
+      </div>
+      <p class="spec-footnote">本例每页可存 4 个 Token 的 KV，页表为 [7, 2, 9, 10]。可以据此核对输入位置与写入地址。选择投机策略或评估后端性能还需要实际运行数据。</p>
+    </details>
   </div>
   <noscript><p>可展开下方“完整过程”阅读静态 SVG 图解；播放器需要 JavaScript。</p></noscript>
 </section>

@@ -1,13 +1,21 @@
 <section class="spec-lab" id="spec-player" aria-labelledby="spec-player-title">
   <div class="spec-lab-heading">
-    <span class="spec-eyebrow">单条候选链 · 贪心采样示例</span>
-    <h3 id="spec-player-title">一轮验证后，哪些 Token 成为输出？</h3>
-    <p>固定本轮 K＝3，从 t0 开始逐个提出候选，观察 Target 怎样一次验证这批候选，以及下一轮从哪个 Token 开始。可拖动进度或点击步骤。</p>
+    <div>
+      <h3 id="spec-player-title">投机验证怎样确认输出？</h3>
+      <p>单条候选链 · 贪心采样 · 本轮 K = 3</p>
+    </div>
+    <button type="button" id="spec-toggle-view" aria-controls="spec-scene" aria-pressed="false">完整泳道</button>
   </div>
   <div class="spec-controls">
-    <label for="spec-accepted">连续接受候选数 a
-      <select id="spec-accepted"><option value="0">0：第一个就不匹配</option><option value="1">1：接受 d1</option><option value="2" selected>2：接受 d1、d2</option><option value="3">3：全部接受</option></select>
-    </label>
+    <div class="spec-counts">
+      <label for="spec-accepted">连续接受数 a
+        <select id="spec-accepted"><option value="0">0</option><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select>
+      </label>
+      <label for="spec-next-k">下轮候选数 K
+        <select id="spec-next-k"><option value="0">0</option><option value="1" selected>1</option><option value="3">3</option></select>
+      </label>
+    </div>
+    <div class="spec-progress"><label for="spec-progress">进度</label><input id="spec-progress" type="range" min="0" max="7" step="1" value="0" aria-label="投机解码播放进度"><output id="spec-progress-label" for="spec-progress">1 / 8</output></div>
     <div class="spec-buttons" role="group" aria-label="投机事件播放">
       <button type="button" id="spec-prev">上一步</button>
       <button type="button" id="spec-play" aria-pressed="false">播放</button>
@@ -16,36 +24,32 @@
     </div>
   </div>
   <ol class="spec-stage-list" id="spec-stages" aria-label="八个投机事件"></ol>
-  <div class="spec-progress"><label for="spec-progress">播放进度</label><input id="spec-progress" type="range" min="0" max="7" step="1" value="0" aria-label="投机解码播放进度"><output id="spec-progress-label" for="spec-progress">1 / 8</output></div>
   <div class="spec-live" aria-live="polite" aria-atomic="true">
     <h4 id="spec-event-title">① 先分清已输出的 t0 与已有 Target KV</h4>
     <p id="spec-event-note"></p>
   </div>
-  <div class="spec-scene-options"><span>默认按网页宽度排版；完整泳道可横向滚动。</span><button type="button" id="spec-toggle-view" aria-pressed="false">展开完整泳道</button></div>
-  <div id="spec-scene" class="spec-scene-wrap" tabindex="0" role="region" aria-label="投机解码步骤状态与角色依赖；完整泳道可横向滚动"></div>
-  <details class="spec-field-details"><summary>展开本轮 Token、KV 与 metadata 字段</summary>
-  <div class="spec-board" aria-label="Target KV 和本轮输入">
-    <div class="spec-board-row"><p class="spec-row-label">已有 Target KV<span>位置 0–7</span></p><div class="spec-token-row" id="spec-prefix"></div></div>
-    <div class="spec-board-row"><p class="spec-row-label">本轮输入位置<span>t0 已确认；d 是候选</span></p><div class="spec-token-row" id="spec-query"></div></div>
-    <div class="spec-board-row"><p class="spec-row-label">新提交的输出<span>不重复发送已输出的 t0</span></p><div class="spec-token-row" id="spec-output"></div></div>
-  </div>
-  <div class="spec-metadata" id="spec-metadata" aria-label="本轮 Metadata"></div>
-  <div class="spec-stat-grid" id="spec-stats"></div>
-  <p class="spec-boundary" id="spec-kv-boundary"></p>
-  </details>
-  <p class="spec-footnote">泳道只有相对先后，色块宽度不表示实测耗时。不同角色可运行在同一设备，具体 stream 和 rank 由部署决定。这里手动选择接受的候选数 a，用来比较不同结果。步骤之间没有固定时长，无法据此估计接受概率或运行速度。x 刚被采样出来，尚未作为 Target 输入，不能算入已有 Target KV。</p>
-  <div class="spec-continuation" aria-labelledby="spec-continuation-title">
-    <h4 id="spec-continuation-title">下一轮 metadata 预览（按所选接受长度推算）</h4>
-    <p>上一轮固定 K＝3，用接受长度 a 纠正下一轮的起点；新的 K 决定这次有多少行 Query。预览使用上方选定的 a，不随播放步骤变化。</p>
-    <div class="spec-controls"><label for="spec-next-k">下一轮候选数 K
-      <select id="spec-next-k"><option value="0">0：只输入 x</option><option value="1" selected>1：x + e1</option><option value="3">3：x + e1、e2、e3</option></select>
-    </label></div>
-    <div class="spec-continuation-result" aria-live="polite" aria-atomic="true">
-      <p class="spec-boundary" id="spec-continuation-correction"></p>
-      <div id="spec-continuation-metadata"></div>
-      <details><summary>查看页表与 slot_mapping</summary><p class="spec-continuation-address" id="spec-continuation-address"></p></details>
-    </div>
-    <p class="spec-footnote">本例每页可存 4 个 Token 的 KV，页表为 [7, 2, 9, 10]。可以据此核对输入位置与写入地址。选择投机策略或评估后端性能还需要实际运行数据。</p>
+  <div id="spec-scene" class="spec-scene-wrap" role="region" aria-label="当前步骤的候选、验证与输出"></div>
+  <div class="spec-details">
+    <details class="spec-field-details"><summary>本轮 Token、KV 与 metadata</summary>
+      <div class="spec-board" aria-label="Target KV 和本轮输入">
+        <div class="spec-board-row"><p class="spec-row-label">已有 Target KV<span>位置 0–7</span></p><div class="spec-token-row" id="spec-prefix"></div></div>
+        <div class="spec-board-row"><p class="spec-row-label">本轮输入位置<span>t0 已确认；d 是候选</span></p><div class="spec-token-row" id="spec-query"></div></div>
+        <div class="spec-board-row"><p class="spec-row-label">新提交的输出<span>不重复发送已输出的 t0</span></p><div class="spec-token-row" id="spec-output"></div></div>
+      </div>
+      <div class="spec-metadata" id="spec-metadata" aria-label="本轮 Metadata"></div>
+      <div class="spec-stat-grid" id="spec-stats"></div>
+      <p class="spec-boundary" id="spec-kv-boundary"></p>
+    </details>
+    <details class="spec-field-details spec-continuation">
+      <summary>下一轮 metadata 与写入地址</summary>
+      <p>预览按所选接受数 a 和下轮候选数 K 推算。</p>
+      <div class="spec-continuation-result" aria-live="polite" aria-atomic="true">
+        <p class="spec-boundary" id="spec-continuation-correction"></p>
+        <div id="spec-continuation-metadata"></div>
+        <details><summary>查看页表与 slot_mapping</summary><p class="spec-continuation-address" id="spec-continuation-address"></p></details>
+      </div>
+      <p class="spec-footnote">本例每页可存 4 个 Token 的 KV，页表为 [7, 2, 9, 10]。可以据此核对输入位置与写入地址。选择投机策略或评估后端性能还需要实际运行数据。</p>
+    </details>
   </div>
   <noscript><p>可展开下方“完整过程”阅读静态 SVG 图解；播放器需要 JavaScript。</p></noscript>
 </section>

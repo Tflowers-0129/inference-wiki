@@ -45,9 +45,7 @@
 .spec-stat-suffix{font-size:12px;color:#475569;line-height:1.5}
 .spec-boundary{padding:12px 14px;border-left:3px solid #0f766e;background:#eaf5f3;font-size:14px!important;color:#164e49!important;border-radius:0 6px 6px 0}
 .spec-footnote{font-size:12px!important;line-height:1.7;color:#475569!important;margin-top:12px!important}
-.spec-continuation{margin-top:24px;padding-top:22px;border-top:1px solid #b9c7d5}
 .spec-continuation>p{font-size:14px}
-.spec-continuation .spec-controls{margin:14px 0}
 .spec-continuation-address{font-size:13px;line-height:1.9;overflow-wrap:anywhere}
 .spec-timeline-wrap{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;margin:20px 0;padding-bottom:6px}
 .spec-timeline{display:flex;gap:8px;list-style:none!important;padding:0!important;margin:0!important;min-width:min-content}
@@ -83,9 +81,69 @@
   .spec-stream-stat-grid .spec-stat:last-child{grid-column:span 2}
 }
 
-.spec-stage-list li{padding:0;overflow:hidden}.spec-stage-list button{width:100%;height:100%;min-height:42px;border:0;background:transparent;color:inherit;font:inherit;padding:8px;cursor:pointer;text-align:left}.spec-stage-list button:hover{background:#dbeafe}.spec-progress{display:flex;align-items:center;gap:12px;margin:12px 0 18px;font-size:13px}.spec-progress input{min-width:0;flex:1;accent-color:#1d4ed8}.spec-progress output{min-width:42px;text-align:right;font-variant-numeric:tabular-nums}.spec-field-details{margin-top:16px}.spec-field-details summary,.chapter-figure-details summary{cursor:pointer;color:#1d4ed8;font-size:14px;font-weight:600;line-height:1.8}.chapter-figure-details{margin:22px 0;padding:16px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}.chapter-figure-details .diagram-figure{margin-bottom:0}.chapter-figure-details:not([open]) .diagram-figure{display:none}
+.spec-stage-list li{padding:0;overflow:hidden}.spec-stage-list button{width:100%;height:100%;min-height:42px;border:0;background:transparent;color:inherit;font:inherit;padding:8px;cursor:pointer;text-align:left}.spec-stage-list button:hover{background:#dbeafe}.spec-progress{display:flex;align-items:center;gap:12px;margin:12px 0 18px;font-size:13px}.spec-progress input{min-width:0;flex:1;accent-color:#1d4ed8}.spec-progress output{min-width:42px;text-align:right;font-variant-numeric:tabular-nums}.spec-field-details summary,.chapter-figure-details summary{cursor:pointer;color:#1d4ed8;font-size:14px;font-weight:600;line-height:1.8}.chapter-figure-details{margin:22px 0;padding:16px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}.chapter-figure-details .diagram-figure{margin-bottom:0}.chapter-figure-details:not([open]) .diagram-figure{display:none}
 
-.spec-scene-options{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0;font-size:12px;color:#475569}.spec-scene-options button{flex-shrink:0;padding:6px 10px;border:1px solid #94a3b8;background:#fff;color:#1d4ed8;border-radius:6px;font:inherit;cursor:pointer}.spec-scene-options+ .spec-scene-wrap{margin-top:10px}@media(max-width:480px){.spec-scene-options{align-items:start}.spec-scene-options span{max-width:55%}}
-
-#spec-player .spec-live{min-height:0;padding:12px 15px;margin:0 0 16px}#spec-player .spec-live h4{font-size:16px;line-height:1.6;margin-bottom:4px}#spec-player .spec-live p{font-size:13px;line-height:1.8;margin:0}#spec-player .spec-stage-list{margin-bottom:10px!important}#spec-player .spec-progress{margin-bottom:13px}#spec-player .spec-scene-options{font-size:12px}#spec-player .spec-scene-options span{line-height:1.7}#spec-player .spec-continuation{margin-top:20px;padding-top:18px}
-@media(max-width:640px){#spec-player .spec-stage-list{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}#spec-player .spec-stage-list button{min-height:46px;padding:6px 5px;text-align:center;font-size:11px;line-height:1.5}#spec-player .spec-live{padding:10px 12px;margin-bottom:13px}#spec-player .spec-live h4{font-size:15px}#spec-player .spec-live p{font-size:12px}#spec-player .spec-scene-options{font-size:11px}#spec-player .spec-scene-options button{padding:6px 8px}}
+#spec-player {
+  container-type: inline-size;
+  padding: 14px;
+}
+#spec-player .spec-lab-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+}
+#spec-player .spec-lab-heading > div {
+  display: flex;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  min-width: 0;
+  gap: 2px 10px;
+}
+#spec-player-title { margin: 0; font-size: 20px; line-height: 1.4; }
+#spec-player .spec-lab-heading p { margin: 0; font-size: 13px; line-height: 1.45; color: #475569; }
+#spec-toggle-view {
+  min-height: 34px;
+  padding: 4px 9px;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  background: #fff;
+  color: #1d4ed8;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+#spec-toggle-view[aria-pressed="true"] { background: #e8f0ff; border-color: #1d4ed8; }
+#spec-player .spec-controls { align-items: center; margin: 8px 0; gap: 8px 14px; }
+.spec-counts { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+#spec-player .spec-counts label { align-items: center; flex-direction: row; width: auto; }
+#spec-player .spec-controls select,
+#spec-player .spec-buttons button { min-height: 34px; padding-block: 4px; }
+#spec-player .spec-stage-list {
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  margin: 0 0 8px !important;
+}
+#spec-player .spec-stage-list button { min-height: 34px; padding: 4px; text-align: center; }
+#spec-player .spec-stage-list button:focus-visible { outline-offset: -3px; }
+#spec-player .spec-progress { flex: 1 1 115px; min-width: 0; gap: 6px; margin: 0; }
+#spec-player .spec-progress label { width: auto; }
+#spec-player .spec-live { min-height: 0; margin-bottom: 8px; padding: 5px 9px; }
+#spec-player .spec-live h4 { margin: 0 0 2px; font-size: 15px; line-height: 1.4; }
+#spec-player .spec-live p { margin: 0; font-size: 13px; line-height: 1.55; }
+.spec-details { display: grid; gap: 4px 16px; margin-top: 8px; }
+.spec-details:not(:has(> details[open])) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.spec-details details[open] > summary { margin-bottom: 4px; }
+@container (max-width: 620px) {
+  #spec-player .spec-stage-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  #spec-player .spec-progress { flex-basis: 100%; order: 1; }
+}
+@container (max-width: 490px) {
+  .spec-details:not(:has(> details[open])) { grid-template-columns: minmax(0, 1fr); }
+  #spec-player .spec-buttons button { padding-inline: 5px; }
+  #spec-player .spec-buttons button,
+  #spec-player .spec-stage-list button,
+  #spec-player .spec-controls select,
+  #spec-toggle-view { min-height: 40px; }
+}

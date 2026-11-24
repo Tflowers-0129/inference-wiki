@@ -192,116 +192,79 @@
     return parts.join('');
   }
 
-  /* Web layout: text and tokens reflow at the reading width, independently of the panorama. */
   function renderCompact(frame, nextK = 1) {
     const phase = STEPS.indexOf(frame && frame.key);
-    const accepted = frame && frame.result && frame.result.accepted;
+    const result = frame && frame.result;
+    const accepted = result && result.accepted;
     if (phase < 0 || !Number.isInteger(accepted) || accepted < 0 || accepted > 3) {
       throw new RangeError('Scene needs a supported frame and an accepted prefix from 0 to 3');
     }
     if (!Number.isInteger(nextK) || nextK < 0 || nextK > 3) {
       throw new RangeError('Next draft count must be an integer from 0 to 3');
     }
-    const proposed = frame.proposedCount === undefined ? Math.min(3, phase) : frame.proposedCount;
-    if (!Number.isInteger(proposed) || proposed < 0 || proposed > 3) {
-      throw new RangeError('Proposed draft count must be an integer from 0 to 3');
-    }
-    const hasMetadata = Boolean(frame.hasMetadata) || phase >= 4;
-    const verified = Boolean(frame.hasVerification) || phase >= 5;
-    const committed = Boolean(frame.committed) || phase >= 6;
+
+    const {proposedCount, hasMetadata, hasVerification, committed} = frame;
+    const {queryTokens, queryPositions, validKvLength, emittedTokens, extraToken} = result;
     const isNext = frame.key === 'next';
-    const validKvLength = 9 + accepted;
-    const nextQuery = ['x', ...Array.from({length: nextK}, (_, i) => `e${i + 1}`)];
-    const output = [...['d1', 'd2', 'd3'].slice(0, accepted), 'x'];
-    const parts = [];
-    function chip(label, position, detail, tone, current = false) {
-      return `<span class="spec-web-token spec-web-${tone}${current ? ' is-current' : ''}"><strong>${escape(label)}<small>@${position}</small></strong><span>${escape(detail)}</span></span>`;
+
+    function chip(label, position, tone, current = false) {
+      return `<span class="spec-web-token spec-web-${tone}${current ? ' is-current' : ''}">${escape(label)}<small>@${position}</small></span>`;
     }
-    function heading(title, state, active = false) {
-      return `<div class="spec-web-card-head${active ? ' is-active' : ''}"><h5>${escape(title)}</h5><span>${escape(state)}</span></div>`;
-    }
-    parts.push(`<div class="spec-scene-adaptive" data-phase="${escape(frame.key)}" aria-label="单链投机：${escape(STEP_LABELS[phase])}，网页自适应图示">`);
-    parts.push('<section class="spec-web-chain" aria-label="起点与逐个扩展的候选链">');
-    parts.push(heading('从 t0 开始逐个生成候选', `已提议 ${proposed} / 3`, phase <= 3));
-    parts.push('<p class="spec-web-start"><span>进入本轮</span><strong>Target KV：0–7，共 8 个位置</strong><span>t0@8 已确认输出，尚无自己的 Target KV。</span></p>');
-    parts.push('<div class="spec-web-token-chain">');
-    parts.push(chip('t0', 8, '本轮起始 Token', 'anchor', phase === 0));
-    for (let i = 1; i <= 3; i++) {
-      parts.push(chip(i <= proposed ? `d${i}` : '·', 8 + i,
-        i <= proposed ? verified ? '曾作为候选' : '候选 · 待验证' : '尚未提出',
-        i <= proposed ? 'draft' : 'future', phase === i));
-    }
-    parts.push('</div></section>');
-    parts.push('<div class="spec-web-comparison">');
-    parts.push('<section class="spec-web-target" aria-label="Target 四行输入及其 KV 与预测">');
-    parts.push(heading('Target：四行，一次前向', hasMetadata ? verified ? '验证已完成' : '输入已组装' : '输入待组装', phase === 4 || phase === 5));
-    parts.push('<p class="spec-web-card-note">每行预测下一个 token；只读取截至自身的候选前缀。</p>');
-    parts.push('<table class="spec-web-query"><thead><tr><th scope="col">输入行</th><th scope="col">Target KV</th><th scope="col">预测结果</th></tr></thead><tbody>');
-    ['t0', 'd1', 'd2', 'd3'].forEach((value, i) => {
-      const valid = i <= accepted;
+
+    const draft = queryTokens.map((label, i) => {
+      const position = queryPositions[i];
+      const proposed = i <= proposedCount;
+      return chip(proposed ? label : '待提议', position, i === 0 ? 'anchor' : proposed ? 'draft' : 'future', phase === i);
+    }).join('');
+
+    const rows = queryTokens.map((label, i) => {
+      const retained = i <= accepted;
+      const kv = committed ? retained ? '有效' : '已作废' : hasVerification ? '临时已计算' : '待计算';
       let prediction = hasMetadata ? '待验证' : '待组装';
-      if (verified) prediction = i < accepted ? `→ d${i + 1} 接受`
-        : i === accepted ? i === 3 ? '→ x（bonus）' : `→ x，拒 d${i + 1}` : '不用于提交';
-      const kv = committed ? valid ? '有效 KV' : '候选 KV 作废' : verified ? '临时已计算' : '尚未计算';
-      const tone = committed ? valid ? 'valid' : 'invalid' : hasMetadata ? 'computed' : 'future';
-      parts.push(`<tr class="spec-web-row-${tone}"><th scope="row">${i <= proposed ? `${value}<small>@${8 + i}</small>` : `<span class="spec-web-unproposed">待提议<small>@${8 + i}</small></span>`}</th><td>${escape(kv)}</td><td>${escape(prediction)}</td></tr>`);
-    });
-    parts.push('</tbody></table>');
-    parts.push(`<p class="spec-web-query-meta">${hasMetadata ? '临时长度 12 = 历史 8 + 本轮 4 行。' : '候选收齐后，再打包 t0、d1、d2、d3。'}</p>`);
-    parts.push('</section>');
-    parts.push('<div class="spec-web-results">');
-    parts.push('<section class="spec-web-commit" aria-label="提交输出与保留的有效 KV">');
-    parts.push(heading('提交输出，保留有效 KV', committed ? `新输出 ${accepted + 1} 个` : '尚未提交', phase === 6));
-    parts.push(`<p class="spec-web-kv"><span>有效 Target KV</span><strong>${committed ? `0–${validKvLength - 1} · 长度 ${validKvLength}` : '0–7 · 长度 8'}</strong></p>`);
-    if (committed) {
-      parts.push(`<div class="spec-web-output">${output.map((label, i) => chip(label, 9 + i, label === 'x' ? accepted === 3 ? 'bonus · 无 KV' : '纠正 · 无 KV' : '确认 · 有 KV', label === 'x' ? 'anchor' : 'valid')).join('')}</div>`);
-      parts.push(`<p class="spec-web-card-note">不重复提交 t0；${3 - accepted ? `回退 ${3 - accepted} 个候选位置。` : '没有无效候选尾部。'}<strong>x@${validKvLength} 尚无自己的 Target KV。</strong></p>`);
-    } else {
-      parts.push(`<p class="spec-web-pending">${verified ? '四行已计算；提交时再确定有效 KV 边界。' : '候选已提出，不代表 Target 已计算，也不能直接提交。'}</p>`);
-    }
-    parts.push('</section>');
-    parts.push('<section class="spec-web-next" aria-label="下一轮从 x 开始">');
-    parts.push(heading('下一轮从 x 开始', `新 K = ${nextK}`, isNext));
-    if (committed) {
-      parts.push(`<div class="spec-web-next-tokens">${nextQuery.map((value, i) => chip(value, validKvLength + i, i ? '新候选' : '待输入 · 无 KV', isNext ? i ? 'draft' : 'anchor' : 'future', isNext && i === 0)).join('')}</div>`);
-      parts.push(`<p class="spec-web-card-note"><code>query_start_loc = [0, ${nextK + 1}]</code> · <code>seq_len = ${validKvLength + nextK + 1}</code><br>Target 还未处理这些新输入。</p>`);
-    } else {
-      parts.push('<p class="spec-web-pending">先提交并纠正有效边界，再让 x 进入下一轮输入。新 Query 尚未执行。</p>');
-    }
-    parts.push('</section></div></div>');
-    const activeLane = [0, 1, 1, 1, 0, 2, 0, 0][phase];
-    const currentTasks = [
-      ['t0 已确认', 'Target KV 仍只覆盖 0–7'],
-      ['Draft 提议 d1', '输入 t0，产生 d1'],
-      ['Draft 提议 d2', '输入 d1，产生 d2'],
-      ['Draft 提议 d3', '输入 d2，产生 d3'],
-      ['组装四行 Target 输入', 't0、d1、d2、d3 一起打包'],
-      ['Target 一次前向验证', '四行一批，遵守因果掩码'],
-      [`提交 ${accepted + 1} 个新输出`, `有效 Target KV 长度 ${validKvLength}`],
-      ['准备下一轮 Query', `x + ${nextK} 个候选；Target 尚未执行`]
-    ];
-    const before = [
-      '前轮已确认 t0；Target KV 仍止于 7。', 't0 已确认，Draft 才能从它继续。',
-      '先有 d1，再把它作为 Draft 输入。', '先有 d2，再继续扩展候选链。',
-      'd1、d2、d3 都已由 Draft 提出。', '四行输入、位置与因果边界已准备。',
-      'Target 已给出连续接受候选数 a。', `有效 KV 边界已纠正到 ${validKvLength}。`
-    ];
-    const after = [
-      '从 t0 开始依次提出 d1、d2、d3。', 'd1 确定后，才用它提议 d2。',
-      'd2 确定后，才用它提议 d3。', '收齐候选，再组装四行 Target 输入。',
-      'Target 将四行作为一批处理。', '提交接受前缀与 x，回退无效候选 KV。',
-      'x 进入下一轮，仍须计算自身 KV。', '新 Query 准备好后，还需执行 Target。'
-    ];
-    parts.push('<section class="spec-web-roles" aria-label="当前步骤的执行角色与前后依赖">');
-    parts.push('<div class="spec-web-role-labels">');
-    ['Host', 'Device / Draft', 'Device / Target'].forEach((label, i) => {
-      parts.push(`<span class="${i === activeLane ? 'is-active' : ''}">${i === activeLane ? '<strong>当前角色</strong>' : ''}${escape(label)}</span>`);
-    });
-    parts.push(`</div><p class="spec-web-task"><strong>${escape(currentTasks[phase][0])}</strong><span>${escape(currentTasks[phase][1])}</span></p>`);
-    parts.push(`<div class="spec-web-dependencies"><p><span>前置</span>${escape(before[phase])}</p><p><span>随后</span>${escape(after[phase])}</p></div>`);
-    parts.push('<p class="spec-web-role-note">角色示意；Draft 与 Target 可在同一 Device 执行，不对应独立 stream、rank 或实测耗时。</p></section>');
-    parts.push('</div>');
-    return parts.join('');
+      if (hasVerification) {
+        if (i < accepted) prediction = `→ d${i + 1} 接受`;
+        else if (i === accepted) prediction = i === 3 ? '→ x（bonus）' : `→ x，拒 d${i + 1}`;
+        else prediction = '不用于提交';
+      }
+      const tone = committed ? retained ? 'valid' : 'invalid' : 'pending';
+      const input = i <= proposedCount ? label : '待提议';
+      return `<tr class="spec-web-row-${tone}"><th scope="row">${escape(input)}<small>@${queryPositions[i]}</small></th><td>${escape(kv)}</td><td>${escape(prediction)}</td></tr>`;
+    }).join('');
+
+    const output = committed ? emittedTokens.map((label, i) =>
+      chip(label, queryPositions[0] + 1 + i, label === 'x' ? 'anchor' : 'valid', label === 'x' && phase === 6)
+    ).join('') : '';
+    const nextQuery = committed ? [extraToken.token, ...Array.from({length: nextK}, (_, i) => `e${i + 1}`)].map((label, i) =>
+      chip(label, extraToken.position + i, isNext ? i ? 'draft' : 'anchor' : 'future', isNext && i === 0)
+    ).join('') : '';
+
+    return `<div class="spec-scene-adaptive" data-phase="${escape(frame.key)}">
+      <section class="spec-web-chain" aria-label="Draft 候选链">
+        <div><h5>Draft 候选链</h5><p>原有 Target KV · 位置 0–7</p></div>
+        <div class="spec-web-token-chain">${draft}</div>
+      </section>
+      <div class="spec-web-comparison">
+        <section class="spec-web-target${phase === 4 || phase === 5 ? ' is-active' : ''}">
+          <header class="spec-web-card-head"><h5>Target · 四行一次前向</h5><span>${hasVerification ? '验证完成' : hasMetadata ? '已组装' : '待组装'}</span></header>
+          <table class="spec-web-query">
+            <thead><tr><th scope="col">输入行</th><th scope="col">Target KV</th><th scope="col">预测下一 Token</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </section>
+        <div class="spec-web-results">
+          <section class="spec-web-commit${phase === 6 ? ' is-active' : ''}">
+            <header class="spec-web-card-head"><h5>本轮新输出</h5><span>${committed ? `${emittedTokens.length} 个` : '尚未提交'}</span></header>
+            ${committed ? `<div class="spec-web-tokens">${output}</div>` : ''}
+            <p>有效 Target KV · 位置 0–${committed ? validKvLength - 1 : 7}${committed ? `（长 ${validKvLength}）` : ''}</p>
+          </section>
+          <section class="spec-web-next${isNext ? ' is-active' : ''}">
+            <header class="spec-web-card-head"><h5>下一轮输入</h5><span>${isNext ? '待执行' : '待准备'}</span></header>
+            ${committed ? `<div class="spec-web-tokens">${nextQuery}</div>
+            <p><strong>x@${extraToken.position}</strong> 尚无 Target KV</p>` : '<p>提交后，从新采样的 x 接续。</p>'}
+          </section>
+        </div>
+      </div>
+    </div>`;
   }
 
   return {render, renderCompact};
