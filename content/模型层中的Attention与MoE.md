@@ -2,13 +2,130 @@
 
 假设你正在续写 `SELECT name FROM`，这一轮只处理请求 A 的一个新位置。Runner 已经把这行放进输入，也给了模型读写历史所需的地址。走进模型的一层后，这一行要回答两个问题。前面的哪些内容和我有关？带上这些信息后，用哪套权重变换我？前一个问题由 Attention 或递归模块处理，后一个由 FFN 处理。MoE 把 FFN 分成多套专家权重，每行只选择其中一部分。
 
-本章数的是模型文本主干的层和逻辑张量。手算按单行、无 TP 切分、无图补齐展开。遇到真实部署，再看模型构造、backend 实例和各 rank 的本地形状。[从调度到模型输入的过程](从一轮调度到一次前向.md)
+本章数的是模型文本主干的层和逻辑张量。先按系列看 Attention 与 FFN 一路改了什么，再按后端查实际算子，最后跟同一行输入复算。手算按单行、无 TP 切分、无图补齐展开。部署时再核对 backend 实例和各 rank 的本地形状。[从调度到模型输入的过程](从一轮调度到一次前向.md)
 
-- Qwen3-8B → Qwen3-30B-A3B。[四行怎样分给专家？](#qwen-gqa-moe)
-- DeepSeek-V3.2 → V4.1-Flash。[两次 TopK 各选什么？](#deepseek-two-topk) · [后层怎样借用 KV？](#deepseek-v41-cross-layer)
-- Qwen3.5-35B-A3B、GLM-5.3-Flash。[混合层怎样选 FFN？](#hybrid-layer-selection) · [KeyPool 选组后读什么？](#keypool-vs-lightning)
-- Kimi K3。[专家为何只算 3584 维？](#kimi-latent-moe)
-- Hy4-Flash。[两种 MLA 各调什么算子？](#hy4-flash-attention)
+<a id="model-family-timeline" data-section></a>
+
+## 六个模型系列的 Attention 与 MoE 怎样演进？
+
+时间线挑各系列改变历史读取、改变 FFN，或能看出两者独立演进的检查点。日期按模型方公开发布，节点间距只表示顺序。专家数按单层每个 Token 计，例如「256 选 8，另有 1 个共享专家」指 Router 从 256 个候选中选 8 个，共享专家也处理同一行。后端与硬件支持见后面的[算子表](#ascend-attention-operators)。
+
+[Qwen](#timeline-qwen) · [DeepSeek](#timeline-deepseek) · [GLM](#timeline-glm) · [Kimi](#timeline-kimi) · [混元](#timeline-hunyuan) · [MiniMax](#timeline-minimax)
+
+<a id="timeline-qwen"></a>
+
+### Qwen · 在保留历史读取的层之间加入递归
+
+- **2025-04 · Qwen3** 8B 和 30B-A3B 都用 GQA，前者的 FFN 每行使用同一套权重，后者每层从 128 个专家中选 8 个。同一代里，Attention 可以沿用同一种结构，FFN 可以有两种做法。[发布说明](https://qwenlm.github.io/blog/qwen3/) · [8B 配置](https://huggingface.co/Qwen/Qwen3-8B/blob/main/config.json) · [30B-A3B 配置](https://huggingface.co/Qwen/Qwen3-30B-A3B/blob/main/config.json) · [四行怎样走过两种 FFN](#qwen-gqa-moe)
+- **2025-09 · Qwen3-Next-80B-A3B** 48 层按「3 层 GDN、1 层门控 GQA」交替，只有 `48÷4=12` 层仍为每个历史位置保留 K/V，其余层接续卷积与递归状态。MoE 同时改为 512 选 10，另有 1 个共享专家。[模型卡](https://huggingface.co/Qwen/Qwen3-Next-80B-A3B-Instruct#model-overview)
+- **2026-02 至 2026-04 · Qwen3.5／3.6 的 35B-A3B** 两版都沿用 30 层 GDN 加 10 层门控 GQA，每层采用 256 选 8，另有 1 个共享专家。同代 27B 稠密模型也使用混合 Attention，FFN 统一走稠密权重。[Qwen3.5 35B 模型卡](https://huggingface.co/Qwen/Qwen3.5-35B-A3B#model-overview) · [Qwen3.6 35B 模型卡](https://huggingface.co/Qwen/Qwen3.6-35B-A3B#model-overview) · [27B 模型卡](https://huggingface.co/Qwen/Qwen3.6-27B#model-overview) · [比较混合层的 FFN](#hybrid-layer-selection)
+- **2026-08 · Qwen3.8 与 Flash-Next** 2.4T-A95B 和 27B 继续按 3:1 混合 GDN／门控 GQA，一个使用 512 选 10 加 1 个共享专家，一个全用稠密 FFN。同月的 Flash-Next 是架构预览分支。它把周期中的第 4 层换成 QSA，稀疏层按 4 个 Token 一组选择历史，单层 MoE 仍是 512 选 10 加 1 个共享专家。[发布日志](https://github.com/QwenLM/Qwen3.8#news) · [2.4T-A95B](https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B#model-overview) · [27B](https://huggingface.co/Qwen/Qwen3.8-27B#model-overview) · [Flash-Next](https://huggingface.co/Qwen/Qwen3.8-Flash-Next#model-overview)
+- **2026-11 · Qwen4-Max 的公开架构** 云端发布披露每 3 层 GDN 配 1 层 QSA，MoE 模型共有 2.4T 参数，激活 71B。专家 TopK 和 Ascend 后端留待公开配置与实现核对。[Qwen4-Max 公告](https://qwen.ai/blog?id=qwen4-max)
+
+<a id="timeline-deepseek"></a>
+
+### DeepSeek · 缩小每条 KV，再减少读取，最后跨层复用
+
+- **2024-05 · DeepSeek-V2** 全量 MLA 把每个位置的多头 K/V 压成共享 latent 和位置 Key，Q 仍查所有可见历史。MoE 层每行从 160 个路由专家选 6 个，另有 2 个共享专家。[发布说明](https://github.com/deepseek-ai/DeepSeek-V2) · [配置](https://huggingface.co/deepseek-ai/DeepSeek-V2/blob/main/config.json)
+- **2024-12 · DeepSeek-V3** 保留全量 MLA，专家改为 256 选 8 加 1 个共享专家。训练用路由偏置来平衡专家负载，KV 记录与路由是两条独立的变化。[发布记录](https://api-docs.deepseek.com/updates/#date-2024-12-26) · [技术报告 §2](https://arxiv.org/abs/2412.19437) · [配置](https://huggingface.co/deepseek-ai/DeepSeek-V3/blob/main/config.json)
+- **2025-09 至 2025-12 · DeepSeek-V3.2-Exp／V3.2** 在 MLA 之前加 DSA 的 Lightning Indexer，先为原始位置打分，再让主 Attention 查至多 2048 个位置。专家规格沿用 256 选 8 加 1 个共享专家。[V3.2-Exp 发布](https://api-docs.deepseek.com/news/news250929/) · [V3.2 发布](https://api-docs.deepseek.com/updates/#date-2025-12-01) · [配置](https://huggingface.co/deepseek-ai/DeepSeek-V3.2/blob/main/config.json) · [两次 TopK 算例](#deepseek-two-topk)
+- **2026-04 · DeepSeek-V4-Flash Preview** 每层保留 128 位置滑窗。有全局历史的层使用 CSA 或 HCA。CSA 每推进 4 个位置产生一条压缩记录，再从可见记录中选择。HCA 每 128 个位置产生一条记录，读取所有可见的压缩记录。Flash 的 MoE 层为 256 选 6 加 1 个共享专家，开头三层依 Token ID 查哈希路由表。这里的数字对应 Flash 检查点。[发布说明](https://api-docs.deepseek.com/news/news260424/) · [技术报告 §2.3](https://arxiv.org/html/2606.19348v1#S2.SS3) · [配置](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/blob/main/config.json)
+- **2026-09 · DeepSeek-V4.1-Flash** CSA2 保留本层滑窗，将全局 KV 写入、重算索引、复用索引分给不同层。MoE 改为 384 选 6 加 1 个共享专家，并对文本和图像分别使用路由选择偏置。[发布记录](https://api-docs.deepseek.com/updates/#date-2026-09-10) · [技术报告 §2](https://arxiv.org/html/2609.19969v1#S2) · [跨层读取算例](#deepseek-v41-cross-layer)
+
+<a id="timeline-glm"></a>
+
+### GLM · 先跨层共享索引，再尝试按位置分组和循环复用
+
+- **2025-07 · GLM-4.5** 用 GQA，每 96 个 Q heads 对应 8 个 KV heads。前三层用稠密 FFN，后续 MoE 每行从 160 个路由专家中选 8 个，再加 1 个共享专家。[发布说明](https://z.ai/blog/glm-4.5) · [配置](https://huggingface.co/zai-org/GLM-4.5/blob/main/config.json)
+- **2026-02 · GLM-5** 换成 MLA 与 DSA，逐位置选至多 2048 个历史 Token。MoE 层改为 256 选 8 再加 1 个共享专家，前三层继续用稠密 FFN。[发布说明](https://z.ai/blog/glm-5) · [配置](https://huggingface.co/zai-org/GLM-5/blob/main/config.json)
+- **2026-06 至 2026-08 · GLM-5.2／5.3** IndexShare 让有些层直接用上一索引层的 TopK，各层仍读自己的主 KV。两版配置的 78 层都只有 21 层负责独立选位置，其余 57 层复用。两版的 MoE 层仍为 256 选 8 加 1 个共享专家。[GLM-5.2 发布与 IndexShare](https://z.ai/blog/glm-5.2) · [5.2 配置](https://huggingface.co/zai-org/GLM-5.2/blob/main/config.json) · [GLM-5.3 发布](https://z.ai/blog/glm-5.3) · [5.3 配置](https://huggingface.co/zai-org/GLM-5.3/blob/main/config.json)
+- **2026-08 · GLM-5.3-Flash** 34 层 KDA 读写递归状态，11 层 NoPE 稀疏 MLA 由 KeyPool 给每 4 个连续位置组成的组打分。组一旦入选，主 Attention 逐位置查原始 KV。前 3 层仍用稠密 FFN，余下的 MoE 为 288 选 8 加 1 个共享专家。[发布说明](https://z.ai/blog/glm-5.3-flash) · [配置](https://huggingface.co/zai-org/GLM-5.3-Flash/blob/46a050be/config.json) · [4099 个位置怎样计数](#keypool-vs-lightning)
+- **2026-11 · GLM-5.4 的公开架构** 28 层循环两次并共享权重，第二遍复用第一遍的稀疏索引和选中 KV，再读自己的滑窗 KV。官方发布披露了循环结构和复用方式，专家规格与后端调用留待检查点和实现核对。[GLM-5.4 发布说明](https://z.ai/blog/glm-5.4)
+
+<a id="timeline-kimi"></a>
+
+### Kimi · 从全量 MLA 到混合层，路由专家改在低维上计算
+
+- **2025-07 · Kimi K2** 文本主干用全量 MLA。首层 FFN 稠密，后续每行从 384 个路由专家中选 8 个，再算 1 个共享专家。[发布日志](https://www.kimi.com/en/blog/) · [配置](https://huggingface.co/moonshotai/Kimi-K2-Instruct/blob/main/config.json)
+- **2026-07 · Kimi K3** 93 层中 69 层改用 KDA，24 层继续用全量 Gated MLA。后续 MoE 层变为 896 选 16 加 2 个共享专家。Router 继续看完整的 7168 维，路由专家吃到的是投影后的 3584 维。[模型卡](https://huggingface.co/moonshotai/Kimi-K3#2-model-summary) · [低维专家走读](#kimi-latent-moe)
+- **2026-10 · Kimi K3.1 Pro** 保留 69 层 KDA，把其余 24 层换成 Gated DSA，每次最多选 2048 个历史位置。896 选 16、2 个共享专家和 3584 维路由输入继续沿用。读历史的策略变了，FFN 的这些规格仍相同。[模型卡](https://huggingface.co/moonshotai/Kimi-K3.1-Pro#2-model-summary) · [配置](https://huggingface.co/moonshotai/Kimi-K3.1-Pro/blob/main/config.json)
+
+<a id="timeline-hunyuan"></a>
+
+### 混元 · 同一份 MLA 底座可以限定近邻，也可以选择远处
+
+- **2026-04 · Hy3-preview** 80 层全量 GQA，64 个 Q heads 共用 8 个 KV heads。首层 FFN 稠密，后续每行从 192 个专家选 8 个，另有 1 个共享专家。[模型说明](https://github.com/Tencent-Hunyuan/Hy3-preview/blob/main/README_CN.md) · [配置](https://huggingface.co/tencent/Hy3-preview/blob/main/config.json)
+- **2026-11 · Hy4** 文本主干改用 Gated DSA 与 MLA，IndexCache 让部分层复用前面已选出的 TopK。正式检查点的 MoE 层采用 256 选 8 加 1 个共享专家。[正式发布](https://www.tencent.com/tencent-launches-hy4-joining-the-ranks-of-the-worlds-leading-open-source-ai-models/) · [模型卡与配置](https://huggingface.co/tencent/Hy4)
+- **2026-11 · Hy4-Flash** 42 层中 30 层用 512 位置滑窗、12 层用 IndexPool 稀疏注意力，两类层仍以 MLA 保存记录。滑窗层看附近，IndexPool 层可以从更远处挑位置。FFN 变为 41 层 Latent MoE 加首层稠密，MoE 为 512 选 16 加 1 个共享专家，路由输入从 3072 维投到 1536 维。[发布说明](https://www.tencent.com/tencent-launches-hy4-flash-to-power-high-speed-cost-efficient-ai-deployment-for-everyday-workflows/) · [模型结构](https://github.com/Tencent-Hunyuan/Hy4-flash/blob/main/README_CN.md) · [两种 MLA 的算子调用](#hy4-flash-attention)
+
+<a id="timeline-minimax"></a>
+
+### MiniMax · Attention 换成稀疏层时，FFN 可以继续稠密
+
+- **2025-10 · MiniMax-M2** 62 层全量 GQA，48 个 Q heads 共用 8 个 KV heads。MoE 每行从 256 个路由专家选 8 个。[发布说明](https://www.minimax.io/blog/minimax-m2-en-1748600000) · [配置](https://huggingface.co/MiniMaxAI/MiniMax-M2/blob/main/config.json)
+- **2026-06 · MiniMax-M3** 前 3 层用全量 GQA，后 57 层用 MSA，每次选择至多 16 个 128-Token KV 块。主 KV 仍分别保存 K 与 V。前 3 层 FFN 稠密，后续改为 128 选 4 加 1 个共享专家。[发布说明](https://www.minimax.io/blog/minimax-m3) · [配置](https://huggingface.co/MiniMaxAI/MiniMax-M3/blob/main/config.json)
+- **2026-10 · MiniMax-M3.1-Flash** 把开头 3 层的 Attention 也换成 MSA，60 层都能按块访问历史。对应的 3 层 FFN 仍是稠密，其余仍用 128 选 4 加 1 个共享专家。这个版本把 Attention 和专家权重的选择分开改动。[发布说明](https://www.minimax.io/blog/minimax-m31f) · [模型卡](https://huggingface.co/MiniMaxAI/MiniMax-M3.1-Flash) · [配置](https://huggingface.co/MiniMaxAI/MiniMax-M3.1-Flash/blob/main/config.json)
+
+<a id="model-layers-5" data-section></a>
+
+## Attention 后端怎样存状态、选历史、调算子？
+
+Ascend 通用选择器读 `use_mla`、`use_sparse` 与 `use_compress`，结合硬件、算子包和配置选后端。选完类后，这一层的 `forward()` 还会看本轮形状。以普通 GQA 为例，`attention_v1.py` 只有在纯 Decode、无滑窗且满足 PA 条件时才调 `_npu_paged_attention`，其余常规路径交给 FIA。专用模型也能直接指定后端，例如 V4.1 由自己的层构造和缓存角色决定读哪份历史。[平台选择器](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/platform.py#L447-L496) · [GQA 算子分流](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/attention_v1.py#L1328-L1349) · [V4.1 层构造](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/deepseek_v41/model.py#L1007-L1037)
+
+<a id="ascend-attention-operators"></a>
+
+### 同一层进入 Prefill 和 Decode，各调什么算子？
+
+下表沿 vLLM-Ascend 2026 年 11 月 24 日的源码快照追踪调用。FIA 指 `torch_npu.npu_fused_infer_attention_score`，FIA V2 指 `torch_npu.npu_fused_infer_attention_score_v2`，GBSA 指 CANN `generic_block_sparse_attention`。后端负责组织输入、页表或递归状态，再把这一轮的计算交给算子。同一个算子也能接收不同后端准备的输入。
+
+### 全量分页与递归后端
+
+| 层型与后端 | 持久结构 | 这一轮怎样使用历史 | 主要算子入口与选路条件 |
+| --- | --- | --- | --- |
+| GQA · `attention_v1.py`（Qwen3） | 分页 K/V，多个 Q heads 共用一个 KV head | 沿页表读因果可见位置。KV head 数影响每个位置的记录大小 | 常规 Prefill／Decode 用 **FIA**。满足 PA 条件的纯 Decode 可走 `_npu_paged_attention`，带 attention sink 分支可用 **FIA V2**。[FIA 与 sink](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/attention_v1.py#L920-L1035) · [PA 条件](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/utils.py#L312-L330) |
+| 全量 MLA · `mla_v1.py`（DeepSeek-V3/R1、Kimi K3） | 每个位置存共享 latent，位置 Key 随模型配置保存 | 一行 Q 仍读因果可见历史。压缩收益来自每条历史记录的大小 | **Prefill 用 FIA，Decode 用 FIA V2**。A5 上 MRv2、头数、KV 布局与算子包兼容时可用 `flash_mla`。`quant_flash_mla` 还要满足 Kimi DSpark 草稿等条件。[Prefill](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/mla_v1.py#L1744-L1807) · [Decode](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/mla_v1.py#L3077-L3129) · [FlashMLA 条件](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/mla_v1.py#L1181-L1222) |
+| GDN · `attention/gdn.py`（Qwen3.5／3.6） | 短卷积状态与递归矩阵 | 按输入顺序更新状态。每个头的旧状态用单个衰减门控制保留量 | Prefill 按 dtype、设备及上下文并行条件选择 `fla_npu` 的 `chunk_gated_delta_rule_fwd`、`npu_chunk_gated_delta_rule` 或 Triton 分块实现。普通 Decode 用 `recurrent_gated_delta_rule`。[Prefill](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/gdn.py#L941-L1074) · [Decode](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/gdn.py#L1080-L1097) |
+| KDA · `ops/kda.py`（Kimi K3、GLM-5.3-Flash） | 短卷积状态与 KDA 递归矩阵 | 旧状态在 Key 特征维上可用不同衰减量。Prefill 交回块末状态供下一块续算 | `fla_npu` 的 `chunk_kda_fwd` 负责 Prefill，`recurrent_kda` 负责 Decode。[衰减门对照](https://arxiv.org/abs/2510.26692) · [实现](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/ops/kda.py#L9-L100) · [状态容量](../dist/kv-cache-layouts.html#kv-cache-layouts-11) |
+
+### 稀疏、压缩和滑窗后端
+
+| 层型与后端 | 持久结构 | 这一轮按什么粒度读历史 | 主要算子入口与选路条件 |
+| --- | --- | --- | --- |
+| DSA · `sfa_v1.py`（DeepSeek-V3.2、GLM-5、Kimi K3.1） | 逐位置 MLA 主 KV，负责选位置的层另存逐位置 Indexer K | Lightning Indexer 选择原始 Token 位置，主 Attention 读选中的记录 | `npu_lightning_indexer` 或量化 Indexer → `npu_sparse_flash_attention`（SFA）。packed INT8／FP8 KV 走 `npu_kv_quant_sparse_flash_attention`（QSFA），部分条件用 `_vllm` 版。[Indexer](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/device/device_op.py#L577-L635) · [SFA/QSFA](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/device/device_op.py#L638-L790) |
+| KeyPool 稀疏 MLA · `indexer_kpool.py` + `sfa_v1.py`（GLM-5.3-Flash） | 每组存一个索引 Key，主 NoPE MLA KV 仍逐位置保存 | 先选 4-Token 组，再展开回原始位置并附上未满组的尾部 | `key_pool` → `pool_key_indexer` → 主 Attention。官方 A3 INT8／A5 FP8 主 KV 示例用 `npu_kv_quant_sparse_flash_attention_vllm`。无 C8 时可走 `sparse_flash_mla` 或 `npu_sparse_flash_attention`。索引与主 KV 的 dtype 分别配置。[部署参数](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/docs/source/tutorials/models/GLM5.3-Flash.md#L277-L382) · [NoPE 分流](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/sfa_v1.py#L174-L248) · [C8 调用](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/device/device_op.py#L764-L790) |
+| CSA／HCA · `dsa_v1.py`（DeepSeek-V4） | 本层滑窗 KV 与另外保存的压缩全局 KV | CSA 从 C4 历史中选择压缩记录，HCA 读取 C128 压缩历史。算子可同时消费窗口与全局 KV | 普通路径按设备与 KV 格式选 `npu_sparse_attn_sharedkv`、`sparse_flash_mla` 或 `mixed_quant_sparse_flash_mla`。[算子选择](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/dsa_attn_kv_plan.py#L229-L283) |
+| CSA2 · `dsa_v41.py`（DeepSeek-V4.1-Flash） | 本层滑窗 KV，部分层持有全局 KV 和 Indexer K | 本层滑窗与同层或跨层的全局 KV 一起读。部分层同时复用别层的 TopK | 非 packed 路径用 `_C_ascend.npu_sparse_flash_mla`，A5 packed 路径用 `mixed_quant_sparse_flash_mla`。两者都接收滑窗和可用的全局 KV。[非 packed](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/dsa_v41.py#L704-L781) · [A5 packed](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/deepseek_v41/mixed_quant_attention.py#L246-L293) |
+| MSA · `minimax_m3/ops/msa_m3_npu.py`（MiniMax-M3 系列） | 分别保存主 K/V 页和供块选择使用的索引数据 | 每行的每组 Q heads 选 KV 块，同组共用所选的块，组内各个 head 分别算注意力 | 稀疏 Decode 用 **GBSA**。Prefill 按形状和算子包可走 GBSA、`npu_sparse_attention_score_prefill` 等路径。[MSA 结构](https://arxiv.org/html/2606.13392v1#S3) · [Prefill 与 Decode](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/minimax_m3/ops/msa_m3_npu.py#L723-L860) |
+| QSA · `qwen4_exp/attention_dispatch.py`（Qwen3.8-Flash-Next） | 主 K/V 逐位置保存，索引 Key 每 4 个位置平均池化 | 按 4-Token 微块选择，保留未满组尾部。微块描述选择粒度，页表寻址的是存储页 | 短 Prefill 把所选位置转成掩码再调 **FIA V2**。更长的 Prefill chunk 与 Decode 用 **GBSA**。判定依据为 chunk 开始时是否已达到 **24K** 逻辑 KV。[QSA 结构](https://github.com/QwenLM/Qwen3.8-Flash-Next/blob/main/tech_report.pdf) · [分流](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/qwen4_exp/attention_dispatch.py#L11-L51) · [FIA V2](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/qwen4_exp/fia.py#L155-L176) · [GBSA](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/qwen4_exp/gbsa.py#L12-L48) |
+| 滑窗 MLA／IndexPool MLA · Hy4-Flash 的 950DT 实验适配 | 两类层都用 MLA latent 和 RoPE Key，IndexPool 另有分组索引 | 滑窗固定访问近邻，IndexPool 按内容选组，可访问较远的位置 | 可用 `npu_fusion_attention` 做 SWA Prefill，C8 的 IndexPool Prefill 可用 `kv_quant_sparse_flash_attention`。分页 Decode 有 gather → QK → 带 sink 的 softmax → PV 的分步路径。[适配走读](#hy4-flash-attention) |
+
+同样叫「按组选」，也要先问组有多大。M3 的一个查询组选满 16 个块时，容量是 `16×128=2048` 个位置，最后一块实际可读多少还受因果位置限制。QSA 选满 512 个完整微块时也是 `512×4=2048` 个位置，另有未满组尾部。Ascend 的 QSA GBSA 路径仍用 128-Token KV 页，所以一张存储页覆盖 32 个选择微块。KeyPool 的组 Key 用学习到的门控和位置参数合成，QSA 这一步用平均池化。[M3 选块](https://arxiv.org/html/2606.13392v1#S3) · [QSA 技术报告 §2.1.1](https://github.com/QwenLM/Qwen3.8-Flash-Next/blob/main/tech_report.pdf) · [QSA 页与微块](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/qwen4_exp/gbsa.py#L12-L48) · [KeyPool 算例](#keypool-vs-lightning)
+
+拿一条 QSA 请求走过阈值。历史已有 24,000 个位置，本次 Prefill 加 1024 行，当前逻辑长度是 25,024。虽然已经超过 `24×1024=24,576`，`QSARequest.fia_query_end` 看到这一块**从阈值之前开始**，仍把整块交给 `qsa_fia_attention()`。下一块开始时已有 25,024 个位置，就交给 `qsa_gbsa_attention()`。随后单行 Decode 也走 GBSA。查 Trace 时，将每块的起始历史长度与是否 Prefill 一起对照，才知道为什么同一个 QSA 层先出现 FIA V2，后出现 GBSA。[跨阈值判断](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/qwen4_exp/attention_dispatch.py#L31-L51) · [同批分发到两条算子路径](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/qwen4_exp/attention_dispatch.py#L108-L182)
+
+<a id="hy4-flash-attention"></a>
+
+### Hy4-Flash 的滑窗 MLA 和 IndexPool MLA 怎样跑？
+
+继续用位置 4098，当前共有 4099 个可见位置。滑窗层固定取 `4098−511=3587` 到 4098，共 512 个位置。IndexPool 层按内容对历史分组选择，预算最多 2048 个位置，有机会读到 3587 之前的内容。两种层都用 512 维 KV latent，并带 RoPE Key。一个参数回答怎样表示历史，另一个机制回答当前看哪段历史。[模型结构与窗口大小](https://github.com/Tencent-Hunyuan/Hy4-flash#model-introduction)
+
+把这两个 layer type 追到 Ascend 的公开 950DT 适配 PR。符合条件的 **SWA Prefill** 先收集并解量化窗口涉及的 FP8 KV，再调 `torch_npu.npu_fusion_attention`。这里 `sparse_mode=4`、`pre_tockens=window−1`、`next_tockens=0`，就是前 511 个加当前。**IndexPool Prefill** 的 C8 路径则把选择结果和 packed KV 一起交给 CANN `kv_quant_sparse_flash_attention`。Trace 里看到前者之前有 gather/解量化，或后者之前有索引选择，都可以沿相应入参查回页表和位置。[SWA Prefill](https://github.com/LostFox11/vllm-ascend/blob/c7031e87/vllm_ascend/models/hy_v4_flash/c8_kvqsfa.py#L115-L181) · [IndexPool Prefill](https://github.com/LostFox11/vllm-ascend/blob/c7031e87/vllm_ascend/models/hy_v4_flash/c8_kvqsfa.py#L28-L90)
+
+**分页 Decode** 有拆开执行的路径。先用滑窗位置或 IndexPool 结果 gather KV，再做 QK、带 learned sink 的 softmax 和 PV，最后接 V 投影。比如一个请求有多条验证 query，相邻滑窗可以从同一段已读回的 KV 取各自的窗口。要核对实际镜像的算子，应以运行版本和批次条件为准。官方部署文档提供 950DT 实验镜像，以上调用链来自截至所查快照仍在审查的适配 PR。[共享窗口读取](https://github.com/LostFox11/vllm-ascend/blob/c7031e87/vllm_ascend/models/hy_v4_flash/attention.py#L1203-L1254) · [Decode 的 QK / softmax / PV](https://github.com/LostFox11/vllm-ascend/blob/c7031e87/vllm_ascend/models/hy_v4_flash/attention.py#L1751-L1773) · [官方实验部署](https://docs.vllm.ai/projects/ascend/en/latest/tutorials/models/HY4-Flash.html) · [适配 PR](https://github.com/vllm-project/vllm-ascend/pull/22839)
+
+<a id="ascend-fa-variants"></a>
+
+### 三个带 Flash Attention 名称的后端，各用谁的计划？
+
+从选中的类看它导入哪个包。下面都是稠密分页 Attention 的执行分支。读 Trace 时按实际分支找长度与计划的生产者。
+
+| 后端文件 | 接收的结构 | 特点与适用条件 | 计划和主算子入口 |
+| --- | --- | --- | --- |
+| `flash_attention_v3.py` | 分页 K/V、页表、设备端有效长度和 query 边界 | 例如符合条件的 DSpark 稠密层。匹配图档位时可更新原地址的计划缓冲 | `flash_attn_npu_3.get_scheduler_metadata()` → `flash_attn_with_kvcache()`。[计划生成](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/flash_attention_v3.py#L241-L289) · [算子消费](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/flash_attention_v3.py#L445-L463) |
+| `fa_v1.py` | 分页 K/V、设备端长度与 query 边界 | 例如适用的 A5 GLM 或 MiniMax 草稿。同一草稿步可复用 metadata 中匹配布局的计划 | CANN `flash_attn_metadata` → `flash_attn`。[调用与缓冲](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/fa_v1.py#L102-L153) |
+| `fa3_v1.py` | 现有 Attention metadata builder，128-Token 分页 K/V | 训练与推理一致性配置启用。实现要求无滑窗，拒绝非 eager 的 `FULL_DECODE_ONLY` 配置 | 将长度和页表直接传给 `flash_attn_npu_v3.flash_attn_with_kvcache()`。[选择条件](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/platform.py#L2123-L2148) · [builder 与执行](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/fa3_v1.py#L25-L102) |
+
+例如两轮草稿各有两行，图档位相同，验证多拒绝一项会让有效长度从 4132 变成 4131。`flash_attention_v3.py` 可以把本轮计划写进原地址，所以同一张图读到的是更新后的内容。与普通 FIA 对照时，要沿设备进度 D2H、CPU 等待和 FA3 的计划生产者各追一次。[FIA 如何取得 4132](../dist/execution.html#fia-host-length) · [FA3 两轮回放与 Trace 取证](../dist/execution.html#fa3-plan-replay)
 
 ## 一行 `[1,4096]` 怎样穿过 Qwen3-8B 的一层？
 
@@ -146,47 +263,7 @@ Qwen 的 `Qwen3_5DecoderLayer` 按 `layer_type` 选 GDN 或 GQA。这个检查�
 | [GLM-5.3-Flash](https://huggingface.co/zai-org/GLM-5.3-Flash/blob/46a050be/config.json) | 11 层稀疏 NoPE MLA、34 层 KDA | `mlp_layer_types` 指定 3 层稠密、42 层 MoE，MoE 为 288 选 8、另有 1 个共享专家 |
 | [Hy4-Flash](https://github.com/Tencent-Hunyuan/Hy4-flash#model-introduction) | 30 层滑窗 MLA、12 层 IndexPool MLA，`kv_lora_rank` 都为 512 | 首层稠密，其余为 Latent MoE，512 选 16，另有 1 个共享专家 |
 
-## `attention/` 里的文件多，当前层到底进哪个？
-
-Ascend 通用选择器读 `use_mla`、`use_sparse` 与 `use_compress`，结合硬件、算子包和配置选后端。选完类后，这一层的 `forward()` 还会看本轮形状。以普通 GQA 为例，`attention_v1.py` 只有在纯 Decode、无滑窗且满足 PA 条件时才调 `_npu_paged_attention`，其余常规路径交给 FIA。专用模型也能直接指定后端，例如 V4.1 由自己的层构造和缓存角色决定读哪份历史。[平台选择器](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/platform.py#L447-L496) · [GQA 算子分流](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/attention_v1.py#L1328-L1349) · [V4.1 层构造](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/deepseek_v41/model.py#L1007-L1037)
-
-<a id="ascend-attention-operators"></a>
-
-### 同一层进入 Prefill 和 Decode，各调什么算子？
-
-以下是 2026 年 11 月 24 日对应源码快照里的调用入口。FIA 指 `torch_npu.npu_fused_infer_attention_score`，FIA V2 指 `torch_npu.npu_fused_infer_attention_score_v2`。同一行列出多个入口时，按列中的条件找实际路径。
-
-| 模型与层型 | Prefill / Decode 的主算子与选择条件 |
-| --- | --- |
-| Qwen3 · 稠密 GQA | 常规 Prefill 和 Decode 用 **FIA**。满足 PA 条件的纯 Decode 可走 `_npu_paged_attention`，有 attention sink 的分支可用 **FIA V2**。[FIA 与 sink](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/attention_v1.py#L920-L1035) · [PA 条件](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/utils.py#L312-L330) |
-| DeepSeek-V3/R1、Kimi K3 · 全量 MLA | `mla_v1.py` 常规 **Prefill 用 FIA，Decode 用 FIA V2**。A5 上兼容的 MRv2、head 数、KV 布局与 CANN 包可让 Decode 走 `flash_mla`。`quant_flash_mla` 还要满足适用的 Kimi DSpark 草稿条件。[Prefill](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/mla_v1.py#L1744-L1807) · [Decode](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/mla_v1.py#L3077-L3129) · [FlashMLA 条件](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/mla_v1.py#L1181-L1222) |
-| DeepSeek-V3.2、GLM-5、Kimi K3.1 · DSA | 先用 `npu_lightning_indexer` 或量化 Indexer 选位置，再用 **`npu_sparse_flash_attention`（SFA）**读选中的 KV。packed INT8/FP8 KV 分支用 **`npu_kv_quant_sparse_flash_attention`（QSFA）**，部分条件走带 `_vllm` 后缀的自定义实现。[Indexer](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/device/device_op.py#L577-L635) · [SFA/QSFA](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/device/device_op.py#L638-L790) |
-| GLM-5.3-Flash · KeyPool 稀疏 MLA | `key_pool` 和 `pool_key_indexer` 先给出位置。官方示例的 **A3 INT8 主 KV、A5 FP8 主 KV** 各走 NoPE C8 的 `npu_kv_quant_sparse_flash_attention_vllm`。无 C8 时，NoPE 可依据计划走 CANN `sparse_flash_mla` 或 `npu_sparse_flash_attention`。主 KV 和 Indexer 的 dtype 分别配置。[部署参数](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/docs/source/tutorials/models/GLM5.3-Flash.md#L277-L382) · [NoPE 分流](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/sfa_v1.py#L174-L248) · [C8 调用](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/device/device_op.py#L764-L790) |
-| DeepSeek-V4 / V4.1-Flash · 压缩 Attention | **V4** 普通路径按设备和 KV 格式选 `npu_sparse_attn_sharedkv`、CANN `sparse_flash_mla` 或 `mixed_quant_sparse_flash_mla`。**V4.1** 的非 packed 路径用 `_C_ascend.npu_sparse_flash_mla`，A5 packed 路径用 `mixed_quant_sparse_flash_mla`。这次调用同时接收滑窗与可用的全局 KV。[V4 分流](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/dsa_attn_kv_plan.py#L229-L283) · [V4.1 非 packed](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/dsa_v41.py#L704-L781) · [V4.1 packed](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/deepseek_v41/mixed_quant_attention.py#L246-L293) |
-| MiniMax-M3 / M3.1-Flash · MSA | 稀疏 Decode 用 **CANN `generic_block_sparse_attention`（GBSA）**。源码中的 Prefill 分支根据形状和可用的算子包走 GBSA、`npu_sparse_attention_score_prefill` 等路径。在稀疏层里，TopK 交给主 Attention 的是 KV 块索引。[MSA 的 Prefill 和 Decode](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/minimax_m3/ops/msa_m3_npu.py#L723-L860) |
-| Qwen3.8-Flash-Next · QSA | **短 Prefill 用 FIA V2，长 Prefill 与 Decode 用 GBSA**。Prefill 按 **24K 逻辑 KV** 分流，跨过阈值的那个 chunk 仍可走 FIA V2。[请求分流](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/qwen4_exp/attention_dispatch.py#L11-L51) · [FIA V2 调用](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/qwen4_exp/fia.py#L155-L176) · [GBSA 调用](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/qwen4_exp/gbsa.py#L75-L97) |
-| Qwen3.5/3.6 · GDN | Prefill 按 dtype、设备和上下文并行等条件在 `fla_npu` 的 `chunk_gated_delta_rule_fwd`、`npu_chunk_gated_delta_rule` 和 Triton 分块实现之间选择。普通 Decode 用 `recurrent_gated_delta_rule` 更新状态。[Prefill 分流](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/gdn.py#L941-L1074) · [Decode](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/gdn.py#L1080-L1097) |
-| Kimi K3、GLM-5.3-Flash · KDA | Prefill 用 `fla_npu` 的 `chunk_kda_fwd` 扫一批输入并写回最终状态。Decode 用 `recurrent_kda` 更新当前请求的状态。[两次调用](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/ops/kda.py#L9-L100) |
-
-拿一条 QSA 请求走过阈值。历史已有 24,000 个位置，本次 Prefill 加 1024 行，当前逻辑长度是 25,024。虽然已经超过 `24×1024=24,576`，`QSARequest.fia_query_end` 看到这一块**从阈值之前开始**，仍把整块交给 `qsa_fia_attention()`。下一块开始时已有 25,024 个位置，就交给 `qsa_gbsa_attention()`。随后单行 Decode 也走 GBSA。查 Trace 时，将每块的起始历史长度与是否 Prefill 一起对照，才知道为什么同一个 QSA 层先出现 FIA V2，后出现 GBSA。[跨阈值判断](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/qwen4_exp/attention_dispatch.py#L31-L51) · [同批分发到两条算子路径](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/models/qwen4_exp/attention_dispatch.py#L108-L182)
-
-<a id="hy4-flash-attention"></a>
-
-### Hy4-Flash 的滑窗 MLA 和 IndexPool MLA 怎样跑？
-
-继续用位置 4098，当前共有 4099 个可见位置。滑窗层固定取 `4098−511=3587` 到 4098，共 512 个位置。IndexPool 层按内容对历史分组选择，预算最多 2048 个位置，有机会读到 3587 之前的内容。两种层都用 512 维 KV latent，并带 RoPE Key。一个参数回答怎样表示历史，另一个机制回答当前看哪段历史。[模型结构与窗口大小](https://github.com/Tencent-Hunyuan/Hy4-flash#model-introduction)
-
-把这两个 layer type 追到 Ascend 的公开 950DT 适配 PR。符合条件的 **SWA Prefill** 先收集并解量化窗口涉及的 FP8 KV，再调 `torch_npu.npu_fusion_attention`。这里 `sparse_mode=4`、`pre_tockens=window−1`、`next_tockens=0`，就是前 511 个加当前。**IndexPool Prefill** 的 C8 路径则把选择结果和 packed KV 一起交给 CANN `kv_quant_sparse_flash_attention`。Trace 里看到前者之前有 gather/解量化，或后者之前有索引选择，都可以沿相应入参查回页表和位置。[SWA Prefill](https://github.com/LostFox11/vllm-ascend/blob/c7031e87/vllm_ascend/models/hy_v4_flash/c8_kvqsfa.py#L115-L181) · [IndexPool Prefill](https://github.com/LostFox11/vllm-ascend/blob/c7031e87/vllm_ascend/models/hy_v4_flash/c8_kvqsfa.py#L28-L90)
-
-**分页 Decode** 有拆开执行的路径。先用滑窗位置或 IndexPool 结果 gather KV，再做 QK、带 learned sink 的 softmax 和 PV，最后接 V 投影。比如一个请求有多条验证 query，相邻滑窗可以从同一段已读回的 KV 取各自的窗口。要核对实际镜像的算子，应以运行版本和批次条件为准。官方部署文档提供 950DT 实验镜像，以上调用链来自截至所查快照仍在审查的适配 PR。[共享窗口读取](https://github.com/LostFox11/vllm-ascend/blob/c7031e87/vllm_ascend/models/hy_v4_flash/attention.py#L1203-L1254) · [Decode 的 QK / softmax / PV](https://github.com/LostFox11/vllm-ascend/blob/c7031e87/vllm_ascend/models/hy_v4_flash/attention.py#L1751-L1773) · [官方实验部署](https://docs.vllm.ai/projects/ascend/en/latest/tutorials/models/HY4-Flash.html) · [适配 PR](https://github.com/vllm-project/vllm-ascend/pull/22839)
-
-<a id="ascend-fa-variants"></a>
-
-### 三个带 Flash Attention 名称的后端，各用谁的计划？
-
-先在实际选中的类里找导入来源。`flash_attention_v3.py` 的 `flash_attn_npu_3` 路径先调 `get_scheduler_metadata()`，再调 `flash_attn_with_kvcache()`。`fa_v1.py` 用另一套 CANN `flash_attn_metadata` → `flash_attn`，例如适用的 A5 GLM 或 MiniMax 草稿。另一个 `fa3_v1.py` 通过 `flash_attn_npu_v3`，由训练与推理一致性配置启用。在 Trace 里要先认出是哪一条调用，再找精确长度与计划分别在哪准备。[设备 tiling FA3](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/flash_attention_v3.py#L241-L289) · [CANN FlashAttn](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/attention/fa_v1.py#L102-L153) · [训练一致性分支](https://github.com/vllm-project/vllm-ascend/blob/f643a9363/vllm_ascend/platform.py#L2123-L2148)
-
-例如两轮草稿各有两行，图档位相同，验证多拒绝一项会让有效长度从 4132 变成 4131。`flash_attention_v3.py` 可以把本轮计划写进原地址，所以同一张图读到的是更新后的内容。与普通 FIA 对照时，要沿设备进度 D2H、CPU 等待和 FA3 的计划生产者各追一次。[FIA 如何取得 4132](../dist/execution.html#fia-host-length) · [FA3 两轮回放与 Trace 取证](../dist/execution.html#fa3-plan-replay)
+<a id="model-layers-6" data-section></a>
 
 ## Trace 里同一行突然变慢，先查历史还是专家？
 

@@ -24,7 +24,7 @@
 
 《从一轮调度到一次前向》沿 ModelRunnerV2 的输入准备、千级 Prefill 分块、KV 分页寻址、Attention、采样和下一轮输入展开。图解分别说明输入与 KV 写入位置、层内数据流、拒绝后的状态更新、Attention 计算分块、CPU／设备生成 tiling 计划的区别，以及跨轮状态更新。正文从 tiling 如何划分计算工作讲起，再说明设备长度、计划生成与多模型迁移的关系；历史输入准备微实验保留在实验档案中，不作为 V2 调用链的证据。
 
-《一条 Token 怎样走过模型的一层》沿同一行对照稠密 FFN 与 MoE、DeepSeek 两次 TopK 与跨层 KV 复用、Qwen 与 GLM 的混合层、Kimi 的 Latent MoE。用 [4099 个位置](https://tflowers-0129.github.io/inference-wiki/model-layers.html#keypool-vs-lightning)算 Lightning Indexer 与 KeyPool 的工作量，再用 [Ascend 算子对照](https://tflowers-0129.github.io/inference-wiki/model-layers.html#ascend-attention-operators)排查 Prefill、Decode 和量化 KV 各落入哪个分支。Hy4-Flash 的滑窗和 IndexPool 另沿公开适配代码走读。
+《一条 Token 怎样走过模型的一层》先按[六个模型系列的时间线](https://tflowers-0129.github.io/inference-wiki/model-layers.html#model-family-timeline)对照 Attention 与 MoE 的演进，再用 [Ascend 后端算子表](https://tflowers-0129.github.io/inference-wiki/model-layers.html#ascend-attention-operators)查缓存或状态、历史选择粒度、Prefill 与 Decode 的分流。后半章沿同一行复算稠密 FFN 与 MoE、DeepSeek 跨层复用、Qwen 与 GLM 的混合层、Kimi 的 Latent MoE。用 [4099 个位置](https://tflowers-0129.github.io/inference-wiki/model-layers.html#keypool-vs-lightning)对照 Lightning Indexer 与 KeyPool。Hy4-Flash 的滑窗和 IndexPool 另沿公开适配代码走读。
 
 《图模式：捕获、回放与异步执行》先用普通 Decode 说明捕获地址与设备流，沿 V2 源码核对 Target 前向图的边界。正文用 P eager、D FULL_DECODE_ONLY 复算 Ascend、H100 和 B200 的默认档位，再追 Draft 选图、补齐、LM Head 容量、异步输出和 tiling 生成。已有 A5 双 rank 算子图回放测量保留原有范围与 Trace 缺口。
 

@@ -90,6 +90,8 @@ def render_markdown(source, key):
         lines = lines[1:]
     parts, headings, paragraph = [], [], []
     section_open = False
+    explicit_section_id = None
+    numbered_sections = 0
     spec_player = spec_stream = ''
     lb_panels = {kind: (ROOT / 'scripts' / f'{kind}-lab.html').read_text(encoding='utf-8') for kind in ('dplb', 'eplb')} if key == 'load-balancing' else {}
     offload_lab = (ROOT / 'scripts' / 'offload-lab.html').read_text(encoding='utf-8') if key == 'sparse-offload' else ''
@@ -140,8 +142,14 @@ def render_markdown(source, key):
             flush(); parts.append('</details>'); i += 1; continue
         if match := re.fullmatch(r'<!-- COLLAPSIBLE_FIGURE: (.+) -->', line):
             flush(); figure_summary = match.group(1); i += 1; continue
-        if re.fullmatch(r'<a id="[a-z][a-z0-9-]*"></a>', line):
-            flush(); parts.append(line); i += 1; continue
+        if anchor := re.fullmatch(r'<a id="([a-z][a-z0-9-]*)"( data-section)?></a>', line):
+            flush()
+            if anchor[2]:
+                explicit_section_id = anchor[1]
+            else:
+                parts.append(line)
+            i += 1
+            continue
         if line.startswith('```'):
             flush(); code = []; i += 1
             while i < len(lines) and not lines[i].strip().startswith('```'):
@@ -153,7 +161,12 @@ def render_markdown(source, key):
             if marks == '##':
                 if section_open:
                     parts.append('</section>')
-                identifier = key + '-' + str(len(headings) + 1)
+                if explicit_section_id is None:
+                    numbered_sections += 1
+                    identifier = f'{key}-{numbered_sections}'
+                else:
+                    identifier = explicit_section_id
+                    explicit_section_id = None
                 headings.append((identifier, title))
                 parts.append(f'<section class="lesson observed" id="{identifier}" data-title="{html.escape(title, quote=True)}"><h2>{inline(title)}</h2>')
                 section_open = True
@@ -220,9 +233,9 @@ def build_chapters():
             action = '<a class="primary-button" href="#execution-1">跟三条请求走一轮 →</a><a class="text-button" href="#execution-5">看一份 tiling 计划怎么来 ↓</a>'
         elif key == 'model-layers':
             player_links = ''
-            extra = ''
+            extra = f'<link rel="stylesheet" href="{asset_url("model-layers.css")}">'
             next_link = '<a href="speculation.html">继续：投机解码与流式指标 →</a>'
-            action = '<a class="primary-button" href="#model-layers-1">跟一条输入行走过一层 →</a><a class="text-button" href="#ascend-attention-operators">查 Ascend Attention 算子 ↓</a>'
+            action = '<a class="primary-button" href="#model-family-timeline">看各模型系列怎样演进 →</a><a class="text-button" href="#ascend-attention-operators">查 Ascend 后端与算子 ↓</a><a class="text-button" href="#model-layers-1">跟一条 Token 走完一层 ↓</a>'
         elif key == 'load-balancing':
             player_links = '<a href="#dplb-lab">DPLB 请求分发</a><a href="#eplb-lab">EPLB rank 泳道</a>'
             extra = f'<link rel="stylesheet" href="{asset_url("lb.css")}"><script defer src="{asset_url("lb-model.js")}"></script><script defer src="{asset_url("lb-app.js")}"></script>'

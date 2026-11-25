@@ -1,0 +1,66 @@
+#model-family-timeline .chapter-list {
+  border-inline-start: 2px solid #6f9db6;
+  list-style: none;
+  margin-inline-start: 7px;
+  padding-inline-start: 22px;
+}
+
+#model-family-timeline .chapter-list li {
+  position: relative;
+  padding-block: 0 16px;
+}
+
+#model-family-timeline .chapter-list li:last-child {
+  padding-block-end: 0;
+}
+
+#model-family-timeline .chapter-list li::before {
+  position: absolute;
+  inset-inline-start: -30px;
+  top: .73em;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #216282;
+  border-radius: 50%;
+  background: #f1f8fb;
+  content: "";
+}
+
+#model-family-timeline .chapter-list li > strong:first-child {
+  display: block;
+  color: #174b67;
+}
+
+#model-family-timeline .inline-source,
+#model-layers-5 .inline-source {
+  white-space: normal;
+}
+
+#model-layers-5 .comparison-table table {
+  min-width: 760px;
+  table-layout: fixed;
+}
+
+#model-layers-5 .comparison-table :is(th, td) {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+#model-layers-5 .comparison-table th:first-child,
+#model-layers-5 .comparison-table th:nth-child(3) {
+  width: 20%;
+}
+
+#model-layers-5 .comparison-table th:nth-child(2) {
+  width: 18%;
+}
+
+@media (max-width: 560px) {
+  #model-family-timeline .chapter-list {
+    padding-inline-start: 17px;
+  }
+
+  #model-family-timeline .chapter-list li::before {
+    inset-inline-start: -25px;
+  }
+}
